@@ -3,3 +3,6 @@ node_modules/
 *.pyc
 __pycache__/
 logs/*.log
+
+# personal/marketing drafts — never publish to the public repo
+drafts/
