@@ -1,0 +1,238 @@
+/*!
+ * swarph — Consent Mode v2 banner styles
+ * Card #91. Namespaced under .swc- / #swarph-consent-banner so it cannot
+ * collide with a host site's own CSS. All colors are CSS custom properties
+ * with defaults baked in — override any of them from the host site's own
+ * stylesheet (e.g. on :root) to retheme without touching this file.
+ */
+
+#swarph-consent-banner {
+  --swc-bg: #15102380;
+  --swc-bg-solid: #171025;
+  --swc-fg: #ece6f5;
+  --swc-muted: #a594c0;
+  --swc-border: rgba(160, 130, 200, .35);
+  --swc-accent: #39ff8b;
+  --swc-accent-fg: #0b1a10;
+  --swc-focus: #7dff9b;
+  --swc-radius: 14px;
+  --swc-max-width: 720px;
+
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: var(--swc-max-width);
+  z-index: 2147483000; /* stay above everything the host site can throw at it */
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+  color: var(--swc-fg);
+  box-sizing: border-box;
+  animation: swc-in .28s ease-out;
+}
+
+#swarph-consent-banner *,
+#swarph-consent-banner *::before,
+#swarph-consent-banner *::after {
+  box-sizing: border-box;
+}
+
+#swarph-consent-banner.swc-closing {
+  animation: swc-out .2s ease-in forwards;
+}
+
+@keyframes swc-in {
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+@keyframes swc-out {
+  from { opacity: 1; transform: translate(-50%, 0); }
+  to   { opacity: 0; transform: translate(-50%, 12px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #swarph-consent-banner { animation: none; }
+}
+
+.swc-inner {
+  background: var(--swc-bg-solid);
+  border: 1px solid var(--swc-border);
+  border-radius: var(--swc-radius);
+  padding: 18px 20px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .45);
+  backdrop-filter: blur(6px);
+}
+
+.swc-text {
+  margin: 0 0 14px;
+  color: var(--swc-fg);
+}
+
+.swc-link {
+  color: var(--swc-accent);
+  text-decoration: underline;
+}
+.swc-link:hover,
+.swc-link:focus-visible {
+  text-decoration: none;
+}
+
+.swc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.swc-btn {
+  font: inherit;
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: 999px;
+  padding: 10px 18px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  line-height: 1.2;
+}
+
+/* Accept and Reject are deliberately the SAME size/weight/shape — CNIL
+   requires refusal to be exactly as easy/prominent as acceptance. Only the
+   color differs, and both remain in the initial view (no extra click or
+   scroll needed to reject). */
+.swc-btn-primary {
+  background: var(--swc-accent);
+  color: var(--swc-accent-fg);
+  border-color: var(--swc-accent);
+}
+.swc-btn-primary:hover { filter: brightness(1.08); }
+
+.swc-btn-secondary {
+  background: transparent;
+  color: var(--swc-fg);
+  border-color: var(--swc-border);
+}
+.swc-btn-secondary:hover { background: rgba(255, 255, 255, .06); }
+
+.swc-btn-text {
+  background: transparent;
+  color: var(--swc-muted);
+  border-color: transparent;
+  padding: 10px 8px;
+  text-decoration: underline;
+}
+.swc-btn-text:hover { color: var(--swc-fg); }
+
+#swarph-consent-banner button:focus-visible,
+#swarph-consent-banner a:focus-visible {
+  outline: 2px solid var(--swc-focus);
+  outline-offset: 2px;
+}
+
+/* Manage-preferences panel */
+.swc-panel {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--swc-border);
+}
+.swc-panel.swc-hidden {
+  display: none;
+}
+
+.swc-toggle-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.swc-toggle-input {
+  /* Visually hidden but still focusable/announced — real checkbox
+     semantics, styled as a switch via its sibling <label>. */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.swc-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.swc-toggle-track {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 22px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .18);
+  border: 1px solid var(--swc-border);
+  position: relative;
+  transition: background .15s ease;
+  margin-top: 2px;
+}
+.swc-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--swc-fg);
+  transition: transform .15s ease;
+}
+.swc-toggle-input:checked + .swc-toggle .swc-toggle-track {
+  background: var(--swc-accent);
+  border-color: var(--swc-accent);
+}
+.swc-toggle-input:checked + .swc-toggle .swc-toggle-thumb {
+  transform: translateX(18px);
+  background: var(--swc-accent-fg);
+}
+.swc-toggle-input:focus-visible + .swc-toggle .swc-toggle-track {
+  outline: 2px solid var(--swc-focus);
+  outline-offset: 2px;
+}
+
+.swc-toggle-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.swc-toggle-title {
+  font-weight: 600;
+  color: var(--swc-fg);
+}
+.swc-toggle-desc {
+  font-size: 12.5px;
+  color: var(--swc-muted);
+}
+
+.swc-panel-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+@media (max-width: 480px) {
+  #swarph-consent-banner {
+    bottom: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+  .swc-inner {
+    border-radius: var(--swc-radius) var(--swc-radius) 0 0;
+  }
+  .swc-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .swc-actions .swc-btn { width: 100%; text-align: center; }
+  .swc-actions .swc-btn-text { order: 3; }
+}
