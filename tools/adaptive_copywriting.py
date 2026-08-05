@@ -6,7 +6,7 @@ Integrates:
 2. Elastic length allocation: ~2,500 chars baseline, expanding to 8,000–18,000+ chars for technical depth.
 3. Allowlist Extraction Security Model: ONLY explicitly permitted public interface contracts,
    abstract architecture diagrams, and sanitized public signatures are extracted for whitepapers.
-   All un-approved code, private credentials, and internal state are ABSENT BY DEFAULT.
+   All implementation bodies, multi-line docstring design logs, credentials, and internal state are ABSENT BY DEFAULT.
 """
 
 from dataclasses import dataclass, field
@@ -33,27 +33,38 @@ class AdaptiveLengthPolicy:
 def extract_allowlist_public_contract(code_snippet: str) -> str:
     """
     Allowlist Extraction Model:
-    Extracts ONLY public class/def signatures, docstrings, and abstract interfaces.
-    All implementation bodies, internal variables, credentials, and private IPs
-    are ABSENT BY DEFAULT.
+    Extracts ONLY public class/def signatures, public type annotations, and the FIRST SUMMARY LINE
+    of docstrings (API contract summary). All multi-line docstring design records, incident logs,
+    implementation bodies, private credentials, and internal IPs are ABSENT BY DEFAULT.
     """
     lines = code_snippet.splitlines()
     extracted_lines = []
     
-    in_public_docstring = False
+    in_docstring = False
+    docstring_first_line_captured = False
 
     for line in lines:
         stripped = line.strip()
         # Allow public class & function signatures
         if stripped.startswith(("class ", "def ", "async def ", "export ", "interface ", "type ")) and not stripped.startswith("def _"):
             extracted_lines.append(line)
-        # Allow docstrings
+            in_docstring = False
+            docstring_first_line_captured = False
+        # Allow FIRST LINE of docstring (API summary line), drop multi-line docstring bodies
         elif '"""' in stripped or "'''" in stripped:
-            extracted_lines.append(line)
-            in_public_docstring = not in_public_docstring if stripped.count('"""') % 2 == 1 else in_public_docstring
-        elif in_public_docstring:
-            extracted_lines.append(line)
-        # Allow abstract pass / return type annotations
+            if not in_docstring:
+                in_docstring = True
+                # Extract first line summary only
+                cleaned = re.sub(r'["\']{3}', '', stripped).strip()
+                if cleaned:
+                    extracted_lines.append(f'    """ {cleaned} """')
+                docstring_first_line_captured = True
+            else:
+                in_docstring = False
+                docstring_first_line_captured = False
+        elif in_docstring:
+            # Drop multi-line docstring body (design/incident log safeguard)
+            continue
         elif stripped in ("pass", "...", "return") or stripped.startswith("# Public API"):
             extracted_lines.append(line)
 
@@ -139,8 +150,8 @@ You are an expert technical author, security auditor, and SEO strategist.
 TASK: Write an authoritative article titled: "{title}".
 
 SECURITY & EXTRACTION LEVEL: {policy.privacy_level.value}
-- ALLOWLIST EXTRACTION MODEL: Expose ONLY public interface contracts, sanitized class/def signatures, and abstract architectural models.
-- All internal implementation bodies, private credentials, internal IPs, and secret tokens are ABSENT BY DEFAULT.
+- ALLOWLIST EXTRACTION MODEL: Expose ONLY public interface contracts, sanitized class/def signatures, docstring 1-line summaries, and abstract architectural models.
+- Multi-line docstring bodies (design logs/incident records), implementation logic, private credentials, internal IPs, and secret tokens are ABSENT BY DEFAULT.
 - Retain high-level spatial topology models and mathematical formulations.
 
 SOURCE MATERIAL & CONTEXT:
@@ -167,13 +178,17 @@ SEO & QUALITY REQUIREMENTS:
 if __name__ == "__main__":
     test_context = """
     class PublicInferenceEngine:
-        \"\"\"Public inference engine contract.\"\"\"
+        \"\"\"
+        Public inference engine contract summary line.
+
+        DESIGN RECORD / INCIDENT LOG:
+        Runs on lab-OVH only. DB path: ~/research/claude_mesh.db.
+        Commander decision 2026-08-01: SO_PEERCRED bearer token bypass.
+        \"\"\"
         def run_inference(self, vector: list) -> list:
             secret_key = "12345_secret"
             internal_ip = "10.0.0.1"
             return [1, 2, 3]
     """
-    print("--- ALLOWLIST EXTRACTION TEST ---")
+    print("--- ALLOWLIST EXTRACTION TEST (DOCSTRING 1-LINE SUMMARY) ---")
     print(extract_allowlist_public_contract(test_context))
-    print("\n--- SYSTEM PROMPT ---")
-    print(build_adaptive_system_prompt("Frontier Edge Inference", test_context))
