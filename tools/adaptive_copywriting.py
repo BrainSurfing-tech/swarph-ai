@@ -1,10 +1,12 @@
 """
-adaptive_copywriting.py — Dynamic Copywriting, Mesh Grounding & Privacy Protocol
+adaptive_copywriting.py — Dynamic Copywriting, Mesh Grounding & Allowlist Extraction Protocol
 
 Integrates:
 1. swarph brain-ask (vector memory substrate) & swarph codegraph (AST code index).
 2. Elastic length allocation: ~2,500 chars baseline, expanding to 8,000–18,000+ chars for technical depth.
-3. Privacy & Sensitivity Redaction Filter: sanitizes private credentials, internal IPs, and confidential keys before public release.
+3. Allowlist Extraction Security Model: ONLY explicitly permitted public interface contracts,
+   abstract architecture diagrams, and sanitized public signatures are extracted for whitepapers.
+   All un-approved code, private credentials, and internal state are ABSENT BY DEFAULT.
 """
 
 from dataclasses import dataclass, field
@@ -14,9 +16,9 @@ import re
 import subprocess
 
 class PrivacyLevel(Enum):
-    PUBLIC = "PUBLIC"                     # Unrestricted public publishing
-    INTERNAL_SANITIZED = "INTERNAL_SANITIZED" # Sanitized for public whitepapers (keys/IPs redacted)
-    CONFIDENTIAL = "CONFIDENTIAL"         # Internal only (never publish)
+    PUBLIC = "PUBLIC"                         # Unrestricted public publishing
+    ALLOWLIST_EXTRACTED = "ALLOWLIST_EXTRACTED" # Extracted public interface contracts only (absent by default)
+    CONFIDENTIAL = "CONFIDENTIAL"             # Internal only (never publish)
 
 @dataclass
 class AdaptiveLengthPolicy:
@@ -24,32 +26,46 @@ class AdaptiveLengthPolicy:
     baseline_chars: int = 2500
     min_chars: int = 1500
     allow_expansion: bool = True
-    privacy_level: PrivacyLevel = PrivacyLevel.INTERNAL_SANITIZED
+    privacy_level: PrivacyLevel = PrivacyLevel.ALLOWLIST_EXTRACTED
     density_score: float = 0.0
     recommended_target_chars: int = 2500
 
-def sanitize_public_copy(copy_text: str) -> str:
+def extract_allowlist_public_contract(code_snippet: str) -> str:
     """
-    Sanitizes generated copy to ensure private credentials, tokens, internal IPs,
-    and sensitive configuration strings are redacted before public publication.
+    Allowlist Extraction Model:
+    Extracts ONLY public class/def signatures, docstrings, and abstract interfaces.
+    All implementation bodies, internal variables, credentials, and private IPs
+    are ABSENT BY DEFAULT.
     """
-    sanitized = copy_text
-
-    # Redact potential API keys & secret tokens
-    sanitized = re.sub(r'(?i)(api[_-]?key|secret|bearer[_-]?token|pat)\s*[:=]\s*["\']?[a-zA-Z0-9_\-]{16,}["\']?', r'\1: "[REDACTED_KEY]"', sanitized)
+    lines = code_snippet.splitlines()
+    extracted_lines = []
     
-    # Redact internal IPv4 addresses (10.x.x.x, 192.168.x.x, 172.16-31.x.x)
-    sanitized = re.sub(r'\b(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})\b', '[INTERNAL_IP]', sanitized)
-    
-    # Redact GitHub PAT tokens (ghp_..., gho_...)
-    sanitized = re.sub(r'\b(ghp|gho|ghu|ghs|ghr)_[a-zA-Z0-9]{36}\b', '[REDACTED_PAT]', sanitized)
+    in_public_docstring = False
 
-    return sanitized
+    for line in lines:
+        stripped = line.strip()
+        # Allow public class & function signatures
+        if stripped.startswith(("class ", "def ", "async def ", "export ", "interface ", "type ")) and not stripped.startswith("def _"):
+            extracted_lines.append(line)
+        # Allow docstrings
+        elif '"""' in stripped or "'''" in stripped:
+            extracted_lines.append(line)
+            in_public_docstring = not in_public_docstring if stripped.count('"""') % 2 == 1 else in_public_docstring
+        elif in_public_docstring:
+            extracted_lines.append(line)
+        # Allow abstract pass / return type annotations
+        elif stripped in ("pass", "...", "return") or stripped.startswith("# Public API"):
+            extracted_lines.append(line)
+
+    if not extracted_lines:
+        return "# [ALLOWLIST EXTRACTION]: Only public interface contracts are exposed."
+
+    return "\n".join(extracted_lines)
 
 def gather_mesh_context(query: str, repo: str = "swarph-ai") -> Dict[str, str]:
     """
     Pulls grounded semantic context from swarph brain-ask and swarph codegraph.
-    Respects current peer token capability boundaries.
+    Respects peer capability boundaries and allowlist extraction rules.
     """
     context_data = {"brain_context": "", "codegraph_context": ""}
 
@@ -69,7 +85,7 @@ def gather_mesh_context(query: str, repo: str = "swarph-ai") -> Dict[str, str]:
             ["python3", "-m", "codegraph_index.query_cli", "--repo", repo, "--query", query],
             stderr=subprocess.DEVNULL, timeout=8
         ).decode("utf-8")
-        context_data["codegraph_context"] = cg_out.strip()
+        context_data["codegraph_context"] = extract_allowlist_public_contract(cg_out.strip())
     except Exception:
         context_data["codegraph_context"] = f"codegraph query for repo '{repo}' requires peer capability grant"
 
@@ -108,7 +124,7 @@ def assess_content_density(context_text: str) -> Dict[str, Any]:
 
 def build_adaptive_system_prompt(title: str, context: str, policy: Optional[AdaptiveLengthPolicy] = None) -> str:
     """
-    Constructs an LLM generation prompt with elastic length & privacy directives.
+    Constructs an LLM generation prompt with elastic length & allowlist extraction directives.
     """
     if policy is None:
         policy = AdaptiveLengthPolicy()
@@ -122,9 +138,10 @@ You are an expert technical author, security auditor, and SEO strategist.
 
 TASK: Write an authoritative article titled: "{title}".
 
-PRIVACY & SENSITIVITY LEVEL: {policy.privacy_level.value}
-- Strip or generalize any internal IP addresses, secret tokens, private API keys, or infrastructure credentials.
-- Retain high-level architecture topologies, algorithms, and mathematical models while respecting privacy boundaries.
+SECURITY & EXTRACTION LEVEL: {policy.privacy_level.value}
+- ALLOWLIST EXTRACTION MODEL: Expose ONLY public interface contracts, sanitized class/def signatures, and abstract architectural models.
+- All internal implementation bodies, private credentials, internal IPs, and secret tokens are ABSENT BY DEFAULT.
+- Retain high-level spatial topology models and mathematical formulations.
 
 SOURCE MATERIAL & CONTEXT:
 ---
@@ -149,16 +166,14 @@ SEO & QUALITY REQUIREMENTS:
 
 if __name__ == "__main__":
     test_context = """
-    We propose a zero-knowledge edge inference protocol using zk-SNARKs verified via \\pi = \\text{ProofGenerator}(x, w).
-    Internal Gateway IP: 10.100.1.42 with bearer_token: "secret_tok_9941a".
-    ```python
-    def verify(x, pi): return True
-    ```
-    | Matrix | Latency |
-    | Cloud | 380ms |
-    | Edge | 12ms |
+    class PublicInferenceEngine:
+        \"\"\"Public inference engine contract.\"\"\"
+        def run_inference(self, vector: list) -> list:
+            secret_key = "12345_secret"
+            internal_ip = "10.0.0.1"
+            return [1, 2, 3]
     """
-    print("--- SANITIZATION TEST ---")
-    print(sanitize_public_copy(test_context))
+    print("--- ALLOWLIST EXTRACTION TEST ---")
+    print(extract_allowlist_public_contract(test_context))
     print("\n--- SYSTEM PROMPT ---")
     print(build_adaptive_system_prompt("Frontier Edge Inference", test_context))
