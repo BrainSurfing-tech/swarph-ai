@@ -1,12 +1,15 @@
 """
-adaptive_copywriting.py — Dynamic Copywriting, Mesh Grounding & Allowlist Extraction Protocol
+adaptive_copywriting.py — Broad-Read Grounding & Provenance-Gated Copywriting Protocol
 
-Integrates:
-1. swarph brain-ask (vector memory substrate) & swarph codegraph (AST code index).
-2. Elastic length allocation: ~2,500 chars baseline, expanding to 8,000–18,000+ chars for technical depth.
-3. Allowlist Extraction Security Model: ONLY explicitly permitted public interface contracts,
-   abstract architecture diagrams, and sanitized public signatures are extracted for whitepapers.
-   All implementation bodies, multi-line docstring design logs, credentials, and internal state are ABSENT BY DEFAULT.
+Commander Directive:
+- READ: BROAD — Access all brain hemispheres & codebase files to ground whitepapers in truth.
+- SHOW: GATED — Gated at the PUBLISH boundary via explicit source provenance tracking.
+
+Architecture:
+1. Broad-Read Context Gathering: Queries vector memory (brain-ask) and codegraph index across repos.
+2. Provenance Tracking: Every extracted snippet carries explicit source tags ([PROVENANCE: repo/path#symbol]).
+3. Synthesis Classification: AI-synthesized prose is tagged with [SYNTHESIS].
+4. Publish-Gate Check: Reviewers evaluate source publishability directly from provenance tags.
 """
 
 from dataclasses import dataclass, field
@@ -15,10 +18,19 @@ from typing import Dict, Any, Optional, List
 import re
 import subprocess
 
-class PrivacyLevel(Enum):
-    PUBLIC = "PUBLIC"                         # Unrestricted public publishing
-    ALLOWLIST_EXTRACTED = "ALLOWLIST_EXTRACTED" # Extracted public interface contracts only (absent by default)
-    CONFIDENTIAL = "CONFIDENTIAL"             # Internal only (never publish)
+class ContentSourceType(Enum):
+    CODEGRAPH = "CODEGRAPH"
+    BRAIN_MEMORY = "BRAIN_MEMORY"
+    SYNTHESIS = "SYNTHESIS"
+
+@dataclass
+class ProvenanceRecord:
+    source_type: ContentSourceType
+    repo: str
+    file_path: str
+    symbol_or_lines: str = ""
+    snippet: str = ""
+    is_confidential_source: bool = False
 
 @dataclass
 class AdaptiveLengthPolicy:
@@ -26,81 +38,56 @@ class AdaptiveLengthPolicy:
     baseline_chars: int = 2500
     min_chars: int = 1500
     allow_expansion: bool = True
-    privacy_level: PrivacyLevel = PrivacyLevel.ALLOWLIST_EXTRACTED
     density_score: float = 0.0
     recommended_target_chars: int = 2500
 
-def extract_allowlist_public_contract(code_snippet: str) -> str:
+def gather_broad_mesh_context(query: str, repos: Optional[List[str]] = None) -> List[ProvenanceRecord]:
     """
-    Allowlist Extraction Model:
-    Extracts ONLY public class/def signatures, public type annotations, and the FIRST SUMMARY LINE
-    of docstrings (API contract summary). All multi-line docstring design records, incident logs,
-    implementation bodies, private credentials, and internal IPs are ABSENT BY DEFAULT.
+    Broad-Read Gathering (Commander Directive):
+    Reads across memory and codebase hemispheres to ground copy in truth.
+    Attaches explicit ProvenanceRecords to every extracted snippet.
     """
-    lines = code_snippet.splitlines()
-    extracted_lines = []
-    
-    in_docstring = False
-    docstring_first_line_captured = False
+    if repos is None:
+        repos = ["swarph-ai", "brainsurfing.tech", "mesh-gateway"]
 
-    for line in lines:
-        stripped = line.strip()
-        # Allow public class & function signatures
-        if stripped.startswith(("class ", "def ", "async def ", "export ", "interface ", "type ")) and not stripped.startswith("def _"):
-            extracted_lines.append(line)
-            in_docstring = False
-            docstring_first_line_captured = False
-        # Allow FIRST LINE of docstring (API summary line), drop multi-line docstring bodies
-        elif '"""' in stripped or "'''" in stripped:
-            if not in_docstring:
-                in_docstring = True
-                # Extract first line summary only
-                cleaned = re.sub(r'["\']{3}', '', stripped).strip()
-                if cleaned:
-                    extracted_lines.append(f'    """ {cleaned} """')
-                docstring_first_line_captured = True
-            else:
-                in_docstring = False
-                docstring_first_line_captured = False
-        elif in_docstring:
-            # Drop multi-line docstring body (design/incident log safeguard)
-            continue
-        elif stripped in ("pass", "...", "return") or stripped.startswith("# Public API"):
-            extracted_lines.append(line)
+    provenance_list: List[ProvenanceRecord] = []
 
-    if not extracted_lines:
-        return "# [ALLOWLIST EXTRACTION]: Only public interface contracts are exposed."
-
-    return "\n".join(extracted_lines)
-
-def gather_mesh_context(query: str, repo: str = "swarph-ai") -> Dict[str, str]:
-    """
-    Pulls grounded semantic context from swarph brain-ask and swarph codegraph.
-    Respects peer capability boundaries and allowlist extraction rules.
-    """
-    context_data = {"brain_context": "", "codegraph_context": ""}
-
-    # 1. Gather memory context via brain-ask
+    # 1. Broad Read: Memory Hemisphere (brain-ask)
     try:
         brain_out = subprocess.check_output(
             ["swarph", "brain-ask", query],
-            stderr=subprocess.DEVNULL, timeout=8
-        ).decode("utf-8")
-        context_data["brain_context"] = brain_out.strip()
+            stderr=subprocess.DEVNULL, timeout=10
+        ).decode("utf-8").strip()
+        if brain_out:
+            provenance_list.append(ProvenanceRecord(
+                source_type=ContentSourceType.BRAIN_MEMORY,
+                repo="brain_memory",
+                file_path="gbrain/pglite",
+                symbol_or_lines="vector_search",
+                snippet=brain_out
+            ))
     except Exception:
-        context_data["brain_context"] = "brain-ask unavailable or un-credentialed"
+        pass
 
-    # 2. Gather AST & code context via codegraph (repo-scoped by peer token)
-    try:
-        cg_out = subprocess.check_output(
-            ["python3", "-m", "codegraph_index.query_cli", "--repo", repo, "--query", query],
-            stderr=subprocess.DEVNULL, timeout=8
-        ).decode("utf-8")
-        context_data["codegraph_context"] = extract_allowlist_public_contract(cg_out.strip())
-    except Exception:
-        context_data["codegraph_context"] = f"codegraph query for repo '{repo}' requires peer capability grant"
+    # 2. Broad Read: Codebase Hemisphere (codegraph)
+    for repo in repos:
+        try:
+            cg_out = subprocess.check_output(
+                ["python3", "-m", "codegraph_index.query_cli", "--repo", repo, "--query", query],
+                stderr=subprocess.DEVNULL, timeout=10
+            ).decode("utf-8").strip()
+            if cg_out:
+                provenance_list.append(ProvenanceRecord(
+                    source_type=ContentSourceType.CODEGRAPH,
+                    repo=repo,
+                    file_path=f"codegraph_index/{repo}",
+                    symbol_or_lines="query_match",
+                    snippet=cg_out
+                ))
+        except Exception:
+            pass
 
-    return context_data
+    return provenance_list
 
 def assess_content_density(context_text: str) -> Dict[str, Any]:
     """
@@ -133,30 +120,34 @@ def assess_content_density(context_text: str) -> Dict[str, Any]:
         "recommended_target_chars": recommended_chars,
     }
 
-def build_adaptive_system_prompt(title: str, context: str, policy: Optional[AdaptiveLengthPolicy] = None) -> str:
+def build_provenance_system_prompt(title: str, records: List[ProvenanceRecord], policy: Optional[AdaptiveLengthPolicy] = None) -> str:
     """
-    Constructs an LLM generation prompt with elastic length & allowlist extraction directives.
+    Builds LLM generation prompt enforcing Broad-Read Grounding & Provenance Attribution.
     """
     if policy is None:
         policy = AdaptiveLengthPolicy()
 
-    analysis = assess_content_density(context)
+    context_str = ""
+    for rec in records:
+        context_str += f"\n[SOURCE PROVENANCE: {rec.repo} | {rec.file_path}#{rec.symbol_or_lines}]\n{rec.snippet}\n"
+
+    analysis = assess_content_density(context_str)
     policy.density_score = analysis["density_score"]
     policy.recommended_target_chars = analysis["recommended_target_chars"]
 
     prompt = f"""
 You are an expert technical author, security auditor, and SEO strategist.
 
-TASK: Write an authoritative article titled: "{title}".
+COMMANDER DIRECTIVE — GROUNDED PROVENANCE & PUBLISH GATING:
+- READ: BROAD — Use the provided codebase & brain memory context to ground every assertion in truth.
+- SHOW: PROVENANCE-TAGGED — Attach [Source: repo/filepath] citations to every technical claim or code snippet.
+- SYNTHESIS TAGGING: Tag any synthesized conceptual prose with [SYNTHESIS].
 
-SECURITY & EXTRACTION LEVEL: {policy.privacy_level.value}
-- ALLOWLIST EXTRACTION MODEL: Expose ONLY public interface contracts, sanitized class/def signatures, docstring 1-line summaries, and abstract architectural models.
-- Multi-line docstring bodies (design logs/incident records), implementation logic, private credentials, internal IPs, and secret tokens are ABSENT BY DEFAULT.
-- Retain high-level spatial topology models and mathematical formulations.
+TASK: Write an authoritative technical whitepaper titled: "{title}".
 
-SOURCE MATERIAL & CONTEXT:
+SOURCE MATERIAL & GROUNDED CONTEXT:
 ---
-{context}
+{context_str}
 ---
 
 LENGTH & DENSITY GUIDELINES:
@@ -164,31 +155,30 @@ LENGTH & DENSITY GUIDELINES:
 - Baseline Character Target: ~{policy.recommended_target_chars} characters (elastic).
 - Minimum Character Floor: {policy.min_chars} characters.
 - Elasticity: ALLOW EXPANSION. Do NOT artificially compress rich technical details, mathematical formulas, or code blocks.
-- For concise source material, deliver a punchy, high-impact ~2,500 character article.
-- For high-density technical material, expand naturally to cover all concepts thoroughly.
 
-SEO & QUALITY REQUIREMENTS:
-1. Use semantic H1, H2, H3 heading hierarchy.
-2. Include an executive summary / key takeaways section.
-3. Include an explicit disclaimer if discussing third-party technologies or vendor benchmarks.
-4. Provide production-ready, sanitized code examples where applicable.
+PUBLISH REVIEW REQUIREMENTS:
+1. Maintain explicit [Source: ...] provenance tags so human reviewers can verify source publishability at the gate.
+2. Flag all AI conceptual synthesis with [SYNTHESIS].
+3. Provide production-ready, typed code examples with provenance tags.
 """
     return prompt.strip()
 
 if __name__ == "__main__":
-    test_context = """
-    class PublicInferenceEngine:
-        \"\"\"
-        Public inference engine contract summary line.
-
-        DESIGN RECORD / INCIDENT LOG:
-        Runs on lab-OVH only. DB path: ~/research/claude_mesh.db.
-        Commander decision 2026-08-01: SO_PEERCRED bearer token bypass.
-        \"\"\"
-        def run_inference(self, vector: list) -> list:
-            secret_key = "12345_secret"
-            internal_ip = "10.0.0.1"
-            return [1, 2, 3]
-    """
-    print("--- ALLOWLIST EXTRACTION TEST (DOCSTRING 1-LINE SUMMARY) ---")
-    print(extract_allowlist_public_contract(test_context))
+    test_records = [
+        ProvenanceRecord(
+            source_type=ContentSourceType.CODEGRAPH,
+            repo="swarph-ai",
+            file_path="tools/adaptive_copywriting.py",
+            symbol_or_lines="assess_content_density",
+            snippet="def assess_content_density(context_text: str) -> Dict[str, Any]: pass"
+        ),
+        ProvenanceRecord(
+            source_type=ContentSourceType.BRAIN_MEMORY,
+            repo="brain_memory",
+            file_path="gbrain/pglite",
+            symbol_or_lines="card_219_ruling",
+            snippet="Commander directive: Broad read across hemispheres, gated at publish boundary."
+        )
+    ]
+    print("--- PROVENANCE-GROUNDED SYSTEM PROMPT ---")
+    print(build_provenance_system_prompt("Frontier Memory Protocol", test_records))
