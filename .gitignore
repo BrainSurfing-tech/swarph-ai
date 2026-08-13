@@ -6,3 +6,4 @@ logs/*.log
 
 # personal/marketing drafts — never publish to the public repo
 drafts/
+web/blog/
