@@ -1,0 +1,782 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>`swarph timeline` — the OKF temporal on-ramp — Implementation Plan | Technical Whitepaper</title>
+  <meta name="description" content="`swarph timeline` — the OKF temporal on-ramp — Implementation Plan — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-07-15-swarph-timeline-plan.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">`swarph timeline` — the OKF temporal on-ramp — Implementation Plan</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 15 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># <code>swarph timeline</code> — the OKF temporal on-ramp — Implementation Plan</p>
+
+<p>> <strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+
+<p><strong>Goal:</strong> Ship <code>swarph timeline range/around/since</code> — a deterministic, $0 temporal-lookup verb over the raw git-backed <code>~/swarph-timeline/TIMELINE.md</code>, plus a reusable OKF link-grammar parser and an MCP tool — the temporal on-ramp (sub-project A) of the OKF traversal brain.</p>
+
+<p><strong>Architecture:</strong> A new <code>timeline.py</code> command reads and parses <code>TIMELINE.md</code> (one entry per line), filters entries by their embedded ISO timestamp, and prints them (human or OKF-<code>--json</code>). Edges come from a new shared <code>okf_links.py</code> parser (reused later by <code>swarph memory</code> and the <code>swarph brain</code> walker). No network, no server — pure file read; complements the gbrain-backed <code>swarph memory</code>. Follows the #41 <code>swarph memory</code> command/MCP/dispatch patterns.</p>
+
+<p><strong>Tech Stack:</strong> Python 3, stdlib-only (<code>argparse</code>, <code>re</code>, <code>json</code>, <code>datetime</code>, <code>os</code>) — public PyPI constraint. Tests via <code>venv/bin/python -m pytest</code>.</p>
+
+<h2 id="global-constraints">Global Constraints</h2>
+
+<ul class="article-list">
+  <li><strong>Stdlib-only.</strong> No new third-party dependency (swarph-cli is public on PyPI).</li>
+  <li><strong>Deterministic + $0.</strong> Pure file parse + date filter; NO LLM, NO network, NO server. Filter by each entry's <strong>embedded <code>@ <ISO-timestamp></code></strong> (the swarph-highlight line format), NOT the git commit date.</li>
+  <li><strong>Fail-safe, read-only.</strong> A missing/unreadable <code>TIMELINE.md</code> → a stderr note + non-zero exit at the CLI (never a traceback); the MCP tool NEVER raises (returns <code>[]</code>). Mirror <code>swarph memory</code>'s fail-safe shape.</li>
+  <li><strong>OKF edge model (from the spec):</strong> <code>--json</code> emits, per matched entry, <code>{"node": {"id", "hemisphere":"time", "ts"}, "edges":[{"type":"link","to","to_hemisphere":"knowledge","direction":"out"}...], "cell", "text"}</code>. The node's canonical id is its ISO timestamp.</li>
+  <li><strong>Link grammar (droplet-pinned — the reusable parser MUST honor exactly):</strong> <code>[[slug]]</code>→<code>slug</code>; <code>[[slug|alias]]</code>→<code>slug</code>; <code>[[slug#heading]]</code>→<code>slug</code>; <code>![[embed]]</code>→<code>embed</code> (transclusion = an edge); <code>[text](path.md)</code>→<code>path.md</code>. Order-preserving dedupe.</li>
+
+<ul class="article-list">
+  <li><strong><code>TIMELINE.md</code> line format (verbatim):</strong> <code>- <ISO-ts> · <strong><cell></strong> · <text>[ · → [[mem]]]</code> where <code><ISO-ts></code> is <code>%Y-%m-%dT%H:%MZ</code> (e.g. <code>2026-07-15T08:51Z</code>), separator is <code> · </code> (U+00B7 with spaces). The <code>· → [[mem]]</code> memory pointer is optional.</li>
+  <li><strong>Inert-safe.</strong> Additive verb only; NO hook or existing-command behavior changes. <strong>Publish is commander-gated</strong> — this plan ends at green + PR (NOT published). New public verb → <strong>PR-not-merged</strong>, left for review (merge-on-green is standing auth, but not for a fresh public surface).</li>
+  <li><strong>Version:</strong> bump <code>swarph_cli.__version__</code> 0.30.0 → <strong>0.31.0</strong> in <code>pyproject.toml</code> + <code>src/swarph_cli/__init__.py</code> + BOTH pin tests (<code>tests/test_brain_ask_command.py</code>, <code>tests/test_watchdog.py</code>).</li>
+  <li><strong>Staging discipline:</strong> stage only the files each task names; never <code>git add -A</code>; do not stage <code>.codegraph/</code> or stray docs.</li>
+</ul>
+
+<p>---</p>
+
+<h2 id="file-structure">File Structure</h2>
+
+<ul class="article-list">
+  <li><strong>Create</strong> <code>src/swarph_cli/commands/okf_links.py</code> — the shared OKF link-grammar parser (reusable "leave a tool").</li>
+  <li><strong>Create</strong> <code>tests/test_okf_links.py</code> — grammar unit tests.</li>
+  <li><strong>Create</strong> <code>src/swarph_cli/commands/timeline.py</code> — the <code>swarph timeline</code> verb.</li>
+  <li><strong>Create</strong> <code>tests/test_timeline_command.py</code> — timeline unit tests.</li>
+  <li><strong>Modify</strong> <code>src/swarph_cli/main.py</code> — register <code>"timeline"</code> in <code>_VERB_HANDLERS</code>.</li>
+  <li><strong>Modify</strong> <code>src/swarph_cli/commands/mcp_server.py</code> — add <code>swarph_timeline_navigate</code> + <code>_timeline_navigate</code>.</li>
+  <li><strong>Modify</strong> <code>README.md</code> — <code>### swarph timeline</code> section.</li>
+  <li><strong>Modify</strong> <code>pyproject.toml</code>, <code>src/swarph_cli/__init__.py</code>, <code>tests/test_brain_ask_command.py</code>, <code>tests/test_watchdog.py</code> — version bump 0.31.0.</li>
+</ul>
+
+<p>---</p>
+
+<h3 id="task-1-the-shared-okf-link-grammar-parser">Task 1: The shared OKF link-grammar parser</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>src/swarph_cli/commands/okf_links.py</code></li>
+  <li>Test: <code>tests/test_okf_links.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Produces: <code>parse_okf_links(text: str) -> list[str]</code> — target slugs/paths in document order, deduped.</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_okf_links.py
+from swarph_cli.commands.okf_links import parse_okf_links</p>
+
+<p>def test_grammar_table():
+    assert parse_okf_links("[[a]]") == ["a"]
+    assert parse_okf_links("[[a|Alias A]]") == ["a"]               # alias dropped
+    assert parse_okf_links("[[a#Heading]]") == ["a"]               # heading dropped
+    assert parse_okf_links("![[embed]]") == ["embed"]             # transclusion is an edge
+    assert parse_okf_links("see [txt](notes/b.md)") == ["notes/b.md"]  # md link
+    # combined, order-preserving dedupe, markdown non-.md links ignored
+    assert parse_okf_links("[[a]] x [[a|z]] y [[c#h]] z [q](http://x)") == ["a", "c"]</p>
+
+<p>def test_empty_and_none():
+    assert parse_okf_links("") == []
+    assert parse_okf_links(None) == []
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_okf_links.py -v</code>
+Expected: FAIL — <code>ModuleNotFoundError: swarph_cli.commands.okf_links</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# src/swarph_cli/commands/okf_links.py
+"""Shared OKF link-grammar parser — the one true <code>[[link]]</code>/markdown-link extractor.</p>
+
+<p>Reused across the OKF traversal brain: <code>swarph timeline</code> (this sub-project),
+and later <code>swarph memory</code> + the <code>swarph brain</code> walker. The grammar is PINNED
+(design review, droplet 2026-07-15) so the same edge is read identically
+everywhere — a traversal brain is only as trustworthy as its least-deterministic
+edge, so link parsing must be exact, not naive.</p>
+
+<p>Grammar (target in brackets):
+  [[slug]]          -> slug
+  [[slug|alias]]    -> slug          (alias is display text, not the target)
+  [[slug#heading]]  -> slug          (heading is an intra-page anchor)
+  ![[embed]]        -> embed         (transclusion is a reference = an edge)
+  [text](path.md)   -> path.md       (standard-markdown link to a .md file)
+Order-preserving de-dupe; non-.md markdown links (http, images) are ignored.
+"""
+from __future__ import annotations</p>
+
+<p>import re</p>
+
+<p># ![[x]] or [[x]] — capture the target up to the first '#', '|', or ']'.
+_WIKI = re.compile(r"!?\[\[\s<em>([^\]|#]+?)\s</em>(?:[#|][^\]]*)?\]\]")
+# [text](path.md) — capture a .md path target (ignore http/images/other extensions).
+_MDLINK = re.compile(r"\[[^\]]<em>\]\(\s</em>([^)\s]+\.md)\s*\)")</p>
+
+<p>def parse_okf_links(text: str) -> list:
+    """Extract OKF edge targets from <code>text</code>, in document order, de-duped."""
+    if not text:
+        return []
+    hits = []
+    for m in re.finditer(r"!?\[\[\s<em>[^\]|#]+?\s</em>(?:[#|][^\]]<em>)?\]\]|\[[^\]]</em>\]\(\s<em>[^)\s]+\.md\s</em>\)", text):
+        frag = m.group(0)
+        w = _WIKI.match(frag)
+        if w:
+            hits.append(w.group(1).strip())
+            continue
+        d = _MDLINK.match(frag)
+        if d:
+            hits.append(d.group(1).strip())
+    return list(dict.fromkeys(hits))
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_okf_links.py -v</code>
+Expected: PASS (2 tests).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add src/swarph_cli/commands/okf_links.py tests/test_okf_links.py
+git commit -m "feat(okf): shared OKF link-grammar parser (pinned grammar, reusable)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-2-swarph-timeline-parse-date-filter-verbs-human-output">Task 2: <code>swarph timeline</code> — parse, date-filter, verbs, human output</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>src/swarph_cli/commands/timeline.py</code></li>
+  <li>Test: <code>tests/test_timeline_command.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: <code>parse_okf_links</code> (Task 1).</li>
+  <li>Produces: <code>Entry</code> (namedtuple <code>ts: datetime, cell: str, text: str, links: list[str]</code>); <code>load_entries(path: str) -> list[Entry]</code>; <code>_parse_arg_date(s: str) -> datetime</code>; <code>run_timeline(argv: list) -> int</code>.</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_timeline_command.py
+import datetime as dt
+from swarph_cli.commands import timeline</p>
+
+<p>SAMPLE = (
+    "# swarph timeline\n"
+    "- 2026-07-10T21:02Z · <strong>lab-ovh</strong> · built tunnel-watch · → [[feedback_x]]\n"
+    "- 2026-07-13T04:24Z · <strong>lab-ovh</strong> · credential isolation note [[reference_swairm_repo]]\n"
+    "- 2026-07-15T08:51Z · <strong>gridiron</strong> · reaper operational · → [[feedback_y]]\n"
+)</p>
+
+<p>def _write(tmp_path):
+    p = tmp_path / "TIMELINE.md"
+    p.write_text(SAMPLE, encoding="utf-8")
+    return str(p)</p>
+
+<p>def test_load_entries_parses_ts_cell_links(tmp_path):
+    entries = timeline.load_entries(_write(tmp_path))
+    assert len(entries) == 3
+    e = entries[0]
+    assert e.ts == dt.datetime(2026, 7, 10, 21, 2, tzinfo=dt.timezone.utc)
+    assert e.cell == "lab-ovh"
+    assert e.links == ["feedback_x"]
+    # inline [[link]] (not just the → pointer) is captured
+    assert entries[1].links == ["reference_swairm_repo"]</p>
+
+<p>def test_range_since_around(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("SWARPH_TIMELINE", _write(tmp_path))
+    assert timeline.run_timeline(["range", "2026-07-12", "2026-07-14"]) == 0
+    out = capsys.readouterr().out
+    assert "2026-07-13T04:24Z" in out and "2026-07-10" not in out and "2026-07-15" not in out
+    assert timeline.run_timeline(["since", "2026-07-14"]) == 0
+    assert "2026-07-15T08:51Z" in capsys.readouterr().out
+    assert timeline.run_timeline(["around", "2026-07-13", "--window", "1d"]) == 0
+    around = capsys.readouterr().out
+    assert "2026-07-13T04:24Z" in around and "2026-07-15" not in around</p>
+
+<p>def test_missing_file_is_fail_safe(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("SWARPH_TIMELINE", str(tmp_path / "nope.md"))
+    rc = timeline.run_timeline(["since", "2026-07-01"])
+    assert rc == 1                       # non-zero, not a traceback
+    assert "timeline" in capsys.readouterr().err.lower()
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_timeline_command.py -v</code>
+Expected: FAIL — <code>ModuleNotFoundError: ...timeline</code> / <code>AttributeError</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# src/swarph_cli/commands/timeline.py
+"""<code></code>swarph timeline<code></code> — DETERMINISTIC temporal lookup over the git-backed timeline.</p>
+
+<p>The TEMPORAL on-ramp of the OKF traversal brain (sub-project A). Reads the raw
+<code></code>~/swarph-timeline/TIMELINE.md<code></code> (the append-only, git-merged shared log) and
+answers date-scoped questions — <code></code>range<code></code>/<code></code>around<code></code>/<code></code>since<code></code> — with NO model,
+NO network, NO server ($0, deterministic). Each entry is an OKF <em>temporal node</em>:
+its canonical id is its ISO timestamp; its edges are the <code></code>[[links]]<code></code> it names
+(into the knowledge hemisphere). Complements the semantic <code></code>brain-ask<code></code> and the
+structural <code></code>codegraph<code></code>/<code></code>memory<code></code>.</p>
+
+<p>Filters by each entry's EMBEDDED <code></code>@ <ISO-timestamp><code></code> (the swarph-highlight line
+format), never the git commit date — the entry's own date is canonical. Read-only;
+stdlib-only; fail-safe (a missing/unreadable file → stderr note + non-zero, never
+a traceback).
+"""
+from __future__ import annotations</p>
+
+<p>import argparse
+import datetime as dt
+import json
+import os
+import re
+import sys
+from collections import namedtuple</p>
+
+<p>from swarph_cli.commands.okf_links import parse_okf_links</p>
+
+<p>Entry = namedtuple("Entry", "ts cell text links")</p>
+
+<p>_DEFAULT_TIMELINE = os.path.expanduser("~/swarph-timeline/TIMELINE.md")
+# - <ISO-ts> · <strong><cell></strong> · <rest>
+_LINE = re.compile(r"^- (?P<ts>\S+)\s+·\s+\<em>\</em>(?P<cell>[^<em>]+)\</em>\<em>\s+·\s+(?P<rest>.</em>)$")</p>
+
+<p>def _timeline_path() -> str:
+    return os.environ.get("SWARPH_TIMELINE", _DEFAULT_TIMELINE)</p>
+
+<p>def _parse_entry_ts(s: str) -> dt.datetime | None:
+    """Parse the entry timestamp <code></code>2026-07-15T08:51Z<code></code> (minute precision, UTC)."""
+    try:
+        return dt.datetime.strptime(s, "%Y-%m-%dT%H:%MZ").replace(tzinfo=dt.timezone.utc)
+    except ValueError:
+        return None</p>
+
+<p>def load_entries(path: str) -> list:
+    """Parse TIMELINE.md into Entry tuples. Raises OSError if unreadable (caller
+    is fail-safe). Malformed lines (no match / bad ts) are skipped, not fatal."""
+    entries = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            m = _LINE.match(line.rstrip("\n"))
+            if not m:
+                continue
+            ts = _parse_entry_ts(m.group("ts"))
+            if ts is None:
+                continue
+            rest = m.group("rest")
+            entries.append(Entry(ts=ts, cell=m.group("cell").strip(),
+                                 text=rest, links=parse_okf_links(rest)))
+    return entries</p>
+
+<p>def _parse_arg_date(s: str) -> dt.datetime:
+    """Parse a CLI date arg. Accepts <code></code>YYYY-MM-DD<code></code> or a full ISO timestamp."""
+    for fmt in ("%Y-%m-%dT%H:%MZ", "%Y-%m-%d"):
+        try:
+            return dt.datetime.strptime(s, fmt).replace(tzinfo=dt.timezone.utc)
+        except ValueError:
+            continue
+    raise ValueError(f"unparseable date {s!r} (use YYYY-MM-DD)")</p>
+
+<p>def _fmt_human(e: Entry) -> str:
+    ts = e.ts.strftime("%Y-%m-%dT%H:%MZ")
+    links = ("  " + " ".join(f"[[{l}]]" for l in e.links)) if e.links else ""
+    return f"{ts} · {e.cell} · {e.text}{links}"</p>
+
+<p>def run_timeline(argv: list) -> int:
+    p = argparse.ArgumentParser(
+        prog="swarph timeline",
+        description="Deterministic temporal lookup over the git-backed swarph timeline "
+                    "(range/around/since). $0, no model, no network.")
+    sub = p.add_subparsers(dest="subcommand")
+    pr = sub.add_parser("range", help="entries between two dates (inclusive)")
+    pr.add_argument("start"); pr.add_argument("end")
+    pa = sub.add_parser("around", help="entries within a window of a date")
+    pa.add_argument("date"); pa.add_argument("--window", default="3d", help="e.g. 3d, 12h")
+    ps = sub.add_parser("since", help="entries on/after a date")
+    ps.add_argument("date")
+    for sp in (pr, pa, ps):
+        sp.add_argument("--json", action="store_true", help="OKF node/edge JSON")
+    args = p.parse_args(argv)
+    if not args.subcommand:
+        p.print_help(); return 0</p>
+
+<p>try:
+        entries = load_entries(_timeline_path())
+    except OSError as e:
+        print(f"swarph timeline: cannot read {_timeline_path()} ({e})", file=sys.stderr)
+        return 1</p>
+
+<p>try:
+        lo, hi = _bounds(args)
+    except ValueError as e:
+        print(f"swarph timeline: {e}", file=sys.stderr)
+        return 1
+    hits = [e for e in entries if (lo is None or e.ts >= lo) and (hi is None or e.ts <= hi)]</p>
+
+<p>if getattr(args, "json", False):
+        print(json.dumps([_as_okf(e) for e in hits], indent=2))
+    else:
+        for e in hits:
+            print(_fmt_human(e))
+    return 0</p>
+
+<p>def _parse_window(w: str) -> dt.timedelta:
+    m = re.fullmatch(r"(\d+)([dh])", w.strip())
+    if not m:
+        raise ValueError(f"bad --window {w!r} (use e.g. 3d or 12h)")
+    n = int(m.group(1))
+    return dt.timedelta(days=n) if m.group(2) == "d" else dt.timedelta(hours=n)</p>
+
+<p>def _bounds(args):
+    """(lo, hi) datetime bounds for the chosen subcommand; end-of-day for bare dates."""
+    eod = dt.timedelta(hours=23, minutes=59)
+    if args.subcommand == "range":
+        return _parse_arg_date(args.start), _parse_arg_date(args.end) + eod
+    if args.subcommand == "since":
+        return _parse_arg_date(args.date), None
+    if args.subcommand == "around":
+        c = _parse_arg_date(args.date); w = _parse_window(args.window)
+        return c - w, c + w + eod
+    return None, None</p>
+
+<p>def _as_okf(e: Entry) -> dict:
+    ts = e.ts.strftime("%Y-%m-%dT%H:%MZ")
+    return {
+        "node": {"id": ts, "hemisphere": "time", "ts": ts},
+        "edges": [{"type": "link", "to": l, "to_hemisphere": "knowledge",
+                   "direction": "out"} for l in e.links],
+        "cell": e.cell, "text": e.text,
+    }
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_timeline_command.py -v</code>
+Expected: PASS (4 tests). (The <code>_as_okf</code>/<code>--json</code> path is exercised in Task 3's test; it's included here so the module is complete.)</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add src/swarph_cli/commands/timeline.py tests/test_timeline_command.py
+git commit -m "feat(timeline): swarph timeline range/around/since over the git timeline"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-3-json-okf-node-edge-output">Task 3: <code>--json</code> OKF node/edge output</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>src/swarph_cli/commands/timeline.py</code> (already contains <code>_as_okf</code> + <code>--json</code> from Task 2 — this task adds its dedicated test)</li>
+  <li>Test: <code>tests/test_timeline_command.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: <code>run_timeline</code>, <code>_as_okf</code> (Task 2).</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+def test_json_emits_okf_node_edges(tmp_path, monkeypatch, capsys):
+    import json
+    monkeypatch.setenv("SWARPH_TIMELINE", _write(tmp_path))
+    assert timeline.run_timeline(["since", "2026-07-14", "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert len(payload) == 1
+    rec = payload[0]
+    assert rec["node"] == {"id": "2026-07-15T08:51Z", "hemisphere": "time",
+                           "ts": "2026-07-15T08:51Z"}
+    assert rec["edges"] == [{"type": "link", "to": "feedback_y",
+                             "to_hemisphere": "knowledge", "direction": "out"}]
+    assert rec["cell"] == "gridiron"
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_timeline_command.py::test_json_emits_okf_node_edges -v</code>
+Expected: PASS if Task 2's <code>_as_okf</code> is correct. If it FAILS, fix <code>_as_okf</code>/<code>--json</code> in <code>timeline.py</code> until the OKF schema matches exactly. (This task's value is locking the schema with an assertion; write it first and confirm it drives the shape.)</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: (only if the test failed) align <code>_as_okf</code> to the asserted schema</strong></li>
+</ul>
+
+<p>Ensure <code>_as_okf</code> returns exactly <code>{"node": {"id","hemisphere":"time","ts"}, "edges":[{"type":"link","to","to_hemisphere":"knowledge","direction":"out"}], "cell", "text"}</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_timeline_command.py -v</code>
+Expected: PASS (all 5).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add src/swarph_cli/commands/timeline.py tests/test_timeline_command.py
+git commit -m "test(timeline): lock the OKF node/edge --json schema"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-4-register-timeline-in-the-cli-dispatch">Task 4: Register <code>timeline</code> in the CLI dispatch</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>src/swarph_cli/main.py</code></li>
+  <li>Test: <code>tests/test_timeline_command.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: <code>run_timeline</code> (Task 2).</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+def test_timeline_registered_in_dispatch():
+    from swarph_cli import main as m
+    assert m._VERB_HANDLERS["timeline"] == "swarph_cli.commands.timeline.run_timeline"
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_timeline_command.py::test_timeline_registered_in_dispatch -v</code>
+Expected: FAIL — <code>KeyError: 'timeline'</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Add the dispatch entry</strong></li>
+</ul>
+
+<p>In <code>src/swarph_cli/main.py</code>, add to the <code>_VERB_HANDLERS</code> dict (next to <code>"memory"</code>):</p>
+
+<p><code></code>`python
+    "timeline": "swarph_cli.commands.timeline.run_timeline",
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test + smoke</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_timeline_command.py::test_timeline_registered_in_dispatch -v</code> → PASS.
+Run: <code>venv/bin/python -m swarph_cli timeline --help</code> → prints range/around/since help, exit 0.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add src/swarph_cli/main.py tests/test_timeline_command.py
+git commit -m "feat(timeline): register <code>swarph timeline</code> verb in CLI dispatch"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-5-swarph-timeline-navigate-mcp-tool">Task 5: <code>swarph_timeline_navigate</code> MCP tool</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>src/swarph_cli/commands/mcp_server.py</code></li>
+  <li>Test: <code>tests/test_timeline_command.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: <code>timeline.load_entries</code>, <code>timeline._timeline_path</code>, <code>timeline._as_okf</code>, <code>timeline._bounds</code> (Task 2).</li>
+  <li>Produces: <code>_timeline_navigate(op, start=None, end=None, date=None, window="3d") -> list</code>; registered <code>swarph_timeline_navigate</code> MCP tool.</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+def test_timeline_navigate_failsafe(tmp_path, monkeypatch):
+    from swarph_cli.commands import mcp_server
+    monkeypatch.setenv("SWARPH_TIMELINE", _write(tmp_path))
+    got = mcp_server._timeline_navigate("since", date="2026-07-14")
+    assert got and got[0]["node"]["id"] == "2026-07-15T08:51Z"
+    # fail-safe: unknown op / bad input NEVER raises
+    assert mcp_server._timeline_navigate("bogus") == []
+    monkeypatch.setenv("SWARPH_TIMELINE", str(tmp_path / "nope.md"))
+    assert mcp_server._timeline_navigate("since", date="2026-07-01") == []
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_timeline_command.py::test_timeline_navigate_failsafe -v</code>
+Expected: FAIL — <code>AttributeError: module 'mcp_server' has no attribute '_timeline_navigate'</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Add the wrapper + register the tool</strong></li>
+</ul>
+
+<p>In <code>src/swarph_cli/commands/mcp_server.py</code>, extend the existing import line to add <code>timeline</code>:</p>
+
+<p><code></code>`python
+from swarph_cli.commands import brain_ask, memory, timeline
+<code></code>`</p>
+
+<p>Add the wrapper (near <code>_memory_navigate</code>):</p>
+
+<p><code></code>`python
+def _timeline_navigate(op: str, start: str = "", end: str = "", date: str = "",
+                       window: str = "3d"):
+    """Deterministic temporal lookup over the git timeline. op: 'range'|'around'|'since'.
+    Returns OKF node/edge records (list). Fail-safe: any bad input/op/read → [] (never raises)."""
+    import argparse as _a
+    try:
+        ns = _a.Namespace(subcommand=op, start=start, end=end, date=date, window=window)
+        lo, hi = timeline._bounds(ns)
+        entries = timeline.load_entries(timeline._timeline_path())
+        hits = [e for e in entries if (lo is None or e.ts >= lo) and (hi is None or e.ts <= hi)]
+        return [timeline._as_okf(e) for e in hits]
+    except Exception:
+        return []
+<code></code>`</p>
+
+<p>Register the tool inside the existing FastMCP builder (beside <code>swarph_memory_navigate</code>):</p>
+
+<p><code></code>`python
+    @mcp.tool()
+    def swarph_timeline_navigate(op: str, start: str = "", end: str = "",
+                                 date: str = "", window: str = "3d"):
+        """Deterministic temporal lookup over the swarph timeline: op='range'|'around'|'since'.
+        The temporal hemisphere of the OKF traversal brain — entries are dated OKF nodes with
+        [[link]] edges into knowledge. Complements semantic recall; $0, no model."""
+        return _timeline_navigate(op, start=start, end=end, date=date, window=window)
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_timeline_command.py::test_timeline_navigate_failsafe -v</code>
+Expected: PASS.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add src/swarph_cli/commands/mcp_server.py tests/test_timeline_command.py
+git commit -m "feat(timeline): swarph_timeline_navigate MCP tool (deterministic temporal nav)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-6-readme-timeline-version-bump-to-0-31-0">Task 6: README §timeline + version bump to 0.31.0</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>README.md</code>, <code>pyproject.toml</code>, <code>src/swarph_cli/__init__.py</code>, <code>tests/test_brain_ask_command.py</code>, <code>tests/test_watchdog.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong> none (docs + version constants).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Bump the pin tests first (write the failing assertion)</strong></li>
+</ul>
+
+<p>Grep the current pins: <code>grep -rn "0.30.0" tests/</code>. In <code>tests/test_brain_ask_command.py</code> and <code>tests/test_watchdog.py</code>, change the asserted version <code>"0.30.0"</code> → <code>"0.31.0"</code> AND rename the test functions <code>test_version_is_0_30_0</code> → <code>test_version_is_0_31_0</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run to verify they fail</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_brain_ask_command.py tests/test_watchdog.py -k version -v</code>
+Expected: FAIL (code still reports 0.30.0).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Bump the version constants</strong></li>
+</ul>
+
+<p><code>pyproject.toml</code>: <code>version = "0.31.0"</code>. <code>src/swarph_cli/__init__.py</code>: <code>__version__ = "0.31.0"</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run to verify they pass</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_brain_ask_command.py tests/test_watchdog.py -k version -v</code>
+Expected: PASS.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Add the README section</strong></li>
+</ul>
+
+<p>In <code>README.md</code>, after the <code>### swarph memory</code> section, add:</p>
+
+<p><code></code><code></code>markdown
+<h3 id="swarph-timeline-v0-31-0"><code>swarph timeline</code> (v0.31.0)</h3></p>
+
+<p><strong>Deterministic, $0</strong> temporal lookup over the git-backed swarph timeline — the temporal hemisphere of the OKF traversal brain (counterpart to <code>swarph codegraph</code> for code and <code>swarph memory</code> for knowledge). No model, no network — it parses the timeline file.</p>
+
+<p><code></code>`
+swarph timeline range <start> <end>          # entries between two dates (inclusive)
+swarph timeline around <date> [--window 3d]  # entries within a window of a date
+swarph timeline since <date>                 # entries on/after a date
+<code></code>`</p>
+
+<p>Dates are <code>YYYY-MM-DD</code> (or a full ISO timestamp). Source is <code>~/swarph-timeline/TIMELINE.md</code> (override with <code>SWARPH_TIMELINE</code>). Add <code>--json</code> for the OKF node/edge payload (each entry is a dated node with <code>[[link]]</code> edges into knowledge). Also exposed to any MCP host as <code>swarph_timeline_navigate</code>.
+<code></code><code></code></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 6: Run the FULL suite (no regressions)</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest -q</code>
+Expected: all pass (new okf_links + timeline tests + bumped pins; no regressions).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 7: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add README.md pyproject.toml src/swarph_cli/__init__.py tests/test_brain_ask_command.py tests/test_watchdog.py
+git commit -m "docs(timeline): README §timeline; bump 0.31.0"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="self-review">Self-Review</h2>
+
+<p><strong>1. Spec coverage</strong> (sub-project A of the traversal-brain spec):
+<ul class="article-list">
+  <li>Shared OKF link-grammar parser, pinned grammar → Task 1 ✓ (all five forms + dedupe).</li>
+  <li><code>swarph timeline range/around/since</code> over raw git TIMELINE.md, embedded-ts filter, fail-safe → Task 2 ✓.</li>
+  <li>OKF <code>--json</code> node/edge schema (node=ts/hemisphere=time; edges=[[links]] out→knowledge; cell) → Task 3 ✓.</li>
+  <li><code>swarph_timeline_navigate</code> MCP tool, fail-safe → Task 5 ✓.</li>
+  <li>CLI dispatch registration → Task 4 ✓.</li>
+  <li>README + version bump → Task 6 ✓.</li>
+  <li>Out of scope (correctly absent): #42 gbrain graph, the <code>swarph brain</code> walker, <code>--root</code> file-native walk, the graph-summary onboarding output (those belong to sub-projects B/C).</li>
+</ul></p>
+
+<p><strong>2. Placeholder scan:</strong> no TBD/TODO; every code step is complete. Task 3 is a schema-locking test over Task 2's <code>_as_okf</code> — the one place an implementer might find the assertion already green; the step says so explicitly and to fix <code>_as_okf</code> if not.</p>
+
+<p><strong>3. Type consistency:</strong> <code>parse_okf_links → list[str]</code> (Task 1) consumed by <code>load_entries</code> (Task 2). <code>Entry(ts: datetime, cell, text, links)</code> used in Tasks 2/3/5. <code>_bounds(args)</code>/<code>_as_okf(e)</code>/<code>_timeline_path()</code>/<code>load_entries(path)</code> signatures identical across Task 2 (def), Task 3 (test), Task 5 (MCP wrapper reuse). The MCP wrapper builds an <code>argparse.Namespace</code> with exactly the fields <code>_bounds</code> reads (<code>subcommand</code>, <code>start</code>, <code>end</code>, <code>date</code>, <code>window</code>). <code>_VERB_HANDLERS["timeline"]</code> (Task 4) matches the module path <code>swarph_cli.commands.timeline.run_timeline</code>.</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#task-1-the-shared-okf-link-grammar-parser">Task 1: The shared OKF link-grammar parser</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-2-swarph-timeline-parse-date-filter-verbs-human-output">Task 2: `swarph timeline` — parse, date-filter, verbs, human output</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-3-json-okf-node-edge-output">Task 3: `--json` OKF node/edge output</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-4-register-timeline-in-the-cli-dispatch">Task 4: Register `timeline` in the CLI dispatch</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-5-swarph-timeline-navigate-mcp-tool">Task 5: `swarph_timeline_navigate` MCP tool</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-6-readme-timeline-version-bump-to-0-31-0">Task 6: README §timeline + version bump to 0.31.0</a></li>
+<li style="margin-left: 0.8rem;"><a href="#swarph-timeline-v0-31-0">`swarph timeline` (v0.31.0)</a></li>
+<li><a href="#global-constraints">Global Constraints</a></li>
+<li><a href="#file-structure">File Structure</a></li>
+<li><a href="#self-review">Self-Review</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

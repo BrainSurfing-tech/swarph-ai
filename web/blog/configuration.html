@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configuration | Technical Whitepaper</title>
+  <meta name="description" content="Configuration — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/configuration.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Configuration</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 8 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Configuration</p>
+
+<p>A MatrAIx run is fully described by a <strong>job recipe</strong> — a YAML file that specifies the task, persona agent, language model, and persona profile(s) to instantiate. Job recipes live under <code>configs/jobs/</code>.</p>
+
+<h2 id="preferred-cli-path-mode-auto">Preferred CLI path (Mode <strong>auto</strong>)</h2>
+
+<p>For survey, chat, web, and os-app, generate a recipe that matches Playground
+<strong>Mode → auto</strong>, then run it:</p>
+
+<p><code></code>`bash
+uv run python application/scripts/generate_application_job.py \
+  --task application/tasks/example-survey_product-feedback \
+  --execution-mode auto \
+  --persona-ids 0042   # or --sample-size N for batch</p>
+
+<p>uv run harbor run -c configs/jobs/application-task-job-recipe/<generated>.yaml
+<code></code>`</p>
+
+<p>Walkthrough for all four types: [quickstart.md §6–7](quickstart.md#6-one-persona--cli-with-mode-auto-default).
+Agent matrix: [environment/agents.md](environment/agents.md).</p>
+
+<p>Hand-point Matraix Playground at a <strong>checked-in</strong> recipe with <code>-c</code> only when you intentionally
+want a Docker harness smoke (often <code>force_docker</code>-style for survey/chat):</p>
+
+<p><code></code>`bash
+uv run harbor run -c configs/jobs/example-job-recipe/appSim-example-survey-local.yaml
+<code></code>`</p>
+
+<h2 id="job-recipe-anatomy">Job recipe anatomy</h2>
+
+<p>A recipe has four main sections — run settings, environment, persona agent, and task(s):</p>
+
+<p><code></code>`yaml
+job_name: example-survey-product-feedback-auto-n1
+jobs_dir: jobs
+n_attempts: 1
+n_concurrent_trials: 1
+timeout_multiplier: 1.0
+quiet: false</p>
+
+<p>environment:
+  type: host                             # auto survey/chat; docker for web/os-app
+  delete: true</p>
+
+<p>agents:
+<ul class="article-list">
+  <li>name: persona-json-survey            # auto picks this for survey</li>
+</ul>
+    model_name: anthropic/claude-sonnet-4-6
+    kwargs:
+      persona_path: persona/datasets/matraix-persona-dev-sample/persona_0042.yaml</p>
+
+<p>tasks:
+<ul class="article-list">
+  <li>path: application/tasks/example-survey_product-feedback</li>
+</ul>
+<code></code>`</p>
+
+<h2 id="yaml-fields-reference">YAML fields reference</h2>
+
+<h3 id="job-metadata">Job metadata</h3>
+
+<p>| Field | Type | Meaning |
+|-------|------|---------|
+| <code>job_name</code> | string | Label for this run. Output artifacts appear in <code>jobs/<job_name>/</code>. |
+| <code>jobs_dir</code> | string | Base directory where Matraix Playground writes results (default: <code>jobs/</code>). |
+| <code>n_attempts</code> | int | Repeat each trial N times. Useful for measuring variance or pass@k. |
+| <code>n_concurrent_trials</code> | int | Number of trials to run in parallel. 1 for serial; increase for faster bulk runs. |
+| <code>timeout_multiplier</code> | float | Multiply all per-task timeouts by this factor. 1.0 is standard. |
+| <code>quiet</code> | bool | If <code>true</code>, suppress detailed logs during execution. |</p>
+
+<h3 id="environment">Environment</h3>
+
+<p>| Field | Type | Meaning |
+|-------|------|---------|
+| <code>environment.type</code> | string | <code>host</code> for Mode <strong>auto</strong> survey/chat; <code>docker</code> for web/os-app (and force_docker survey/chat); <code>use-computer</code> for macOS/iOS CUA. |
+| <code>environment.delete</code> | bool | If <code>true</code>, remove the Docker container after the run completes. |</p>
+
+<h3 id="agent">Agent</h3>
+
+<p>| Field | Type | Meaning |
+|-------|------|---------|
+| <code>agents[].name</code> | string | Persona agent name (e.g., <code>persona-claude-code</code>, <code>persona-browser-use</code>). |
+| <code>agents[].model_name</code> | string | Provider-prefixed model identifier (e.g., <code>anthropic/claude-sonnet-4-6</code>, <code>openai/gpt-4o-mini</code>, <code>dashscope/qwen3.7-max</code>). |
+| <code>agents[].kwargs.persona_path</code> | string | Path to persona YAML profile (e.g., <code>persona/datasets/matraix-persona-dev-sample/persona_0042.yaml</code>). |
+| <code>agents[].env</code> | object | Optional environment variable overrides (e.g., <code>agents[].env.ANTHROPIC_API_KEY</code>). |</p>
+
+<h3 id="task">Task</h3>
+
+<p>| Field | Type | Meaning |
+|-------|------|---------|
+| <code>tasks[].path</code> | string | Path to task directory under <code>application/tasks/</code> (e.g., <code>application/tasks/example-survey_product-feedback</code>). |</p>
+
+<h2 id="persona-agents-and-models">Persona agents and models</h2>
+
+<p>Every run specifies a <strong>persona agent</strong> (the automation harness), a <strong>persona LLM</strong> (which model plays the simulated user), and optionally the persona profile itself.</p>
+
+<h3 id="agent-and-model-pairing">Agent and model pairing</h3>
+
+<p>| Agent | Application | Persona model | Example recipe | API key on host |
+|-------|-------------|---------------|-----------------|-----------------|
+| <code>persona-json-survey</code> | Survey (<strong>auto</strong>) | Any | generated <code><em>-auto-n</em>.yaml</code> | <code>ANTHROPIC_API_KEY</code>, <code>OPENAI_API_KEY</code>, or <code>DASHSCOPE_API_KEY</code> |
+| <code>persona-user-sim</code> | Chatbot (<strong>auto</strong>) | Any | generated <code><em>-auto-n</em>.yaml</code> | Persona key + often <code>OPENAI_API_KEY</code> for SUT |
+| <code>persona-claude-code</code> | Survey, Chatbot (<code>force_docker</code>) | <code>anthropic/claude-*</code> | <code>appSim-example-survey-local.yaml</code>, <code>appSim-example-chat-local.yaml</code> | <code>ANTHROPIC_API_KEY</code> |
+| <code>persona-gemini-cli</code> | Survey, Chatbot (<code>force_docker</code>) | <code>google/gemini-*</code> | <code>appSim-example-survey-local.yaml</code> | <code>GEMINI_API_KEY</code> |
+| <code>persona-codex</code> | Survey, Chatbot (<code>force_docker</code>) | <code>openai/gpt-*</code> | <code>appSim-example-survey-local.yaml</code> | <code>OPENAI_API_KEY</code> |
+| <code>persona-openhands-sdk</code> | Web (Playwright) | Any | <code>appSim-example-web-playwright-local.yaml</code> | <code>LLM_API_KEY</code> (or <code>DASHSCOPE_API_KEY</code> for DashScope models) |
+| <code>persona-browser-use</code> | Web (browser automation) | Any | <code>appSim-example-web-browser-use-local.yaml</code> | <code>ANTHROPIC_API_KEY</code>, <code>OPENAI_API_KEY</code>, <code>DASHSCOPE_API_KEY</code>, or <code>LLM_API_KEY</code> |
+| <code>persona-cocoa</code> | Web (browser + shell) | Any | <code>appSim-example-web-cocoa-local.yaml</code> | <code>ANTHROPIC_API_KEY</code>, <code>OPENAI_API_KEY</code>, <code>DASHSCOPE_API_KEY</code>, or <code>LLM_API_KEY</code> |
+| <code>persona-computer-1</code> | Web / Computer-use (macOS, iOS, Linux) | <code>anthropic/claude-<em></code> or <code>dashscope/</em></code> | <code>appSim-example-computer-use-macos-local.yaml</code> | <code>ANTHROPIC_API_KEY</code>, <code>DASHSCOPE_API_KEY</code>, and optionally <code>USE_COMPUTER_API_KEY</code> (macOS/iOS) |</p>
+
+<h3 id="persona-model-resolution">Persona model resolution</h3>
+
+<p>The <strong>persona LLM</strong> is separate from the chat sidecar backend (e.g., <code>MATRIX_CHATBOT_ENGINE</code>). Matraix Playground resolves the model in this order:</p>
+
+<p>1. <strong>Job YAML <code>agents[].model_name</code></strong> (highest priority)
+2. <strong>CLI flag <code>-m</code> or <code>--model-name</code></strong> (when generating recipes)
+3. Environment variables (checked per agent; see table below)
+4. Default: <code>anthropic/claude-haiku-4-5</code></p>
+
+<h3 id="supported-model-providers">Supported model providers</h3>
+
+<ul class="article-list">
+  <li><strong>Anthropic:</strong> <code>anthropic/claude-haiku-4-5</code>, <code>anthropic/claude-sonnet-4-6</code>, etc.</li>
+  <li><strong>OpenAI:</strong> <code>openai/gpt-4o-mini</code>, <code>openai/gpt-4o</code>, etc.</li>
+  <li><strong>Google Gemini:</strong> <code>google/gemini-2.5-pro</code> (with <code>persona-gemini-cli</code>)</li>
+  <li><strong>DashScope (Alibaba):</strong> <code>dashscope/qwen3.7-max</code>, <code>dashscope/deepseek-v4-pro</code>, etc.</li>
+</ul>
+
+<h3 id="api-keys-and-environment-variables">API keys and environment variables</h3>
+
+<p>Set these in your shell before running a job. Each agent reads keys differently:</p>
+
+<h4 id="auto-mode-agents-most-flexible">Auto-mode agents (most flexible)</h4>
+
+<p>| Agent | Required keys on host |
+|-------|----------------------|
+| <code>persona-json-survey</code> | <code>ANTHROPIC_API_KEY</code>, <code>OPENAI_API_KEY</code>, or <code>DASHSCOPE_API_KEY</code> (match <code>-m</code>) |
+| <code>persona-user-sim</code> | Persona: <code>ANTHROPIC_API_KEY</code>, <code>OPENAI_API_KEY</code>, or <code>DASHSCOPE_API_KEY</code>; chat sidecar: often <code>OPENAI_API_KEY</code> |</p>
+
+<h4 id="cli-harness-agents-vendor-locked">CLI harness agents (vendor-locked)</h4>
+
+<p>| Agent | Required key on host | Example model |
+|-------|---------------------|----------------|
+| <code>persona-claude-code</code> | <code>ANTHROPIC_API_KEY</code> | <code>anthropic/claude-sonnet-4-6</code> |
+| <code>persona-gemini-cli</code> | <code>GEMINI_API_KEY</code> | <code>google/gemini-2.5-pro</code> |
+| <code>persona-codex</code> | <code>OPENAI_API_KEY</code> | <code>openai/gpt-4o</code> |</p>
+
+<h4 id="web-and-computer-use-agents">Web and computer-use agents</h4>
+
+<p>| Agent | Required keys on host |
+|-------|----------------------|
+| <code>persona-openhands-sdk</code> | <code>LLM_API_KEY</code> (or <code>ANTHROPIC_API_KEY</code>/<code>OPENAI_API_KEY</code>/<code>DASHSCOPE_API_KEY</code>; map to <code>LLM_API_KEY</code> if needed) |
+| <code>persona-browser-use</code> | <code>ANTHROPIC_API_KEY</code>, <code>OPENAI_API_KEY</code>, <code>DASHSCOPE_API_KEY</code>, or <code>LLM_API_KEY</code> |
+| <code>persona-cocoa</code> | <code>ANTHROPIC_API_KEY</code>, <code>OPENAI_API_KEY</code>, <code>DASHSCOPE_API_KEY</code>, or <code>LLM_API_KEY</code> |
+| <code>persona-computer-1</code> | <code>ANTHROPIC_API_KEY</code> or <code>DASHSCOPE_API_KEY</code> (+ <code>USE_COMPUTER_API_KEY</code> for macOS/iOS via use.computer) |</p>
+
+<h3 id="setting-api-keys">Setting API keys</h3>
+
+<p>Export keys in your shell before launching a run:</p>
+
+<p><code></code>`bash
+export ANTHROPIC_API_KEY="sk-ant-..."
+export OPENAI_API_KEY="sk-..."
+export GEMINI_API_KEY="..."
+export DASHSCOPE_API_KEY="..."</p>
+
+<p># If using persona-openhands-sdk, map to LLM_API_KEY
+export LLM_API_KEY="${ANTHROPIC_API_KEY}"</p>
+
+<p># If using persona-computer-1 on macOS or iOS
+export USE_COMPUTER_API_KEY="..."
+<code></code>`</p>
+
+<p>You can also add these to your shell profile (<code>~/.zshrc</code>, <code>~/.bashrc</code>) to make them persistent.</p>
+
+<p>Alternatively, set keys per-agent in the job YAML via <code>agents[].env</code>:</p>
+
+<p><code></code>`yaml
+agents:
+<ul class="article-list">
+  <li>name: persona-claude-code</li>
+</ul>
+    model_name: anthropic/claude-sonnet-4-6
+    env:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    kwargs:
+      persona_path: persona/datasets/matraix-persona-dev-sample/persona_0042.yaml
+<code></code>`</p>
+
+<h2 id="web-interaction-modes">Web interaction modes</h2>
+
+<p>Web tasks support four Docker-based execution modes and computer-use (CUA):</p>
+
+<p>| Mode | Agent | How the agent sees the page | Best for | Trade-off |
+|------|-------|----------------------------|----------|-----------|
+| <strong>Playwright</strong> | <code>persona-openhands-sdk</code> | Terminal agent writes Python; reads via Playwright DOM API | Lower cost, CI-friendly, repeatable | Agent must write working scripts |
+| <strong>browser-use</strong> | <code>persona-browser-use</code> | Dedicated browser loop with page structure (DOM); optional screenshots | Purpose-built web agent | Slower than hand-written Playwright scripts |
+| <strong>Cocoa</strong> | <code>persona-cocoa</code> | Same browser loop as browser-use; also shell + files in one container | All-in-one digital agent without CUA licensing | Heavier Docker base image |
+| <strong>CUA (computer-use)</strong> | <code>persona-computer-1</code> | Screenshot each turn of a real remote desktop; mouse/keyboard actions | Highest human fidelity (screen-based) | Slowest, highest LLM cost |</p>
+
+<h3 id="example-playwright-web-task">Example: Playwright web task</h3>
+
+<p><code></code>`bash
+export LLM_API_KEY="${ANTHROPIC_API_KEY}"</p>
+
+<p>uv run harbor run \
+  -a persona-openhands-sdk \
+  -m anthropic/claude-sonnet-4-6 \
+  --ak persona_path=persona/datasets/matraix-persona-dev-sample/persona_0042.yaml \
+  -p application/tasks/example-web-playwright_quote-choice
+<code></code>`</p>
+
+<p>Or use the checked-in recipe:</p>
+
+<p><code></code>`bash
+uv run harbor run -c configs/jobs/example-job-recipe/appSim-example-web-playwright-local.yaml
+<code></code>`</p>
+
+<h3 id="example-browser-use-web-task">Example: browser-use web task</h3>
+
+<p><code></code>`bash
+uv run harbor run -c configs/jobs/example-job-recipe/appSim-example-web-browser-use-local.yaml
+<code></code>`</p>
+
+<p>See [web-interaction.md](environment/web-interaction.md) for detailed mode comparison, web submission contracts, and how to author new web tasks.</p>
+
+<h2 id="persona-profile-and-default-sample">Persona profile and default sample</h2>
+
+<p>Personas are instantiated via the YAML path in <code>agents[].kwargs.persona_path</code>. The recommended smoke profile for testing is:</p>
+
+<p><code></code>`
+persona/datasets/matraix-persona-dev-sample/persona_0042.yaml
+<code></code>`</p>
+
+<p>This lightweight profile requires no external data and is suitable for smoke tests, demos, and development.</p>
+
+<p>For larger studies, use the [public 1M coreset](https://huggingface.co/datasets/MatrAIx2026/MatrAIx_Persona_1M_Public_Release) on Hugging Face or the in-repo sample dataset at <code>persona/datasets/matraix-persona-dev-sample/</code>.</p>
+
+<h2 id="job-recipe-conventions">Job recipe conventions</h2>
+
+<p>All job recipes live under <code>configs/jobs/</code> and follow these guidelines:</p>
+
+<ul class="article-list">
+  <li>Use paths that exist in this repository.</li>
+  <li>Reference personas from the checked-in sample dataset or document external data dependencies in the recipe README.</li>
+  <li>Do not commit generated <code>jobs/</code> outputs; they are gitignored.</li>
+  <li>Keep generated or bulk recipes separate from hand-curated examples.</li>
+</ul>
+
+<h3 id="recipe-directories">Recipe directories</h3>
+
+<ul class="article-list">
+  <li><code>example-job-recipe/</code> — local application task examples backed by <code>application/tasks/</code> and the sample persona dataset; includes smoke recipe <code>harbor-smoke-local.yaml</code> for API-key-free testing.</li>
+  <li><code>application-task-job-recipe/</code> — generated application job recipes from Playground UI launches and <code>application/scripts/generate_application_job.py</code>; most files are gitignored; a small set of curated fixtures is checked in.</li>
+  <li><code>persona-job-recipe/</code> — generated persona job YAMLs from <code>persona/scripts/generate_persona_job.py</code> (gitignored).</li>
+</ul>
+
+<h3 id="example-recipes">Example recipes</h3>
+
+<p>Run any example recipe from the repository root with:</p>
+
+<p><code></code>`bash
+uv run harbor run -c configs/jobs/example-job-recipe/<recipe>.yaml
+<code></code>`</p>
+
+<p>The example recipes use the checked-in sample persona <code>persona/datasets/matraix-persona-dev-sample/persona_0042.yaml</code>.
+<strong>Note:</strong> <code>appSim-example-survey-local.yaml</code> / <code>appSim-example-chat-local.yaml</code> use
+Docker CLI harnesses (<code>persona-claude-code</code>) — they are <strong>not</strong> Mode auto. Prefer
+<code>generate_application_job.py --execution-mode auto</code> for day-to-day survey/chat.</p>
+
+<ul class="article-list">
+  <li><code>harbor-smoke-local.yaml</code> — no-API-key smoke check using the generic <code>hello-world</code> task and built-in <code>oracle</code> agent (preferred quick check).</li>
+  <li><code>appSim-example-survey-local.yaml</code> — Docker CLI survey smoke (<code>force_docker</code>-style)</li>
+  <li><code>appSim-example-chat-local.yaml</code> — Docker CLI chat smoke</li>
+  <li><code>appSim-example-debug-local.yaml</code></li>
+  <li><code>appSim-example-web-playwright-local.yaml</code></li>
+  <li><code>appSim-example-web-browser-use-local.yaml</code></li>
+  <li><code>appSim-example-web-cocoa-local.yaml</code></li>
+  <li><code>appSim-example-web-linux-cua-local.yaml</code></li>
+  <li><code>appSim-example-computer-use-linux-local.yaml</code></li>
+  <li><code>appSim-example-computer-use-macos-local.yaml</code></li>
+  <li><code>appSim-example-computer-use-ios-local.yaml</code></li>
+</ul>
+
+<p>Some recipes require API keys, local Docker, use-computer, Apple container runtime support, or browser/Cocoa-specific task images.</p>
+
+<h2 id="batch-job-generation">Batch job generation</h2>
+
+<p>To generate job recipes for many personas or tasks at once, use the job generator script:</p>
+
+<p><code></code>`bash
+uv run python application/scripts/generate_application_job.py \
+  --task application/tasks/example-survey_product-feedback \
+  --execution-mode auto \
+  --model-name anthropic/claude-sonnet-4-6 \
+  --persona-ids 0042,0100,0200
+<code></code>`</p>
+
+<p>The script outputs a YAML recipe and a Matraix Playground command to run it. The recipe pins <code>agents[].model_name</code> so you can edit it or pass <code>--model-name</code> on regenerate to change the persona LLM.</p>
+
+<p>Generated recipes land under <code>configs/jobs/application-task-job-recipe/</code> (see [Recipe directories](#recipe-directories) above).</p>
+
+<h2 id="examples">Examples</h2>
+
+<h3 id="survey-chat-with-mode-auto-preferred">Survey / chat with Mode auto (preferred)</h3>
+
+<p><code></code>`bash
+uv run python application/scripts/generate_application_job.py \
+  --task application/tasks/example-survey_product-feedback \
+  --execution-mode auto \
+  --persona-ids 0042 \
+  --model-name anthropic/claude-sonnet-4-6
+# Follow printed exports + harbor run -c …
+<code></code>`</p>
+
+<h3 id="web-browser-use-one-liner">Web (browser-use) one-liner</h3>
+
+<p><code></code>`bash
+export ANTHROPIC_API_KEY="sk-ant-..."</p>
+
+<p>uv run harbor run \
+  -a persona-browser-use \
+  -m anthropic/claude-sonnet-4-6 \
+  --ak persona_path=persona/datasets/matraix-persona-dev-sample/persona_0042.yaml \
+  -p application/tasks/example-web-browser-use_laptop-choice
+<code></code>`</p>
+
+<h3 id="chatbot-host-auto-after-generating-a-recipe-or-manual">Chatbot host auto (after generating a recipe, or manual)</h3>
+
+<p><code></code>`bash
+export ANTHROPIC_API_KEY="sk-ant-..."
+export OPENAI_API_KEY="sk-..."  # sidecar / SUT when required</p>
+
+<p>uv run harbor run \
+  -a persona-user-sim \
+  -m anthropic/claude-sonnet-4-6 \
+  --ak persona_path=persona/datasets/matraix-persona-dev-sample/persona_0042.yaml \
+  -p application/tasks/chat_recai
+<code></code>`</p>
+
+<h3 id="force-docker-cli-survey-optional">Force Docker CLI survey (optional)</h3>
+
+<p><code></code>`bash
+export ANTHROPIC_API_KEY="sk-ant-..."</p>
+
+<p>uv run harbor run \
+  -a persona-claude-code \
+  -m anthropic/claude-sonnet-4-6 \
+  --ak persona_path=persona/datasets/matraix-persona-dev-sample/persona_0042.yaml \
+  -p application/tasks/example-survey_product-feedback
+<code></code>`</p>
+
+<h3 id="computer-use-task-macos">Computer-use task (macOS)</h3>
+
+<p><code></code>`bash
+export ANTHROPIC_API_KEY="sk-ant-..."
+export USE_COMPUTER_API_KEY="..."</p>
+
+<p>uv run harbor run \
+  -a persona-computer-1 \
+  -m anthropic/claude-sonnet-4-6 \
+  --ak persona_path=persona/datasets/matraix-persona-dev-sample/persona_0042.yaml \
+  -p application/tasks/example-computer-use-macos_calendar-reminder-handoff
+<code></code>`</p>
+
+<p>Or use the pre-configured recipe:</p>
+
+<p><code></code>`bash
+uv run harbor run -c configs/jobs/example-job-recipe/appSim-example-computer-use-macos-local.yaml
+<code></code>`</p>
+
+<h3 id="no-api-key-required-smoke-test">No API key required (smoke test)</h3>
+
+<p><code></code>`bash
+uv run harbor run -c configs/jobs/example-job-recipe/harbor-smoke-local.yaml
+<code></code>`</p>
+
+<p>This uses the <code>oracle</code> reference agent (not a real LLM) and is useful for verifying setup before using API keys.</p>
+
+<h2 id="related">Related</h2>
+
+<ul class="article-list">
+  <li>[Handbook](README.md) — docs home</li>
+  <li>[Project README](../README.md) — install and short overview</li>
+  <li>[Quickstart](quickstart.md) — terminal → batch → Playground</li>
+  <li>[Agents](environment/agents.md) — agent, model, and API-key matrix</li>
+  <li>[Web interaction](environment/web-interaction.md) — browser modes and web contracts</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#job-metadata">Job metadata</a></li>
+<li style="margin-left: 0.8rem;"><a href="#environment">Environment</a></li>
+<li style="margin-left: 0.8rem;"><a href="#agent">Agent</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task">Task</a></li>
+<li style="margin-left: 0.8rem;"><a href="#agent-and-model-pairing">Agent and model pairing</a></li>
+<li style="margin-left: 0.8rem;"><a href="#persona-model-resolution">Persona model resolution</a></li>
+<li style="margin-left: 0.8rem;"><a href="#supported-model-providers">Supported model providers</a></li>
+<li style="margin-left: 0.8rem;"><a href="#api-keys-and-environment-variables">API keys and environment variables</a></li>
+<li style="margin-left: 0.8rem;"><a href="#setting-api-keys">Setting API keys</a></li>
+<li style="margin-left: 0.8rem;"><a href="#example-playwright-web-task">Example: Playwright web task</a></li>
+<li style="margin-left: 0.8rem;"><a href="#example-browser-use-web-task">Example: browser-use web task</a></li>
+<li style="margin-left: 0.8rem;"><a href="#recipe-directories">Recipe directories</a></li>
+<li style="margin-left: 0.8rem;"><a href="#example-recipes">Example recipes</a></li>
+<li style="margin-left: 0.8rem;"><a href="#survey-chat-with-mode-auto-preferred">Survey / chat with Mode auto (preferred)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#web-browser-use-one-liner">Web (browser-use) one-liner</a></li>
+<li style="margin-left: 0.8rem;"><a href="#chatbot-host-auto-after-generating-a-recipe-or-manual">Chatbot host auto (after generating a recipe, or manual)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#force-docker-cli-survey-optional">Force Docker CLI survey (optional)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#computer-use-task-macos">Computer-use task (macOS)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#no-api-key-required-smoke-test">No API key required (smoke test)</a></li>
+<li><a href="#preferred-cli-path-mode-auto">Preferred CLI path (Mode **auto**)</a></li>
+<li><a href="#job-recipe-anatomy">Job recipe anatomy</a></li>
+<li><a href="#yaml-fields-reference">YAML fields reference</a></li>
+<li><a href="#persona-agents-and-models">Persona agents and models</a></li>
+<li><a href="#web-interaction-modes">Web interaction modes</a></li>
+<li><a href="#persona-profile-and-default-sample">Persona profile and default sample</a></li>
+<li><a href="#job-recipe-conventions">Job recipe conventions</a></li>
+<li><a href="#batch-job-generation">Batch job generation</a></li>
+<li><a href="#examples">Examples</a></li>
+<li><a href="#related">Related</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

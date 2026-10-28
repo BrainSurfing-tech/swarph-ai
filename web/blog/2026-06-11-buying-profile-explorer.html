@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buying Profile Explorer Implementation Plan | Technical Whitepaper</title>
+  <meta name="description" content="Buying Profile Explorer Implementation Plan — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-06-11-buying-profile-explorer.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Buying Profile Explorer Implementation Plan</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 11 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Buying Profile Explorer Implementation Plan</p>
+
+<p>> <strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+
+<p><strong>Goal:</strong> A paginated, sortable, account-number-filterable dashboard panel showing weekly buying profiles grouped account → user → product-line, 20 accounts/page, biggest-buyers-first.</p>
+
+<p><strong>Architecture:</strong> A pure param parser (<code>core/table_params.py</code>) clamps/whitelists page/sort/dir (the ORDER BY/OFFSET injection boundary). A FastAPI HTMX route pages the accounts (aggregating user rows), fetches all line rows for the page's accounts, attaches names + cluster labels, and groups in Python for a grouped/indented template with a filter box, sort controls, and a prev/next pager. Single-DB Postgres.</p>
+
+<p><strong>Tech Stack:</strong> Python 3.12, FastAPI + Jinja2 + HTMX, psycopg2/PostgreSQL, pytest.</p>
+
+<p><strong>Spec:</strong> <code>docs/superpowers/specs/2026-06-11-buying-profile-explorer-design.md</code></p>
+
+<p>---</p>
+
+<h2 id="file-structure">File structure</h2>
+
+<p>| File | Responsibility | New/Modify |
+|---|---|---|
+| <code>core/table_params.py</code> | Pure <code>parse_explorer_params(raw)</code> — clamp page, whitelist sort/dir, resolve safe column names. | Create |
+| <code>tests/test_table_params.py</code> | Hermetic tests for the parser. | Create |
+| <code>dashboard/app.py</code> | <code>buying_profile_explorer_panel</code> route (two queries + grouping). | Modify |
+| <code>dashboard/templates/_buying_profile_explorer.html</code> | Grouped table + filter + sort controls + pager. | Create |
+| <code>dashboard/templates/home.html</code> | Panel container in the Customers tab. | Modify |</p>
+
+<p>---</p>
+
+<h3 id="task-1-pure-param-parser">Task 1: Pure param parser</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>core/table_params.py</code></li>
+  <li>Test: <code>tests/test_table_params.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p>Create <code>tests/test_table_params.py</code>:</p>
+
+<p><code></code>`python
+from core.table_params import parse_explorer_params, PAGE_SIZE</p>
+
+<p>def test_defaults_on_empty():
+    p = parse_explorer_params({})
+    assert p["page"] == 0 and p["asort"] == "orders" and p["lsort"] == "rank"
+    assert p["dir"] == "desc" and p["country"] == "GB" and p["q"] is None
+    assert p["asort_col"] == "tot_orders" and p["lsort_col"] == "rank_freq"</p>
+
+<p>def test_clamps_and_whitelists():
+    p = parse_explorer_params({"page": "-4", "asort": "bogus", "lsort": "; DROP",
+                               "dir": "sideways", "country": "fr", "q": "  60320990 "})
+    assert p["page"] == 0                 # negative clamped
+    assert p["asort"] == "orders"         # unknown -> default
+    assert p["lsort"] == "rank"           # injection attempt -> default
+    assert p["dir"] == "desc"             # unknown -> default
+    assert p["country"] == "FR"
+    assert p["q"] == "60320990"           # trimmed</p>
+
+<p>def test_valid_values_pass_through():
+    p = parse_explorer_params({"page": "3", "asort": "units", "lsort": "orders", "dir": "asc"})
+    assert p["page"] == 3 and p["asort"] == "units" and p["asort_col"] == "tot_units"
+    assert p["lsort"] == "orders" and p["lsort_col"] == "orders_count" and p["dir"] == "asc"</p>
+
+<p>def test_column_names_are_safe_identifiers():
+    # every resolvable column is a bare identifier (no spaces/punctuation) -> ORDER BY safe
+    import re
+    for raw in ({"asort": k} for k in ("orders", "units", "users")):
+        assert re.fullmatch(r"[a-z_]+", parse_explorer_params(raw)["asort_col"])
+    for raw in ({"lsort": k} for k in ("rank", "orders", "units")):
+        assert re.fullmatch(r"[a-z_]+", parse_explorer_params(raw)["lsort_col"])
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_table_params.py -v</code>
+Expected: FAIL — <code>ModuleNotFoundError: No module named 'core.table_params'</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Implement</strong></li>
+</ul>
+
+<p>Create <code>core/table_params.py</code>:</p>
+
+<p><code></code>`python
+"""Pure param parsing for the Buying Profile Explorer table. Clamps page,
+whitelists sort keys + direction, and resolves them to SAFE column identifiers
+so the route never interpolates raw user input into ORDER BY / OFFSET."""
+from __future__ import annotations</p>
+
+<p>PAGE_SIZE = 20</p>
+
+<p># user-facing sort key -> safe SQL column identifier
+ACCOUNT_SORTS = {"orders": "tot_orders", "units": "tot_units", "users": "n_users"}
+LINE_SORTS = {"rank": "rank_freq", "orders": "orders_count", "units": "units_qty"}</p>
+
+<p>def parse_explorer_params(raw: dict) -> dict:
+    """<code>raw</code>: the request's query params (str-ish values). Returns a dict with
+    clamped/whitelisted values plus resolved <code>asort_col</code>/<code>lsort_col</code> identifiers."""
+    def _page(v) -> int:
+        try:
+            return max(0, int(v))
+        except (TypeError, ValueError):
+            return 0</p>
+
+<p>asort = raw.get("asort") if raw.get("asort") in ACCOUNT_SORTS else "orders"
+    lsort = raw.get("lsort") if raw.get("lsort") in LINE_SORTS else "rank"
+    direction = "asc" if raw.get("dir") == "asc" else "desc"
+    country = "FR" if str(raw.get("country") or "").upper() == "FR" else "GB"
+    q = (str(raw.get("q")).strip() if raw.get("q") is not None else "") or None
+    return {
+        "page": _page(raw.get("page")),
+        "asort": asort, "lsort": lsort, "dir": direction,
+        "country": country, "q": q,
+        "asort_col": ACCOUNT_SORTS[asort], "lsort_col": LINE_SORTS[lsort],
+    }
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_table_params.py -v</code>
+Expected: 4 passed.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/table_params.py tests/test_table_params.py
+git commit -m "feat(explorer): pure param parser (clamp/whitelist, injection guard)"
+<code></code>`</p>
+
+<h3 id="task-2-the-panel-route">Task 2: The panel route</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>dashboard/app.py</code> (add a new route; insert it right AFTER the <code>buying_profile_panel</code> handler — search for <code>@app.get("/panel/buying-profile", response_class=HTMLResponse)</code> and place the new route after that function's <code>return</code> / before the next <code>@app.get</code>)</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Add the route</strong></li>
+</ul>
+
+<p>Insert this complete handler immediately after the existing <code>buying_profile_panel</code> function in <code>dashboard/app.py</code>:</p>
+
+<p><code></code>`python
+@app.get("/panel/buying-profile-explorer", response_class=HTMLResponse)
+def buying_profile_explorer_panel(request: Request, q: str | None = None,
+        page: int = 0, asort: str = "orders", lsort: str = "rank",
+        dir: str = "desc", country: str = "GB") -> HTMLResponse:
+    """Paginated account -> user -> product-line buying-profile table. Pages by
+    account (20/page), biggest buyers first; filter by account number; sortable
+    line/account columns. Single-DB Postgres."""
+    from core.table_params import parse_explorer_params, PAGE_SIZE
+    p = parse_explorer_params({"q": q, "page": page, "asort": asort,
+                               "lsort": lsort, "dir": dir, "country": country})
+    direction = "ASC" if p["dir"] == "asc" else "DESC"
+    base = {"p": p, "page": p["page"], "accounts": [], "has_next": False,
+            "no_match": False, "empty": False, "snapshot_week": None}</p>
+
+<p>snap = crm.query("SELECT max(snapshot_week) AS w FROM buying_profile_weekly "
+                     "WHERE source_country=%s", (p["country"],))
+    snapshot_week = snap[0]["w"] if snap else None
+    if snapshot_week is None:
+        return templates.TemplateResponse(request, "_buying_profile_explorer.html",
+                                          {<em></em>base, "empty": True})
+    base["snapshot_week"] = snapshot_week</p>
+
+<p># Step 1 — page the accounts (aggregate user rows up to account)
+    if p["q"]:
+        acc_rows = crm.query(
+            """
+            SELECT u.account_number,
+                   SUM(b.orders_count) AS tot_orders, SUM(b.units_qty) AS tot_units,
+                   COUNT(DISTINCT b.scope_id) AS n_users
+            FROM buying_profile_weekly b
+            JOIN ecom_users u ON u.ecom_user_id=b.scope_id AND u.source_country=b.source_country
+            WHERE b.scope_type='user' AND b.source_country=%s AND b.snapshot_week=%s
+              AND (u.account_number=%s OR u.account_number=LPAD(%s,10,'0'))
+            GROUP BY u.account_number
+            """,
+            (p["country"], snapshot_week, p["q"], p["q"]))
+        has_next = False
+    else:
+        acc_rows = crm.query(
+            f"""
+            SELECT u.account_number,
+                   SUM(b.orders_count) AS tot_orders, SUM(b.units_qty) AS tot_units,
+                   COUNT(DISTINCT b.scope_id) AS n_users
+            FROM buying_profile_weekly b
+            JOIN ecom_users u ON u.ecom_user_id=b.scope_id AND u.source_country=b.source_country
+            WHERE b.scope_type='user' AND b.source_country=%s AND b.snapshot_week=%s
+            GROUP BY u.account_number
+            ORDER BY {p['asort_col']} {direction} NULLS LAST, u.account_number
+            LIMIT %s OFFSET %s
+            """,
+            (p["country"], snapshot_week, PAGE_SIZE + 1, p["page"] * PAGE_SIZE))
+        has_next = len(acc_rows) > PAGE_SIZE
+        acc_rows = acc_rows[:PAGE_SIZE]</p>
+
+<p>if not acc_rows:
+        return templates.TemplateResponse(request, "_buying_profile_explorer.html",
+                                          {<em></em>base, "no_match": bool(p["q"])})
+    acc_nos = [r["account_number"] for r in acc_rows]</p>
+
+<p>meta = {r["account_number"]: r for r in crm.query(
+        """
+        SELECT a.account_number, a.name, l.name AS cluster_name
+        FROM ecom_accounts a
+        LEFT JOIN account_firmographic_community c
+          ON c.account_number=a.account_number AND c.source_country=a.source_country
+        LEFT JOIN firmographic_community_labels l
+          ON l.community_id=c.community_id AND l.source_country=c.source_country
+        WHERE a.account_number = ANY(%s) AND a.source_country=%s
+        """,
+        (acc_nos, p["country"]))}</p>
+
+<p># Step 2 — all line rows for these accounts
+    lines = crm.query(
+        f"""
+        SELECT u.account_number, b.scope_id AS ecom_user_id,
+               u.user_email, u.user_name,
+               b.product_reference, b.rank_freq, b.rank_qty,
+               b.orders_count, b.units_qty, pr.product_description
+        FROM buying_profile_weekly b
+        JOIN ecom_users u ON u.ecom_user_id=b.scope_id AND u.source_country=b.source_country
+        LEFT JOIN ecom_products pr ON pr.product_reference=b.product_reference
+                                  AND pr.source_country=b.source_country
+        WHERE b.scope_type='user' AND b.source_country=%s AND b.snapshot_week=%s
+          AND u.account_number = ANY(%s)
+        ORDER BY {p['lsort_col']} {direction} NULLS LAST, b.product_reference
+        """,
+        (p["country"], snapshot_week, acc_nos))</p>
+
+<p># group account -> user -> lines (line order preserved from SQL)
+    by_acc: dict = {}
+    for ln in lines:
+        users = by_acc.setdefault(ln["account_number"], {})
+        u = users.setdefault(ln["ecom_user_id"],
+                             {"user_email": ln["user_email"],
+                              "user_name": ln["user_name"], "lines": []})
+        u["lines"].append(ln)</p>
+
+<p>accounts = []
+    for r in acc_rows:                     # preserve account page order
+        an = r["account_number"]
+        m = meta.get(an, {})
+        users = [{"ecom_user_id": uid, <em></em>uv} for uid, uv in by_acc.get(an, {}).items()]
+        users.sort(key=lambda uu: -sum((l["orders_count"] or 0) for l in uu["lines"]))
+        accounts.append({"account_number": an, "name": m.get("name"),
+                         "cluster_name": m.get("cluster_name"),
+                         "tot_orders": r["tot_orders"], "tot_units": r["tot_units"],
+                         "n_users": r["n_users"], "users": users})</p>
+
+<p>return templates.TemplateResponse(request, "_buying_profile_explorer.html",
+                                      {<em></em>base, "accounts": accounts, "has_next": has_next})
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Parse-check app.py</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -c "import ast; ast.parse(open(r'dashboard/app.py',encoding='utf-8').read()); print('app.py OK')"</code>
+Expected: <code>app.py OK</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add dashboard/app.py
+git commit -m "feat(explorer): buying-profile-explorer route (paged accounts + grouped lines)"
+<code></code>`</p>
+
+<h3 id="task-3-template-nav">Task 3: Template + nav</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>dashboard/templates/_buying_profile_explorer.html</code></li>
+  <li>Modify: <code>dashboard/templates/home.html</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Create the template</strong></li>
+</ul>
+
+<p>Create <code>dashboard/templates/_buying_profile_explorer.html</code>:</p>
+
+<p><code></code>`html
+<style>
+.bpe-bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+.bpe-bar input[type=text]{ padding:6px 8px; min-width:240px; }
+.bpe-hint { color:#888; font-style:italic; }
+.bpe-acc { border:1px solid #e3e3e3; border-radius:6px; margin-bottom:10px; }
+.bpe-acc-h { background:#f6f7f9; padding:7px 10px; font-weight:700; }
+.bpe-acc-h .bpe-meta { color:#888; font-weight:400; font-size:0.85em; }
+.bpe-user { padding:4px 10px 8px 22px; }
+.bpe-user h5 { margin:6px 0 3px; font-size:0.88em; }
+.bpe-user .bpe-uid { color:#aaa; font-weight:400; }
+.bpe-tbl { border-collapse:collapse; width:100%; }
+.bpe-tbl th, .bpe-tbl td { border-bottom:1px solid #f0f0f0; padding:3px 8px; font-size:0.85em; text-align:left; }
+.bpe-tbl td.num { text-align:right; font-variant-numeric:tabular-nums; }
+.bpe-tbl th a { color:#555; text-decoration:none; }
+.bpe-pager { display:flex; gap:10px; align-items:center; margin-top:10px; }
+.bpe-pager button { padding:4px 10px; }
+.bpe-pager button[disabled]{ opacity:.4; cursor:default; }
+</style></p>
+
+<p>{% macro plink(label, key, val) -%}
+  <a href="#" hx-get="/panel/buying-profile-explorer?q={{ p.q or '' }}&page=0&asort={{ p.asort }}&lsort={{ val if key=='lsort' else p.lsort }}&dir={{ 'asc' if p.dir=='desc' else 'desc' }}&country={{ p.country }}"
+     hx-target="#panel-buying-profile-explorer" hx-swap="innerHTML">{{ label }}</a>
+{%- endmacro %}</p>
+
+<p><form class="bpe-bar" hx-get="/panel/buying-profile-explorer"
+      hx-target="#panel-buying-profile-explorer" hx-swap="innerHTML"
+      onsubmit="event.preventDefault(); htmx.trigger(this, 'submit')">
+  <input type="text" name="q" value="{{ p.q or '' }}" placeholder="filter by account number…" autocomplete="off">
+  <input type="hidden" name="page" value="0">
+  <label>sort accounts</label>
+  <select name="asort">
+    <option value="orders" {% if p.asort=='orders' %}selected{% endif %}>total orders</option>
+    <option value="units" {% if p.asort=='units' %}selected{% endif %}>total units</option>
+    <option value="users" {% if p.asort=='users' %}selected{% endif %}>users</option>
+  </select>
+  <select name="lsort">
+    <option value="rank" {% if p.lsort=='rank' %}selected{% endif %}>line: rank</option>
+    <option value="orders" {% if p.lsort=='orders' %}selected{% endif %}>line: orders</option>
+    <option value="units" {% if p.lsort=='units' %}selected{% endif %}>line: units</option>
+  </select>
+  <select name="dir">
+    <option value="desc" {% if p.dir=='desc' %}selected{% endif %}>desc</option>
+    <option value="asc" {% if p.dir=='asc' %}selected{% endif %}>asc</option>
+  </select>
+  <select name="country">
+    <option value="GB" {% if p.country=='GB' %}selected{% endif %}>GB</option>
+    <option value="FR" {% if p.country=='FR' %}selected{% endif %}>FR</option>
+  </select>
+  <button type="submit">Apply</button>
+</form></p>
+
+<p>{% if empty %}
+  <div class="bpe-hint">No buying-profile snapshot computed yet.</div>
+{% elif no_match %}
+  <div class="bpe-hint">No account found for "{{ p.q }}" in {{ p.country }}.</div>
+{% elif not accounts %}
+  <div class="bpe-hint">No accounts on this page.</div>
+{% else %}
+  <div class="bpe-hint">Snapshot week of {{ snapshot_week }} · totals are over each user's stored Top-10 lines (a ranking proxy, not full account revenue).</div>
+  {% for a in accounts %}
+  <div class="bpe-acc">
+    <div class="bpe-acc-h">
+      {{ a.account_number }} — {{ a.name or '(no name)' }}
+      <span class="bpe-meta">
+        {% if a.cluster_name %}[{{ a.cluster_name }}] {% endif %}
+        · {{ a.n_users }} user(s) · {{ a.tot_orders }} orders · {{ a.tot_units | round(0) | int }} units</span>
+    </div>
+    {% for u in a.users %}
+    <div class="bpe-user">
+      <h5>{{ u.user_name or u.user_email or 'user' }} <span class="bpe-uid">{{ u.ecom_user_id }}</span></h5>
+      <table class="bpe-tbl">
+        <thead><tr>
+          <th>#</th><th>Product</th>
+          <th>{{ plink('Orders','lsort','orders') }}</th>
+          <th>{{ plink('Units','lsort','units') }}</th>
+        </tr></thead>
+        <tbody>
+        {% for l in u.lines %}
+          <tr>
+            <td>{{ l.rank_freq }}</td>
+            <td>{{ (l.product_description or l.product_reference)[:54] }}<span class="bpe-meta"> · {{ l.product_reference }}</span></td>
+            <td class="num">{{ l.orders_count }}</td>
+            <td class="num">{{ l.units_qty | round(0) | int }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}</p>
+
+<p>{% if not p.q %}
+  <div class="bpe-pager">
+    <button {% if page == 0 %}disabled{% endif %}
+            hx-get="/panel/buying-profile-explorer?q=&page={{ page-1 }}&asort={{ p.asort }}&lsort={{ p.lsort }}&dir={{ p.dir }}&country={{ p.country }}"
+            hx-target="#panel-buying-profile-explorer" hx-swap="innerHTML">&larr; Prev</button>
+    <span class="bpe-meta">page {{ page + 1 }}</span>
+    <button {% if not has_next %}disabled{% endif %}
+            hx-get="/panel/buying-profile-explorer?q=&page={{ page+1 }}&asort={{ p.asort }}&lsort={{ p.lsort }}&dir={{ p.dir }}&country={{ p.country }}"
+            hx-target="#panel-buying-profile-explorer" hx-swap="innerHTML">Next &rarr;</button>
+  </div>
+  {% endif %}
+{% endif %}
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Register the panel in home.html</strong></li>
+</ul>
+
+<p>In <code>dashboard/templates/home.html</code>, find the Buying Profile panel block inside the Customers section (search for <code>id="buying-profile"</code>). Immediately AFTER its closing <code></div></code> (the one closing <code><div class="panel full-width" id="buying-profile"></code>), insert:</p>
+
+<p><code></code>`html
+            <div class="panel full-width" id="buying-profile-explorer">
+                <h2>
+                    Buying Profile Explorer &mdash; all accounts, grouped by user &amp; product (paginated)
+                    <button class="refresh" hx-get="/panel/buying-profile-explorer" hx-target="#panel-buying-profile-explorer">&#x21bb;</button>
+                </h2>
+                <div id="panel-buying-profile-explorer" data-panel="buying-profile-explorer"></div>
+            </div>
+<code></code>`
+(If the exact <code>id="buying-profile"</code> panel block boundaries are unclear, place this new panel anywhere within the <code><section class="tab-page" data-tab="customers"></code> block, as a sibling <code><div class="panel full-width"></code>.)</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Parse-check + commit</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -c "print('templates are not python — skipping parse')"</code> (templates are Jinja; no Python parse). Confirm the two files were saved.</p>
+
+<p><code></code>`bash
+git add dashboard/templates/_buying_profile_explorer.html dashboard/templates/home.html
+git commit -m "feat(explorer): grouped table template + Customers-tab nav"
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Live verify</strong> (controller/Pierre — service restart is gated)</li>
+</ul>
+
+<p>Restart: <code>nssm restart LeadContagionDashboard</code>. Then in the dashboard → Customers → Buying Profile Explorer: confirm accounts list biggest-first, each shows users → product lines, the account filter narrows to one account, the Orders/Units column links re-sort lines, and Prev/Next paginate.</p>
+
+<p>---</p>
+
+<h2 id="self-review">Self-review</h2>
+
+<ul class="article-list">
+  <li><strong>Spec coverage:</strong> grain account→user→line → Task 2 grouping + Task 3 template; paginate-by-account 20/page → Task 2 (<code>LIMIT PAGE_SIZE+1 OFFSET</code>) + Task 3 pager; biggest-buyers-first default → <code>asort</code> default <code>orders</code> desc; account filter → <code>q</code> branch; sortable line/account columns → <code>asort</code>/<code>lsort</code> whitelist + column-header links; own panel → Task 3 nav; injection guard → Task 1 parser (whitelisted <code>asort_col</code>/<code>lsort_col</code>); totals caveat → template hint line.</li>
+  <li><strong>Injection:</strong> only whitelisted identifiers (<code>tot_orders</code>/<code>tot_units</code>/<code>n_users</code>/<code>rank_freq</code>/<code>orders_count</code>/<code>units_qty</code>) and <code>ASC</code>/<code>DESC</code> are interpolated into SQL; all other values parameterized. Task 1 test asserts the resolved columns are bare identifiers.</li>
+  <li><strong>Single-DB:</strong> every query hits Postgres only (<code>buying_profile_weekly</code>, <code>ecom_users</code>, <code>ecom_accounts</code>, <code>account_firmographic_community</code>, <code>firmographic_community_labels</code>, <code>ecom_products</code>). No cross-DB join.</li>
+  <li><strong>Type consistency:</strong> parser returns <code>page/asort/lsort/dir/country/q/asort_col/lsort_col</code>; the route reads exactly those keys; template reads <code>p.q/p.asort/p.lsort/p.dir/p.country</code> and <code>accounts[].users[].lines[]</code> fields produced by the route.</li>
+  <li><strong>has_next:</strong> computed by fetching <code>PAGE_SIZE+1</code> and trimming — correct end-of-list detection without a COUNT.</li>
+</ul>
+
+<h2 id="notes-for-the-implementer">Notes for the implementer</h2>
+
+<ul class="article-list">
+  <li><code>buying_profile_weekly</code> stores each user's Top-N lines only, so account totals here are a ranking proxy (stated in the UI). That's intentional — do not try to recompute full totals from <code>ecom_order_lines</code> (cross-DB).</li>
+  <li>The account filter <code>q</code> path returns ALL matching accounts (usually one) with no pager — that's intended.</li>
+  <li>The <code>dir</code> flip in the <code>plink</code> macro lets a header click toggle asc/desc on the line columns; account sort uses the <code>dir</code> select.</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#task-1-pure-param-parser">Task 1: Pure param parser</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-2-the-panel-route">Task 2: The panel route</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-3-template-nav">Task 3: Template + nav</a></li>
+<li><a href="#file-structure">File structure</a></li>
+<li><a href="#self-review">Self-review</a></li>
+<li><a href="#notes-for-the-implementer">Notes for the implementer</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OMEGA (hedge-fund-mcp) — Release Highlights & Notes | Technical Whitepaper</title>
+  <meta name="description" content="OMEGA (hedge-fund-mcp) — Release Highlights & Notes — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/hedge-fund-mcp-RELEASE_HIGHLIGHTS.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ MetaEdge Security</div>
+        <h1 class="article-title">OMEGA (hedge-fund-mcp) — Release Highlights & Notes</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># OMEGA (hedge-fund-mcp) — Release Highlights & Notes</p>
+
+<p>> <strong>RESTRICTED — scoped trading-brain only (droplet / lab / science-claude). NOT for the mesh-wide timeline or general gbrain.</strong>
+> Provenance: distilled by science-claude from the conventional-commit history (<code>feat()/fix()/perf()</code> spine), 2026-03-19 → 2026-06-26, 1,706 commits / 349 feature commits, no git tags → grouped by phase-arc/month. Each marquee line carries its commit SHA. Curated (judgment), not exhaustive.</p>
+
+<p>---</p>
+
+<h2 id="2026-03-genesis-pre-conventional-commits-from-git-history-backfill">2026-03 — Genesis (pre-conventional-commits; from git-history backfill)</h2>
+
+<p><strong>The fund is born.</strong> An MCP-architecture hedge-fund orchestrator, seeded as a multi-agent swarm under an Omega Boss.</p>
+
+<ul class="article-list">
+  <li><strong>Genesis</strong> — MCP orchestrator seeded (<code>3dc7e315d</code>)</li>
+  <li><strong>Worker swarm v0</strong> — first multi-agent swarm: Alpha/Delta/Phi/Eclipse/Mercury under an Omega Boss (<code>054b1edfd</code>)</li>
+  <li><strong>Boss on LangGraph</strong> — Boss drives strategy + position lifecycle; Theta reconciles broker→Hub (<code>7f5524f52</code>)</li>
+  <li><strong>Unified Storage Hub</strong> — single canonical state layer (<code>6dda1c8ba</code>)</li>
+  <li><strong>3-DB architecture</strong> — Neo4j KG + TimescaleDB dual-write of every swarm output (<code>fca9f907a</code>)</li>
+  <li><strong>Boss v5.0</strong> — 6-agent integration; Boss learns <em>when</em> to summon the Adversarial Council (<code>a482b54d6</code>)</li>
+</ul>
+
+<p>---</p>
+
+<h2 id="2026-04-the-build-out-219-commits-the-foundational-month">2026-04 — The Build-Out (219 commits — the foundational month)</h2>
+
+<p><strong>HIGHLIGHTS</strong>
+<ul class="article-list">
+  <li><strong>Adversarial Council v4</strong> — the decision spine: two-tier parallel positions + a 3-judge panel with evidence-sheet summarizers; by month-end, a <strong>mandatory Council verdict for all BUYs</strong> and the legacy Debate Room retired.</li>
+  <li><strong>The Signal Audit campaign</strong> — the rigorous self-examination that would later justify killing composite: per-signal entry attribution, <strong>per-agent score-distribution analysis</strong>, and a <strong>composite-blind ablation</strong> (<code>COUNCIL_BLIND_TO_COMPOSITE</code>) — the swarm measuring whether its own composite score carried any P&L.</li>
+  <li><strong>All 7 agents go "North Star"</strong> — Sentinel, Contagion, Eclipse, Phi, Delta, Alpha, Gamma each publish a structured signal to the Hub, behind a central version registry.</li>
+  <li><strong>Phase-19 math substrate</strong> — PMFG topology backbone; <strong>Hawkes</strong> (per-regime kernel fit, nightly MLE cron, λ_max feeding Sentinel as systemic-risk context); <strong>Hyperbolic</strong> (Lorentz-model PMFG embedding, first 754-ticker fit).</li>
+  <li><strong>Gamma v5</strong> — trap-detector lens (setup tags + trap_score), 3D axes (duration / velocity / analog), COT macro cross-check.</li>
+</ul></p>
+
+<p><strong>NOTES</strong>
+<ul class="article-list">
+  <li><em>Council/decision</em>: v4 two-tier + 3-judge panel (<code>7e3dd40</code>); composite-blind ablation (<code>4c3f864</code>); mandatory verdict + retire Debate Room (<code>73d5116</code>); signal-interpretation playbook injected into debate prompts.</li>
+  <li><em>Audit</em>: per-agent score distribution (<code>9522f94</code>); Delta/Eclipse/Gamma standalone attribution sweeps; V5-only regime re-segmentation; per-signal entry attribution.</li>
+  <li><em>Math libs</em>: Hyperbolic Lorentz PMFG trainer (<code>1525feb</code>); Hawkes Sentinel λ_max (<code>f31f48a</code>); PMFG shared topology backbone.</li>
+  <li><em>Agents</em>: 7/7 structured-signal Hub publication; Gamma v5 trap-detector + COT amplification; central version registry.</li>
+  <li><em>Ops</em>: queue-backed + event-driven triage with Discord regression pings; Nemotron SLM client; subprocess token-usage → TSDB.</li>
+</ul></p>
+
+<p>---</p>
+
+<h2 id="2026-05-consolidation-16-commits-quiet">2026-05 — Consolidation (16 commits — quiet)</h2>
+
+<p><strong>HIGHLIGHTS</strong> — a slower month: shadow-mode alt-data + dashboard/observability polish.</p>
+
+<p><strong>NOTES</strong>
+<ul class="article-list">
+  <li><em>Alt-data</em>: top-shareholders shadow signal via Quiver <code>/live/topshareholders</code> + daily shadow-mode cron.</li>
+  <li><em>Dashboard</em>: worker→model mapping in the LLM Models panel.</li>
+  <li><em>Lab-service</em>: meta-edge-surfer + smoke-test findings landed.</li>
+</ul></p>
+
+<p>---</p>
+
+<h2 id="2026-06-composite-elimination-risk-tiers-the-0-llm-arc-114-commits">2026-06 — Composite Elimination, Risk Tiers & the $0 LLM Arc (114 commits)</h2>
+
+<p><strong>HIGHLIGHTS</strong>
+<ul class="article-list">
+  <li><strong>★ Composite ELIMINATED as a decision input — the Council is the sole gate</strong> (<code>253a408</code>). The payoff of April's audit: composite showed ~0 P&L correlation, so it's logged for audit only, never gates a trade. Purged from the LLM reasoning + orchestrator prompts too.</li>
+  <li><strong>Risk Manager v3 + the risk tiers</strong> — entry-time per-trade-type / per-risk-class diversity caps (<code>c25bf72</code>); a vol-governor gross-exposure ceiling; strategy-labeled trades with Kappa hold-to-turn; DCA staged-entry; equity-vol regime + sector-aware sizing gate. All shadow-first.</li>
+  <li><strong>New selection edges</strong> — the <strong>value-compounder</strong> screener (the "mispriced small-cap with a filing" idiosyncratic edge, <code>d60817f</code>), regime-adaptive screener-specialty allocation, an accumulation-floor detector, and a dealer-GEX tracker.</li>
+  <li><strong>The <span class="math-inline">\(0 subscription-LLM arc</strong> — a subscription Gemini function-calling client (<code>4f98cb4</code>) + OIDC token-keeper + a 5-bucket model-failover chain; and Council <strong>resilience</strong>: a defender that walks Claude→Grok→GPT on failure (<code>cbe8082</code>), judge-reorder preferring subscription judges before metered. Trading stays the only\)</span>-billed surface.</li>
+  <li><strong>Token observability</strong> — token_probe, funnel_baseline, waste_detector, render_funnel, daily token_waste_scan — full per-agent token funnel instrumentation.</li>
+  <li><strong>Infra</strong> — DO→KS3 migration (the OVH cutover); Massive transport circuit-breaker + health endpoint; a proper per-position broker-vs-journal reconciler; Rho Portfolio Overseer; grok narrative-risk consumer; the Watchtower daily-newsletter digest.</li>
+</ul></p>
+
+<p><strong>NOTES</strong>
+<ul class="article-list">
+  <li><em>Decision-core</em>: composite elimination (<code>253a408</code>); purge composite from LLM reasoning (#34).</li>
+  <li><em>Risk</em>: risk-manager-v3 diversity caps (<code>c25bf72</code>); vol-governor; sector-aware sizing gate; DCA staged execution; equity-vol regime.</li>
+  <li><em>Selection</em>: value-compounder screener+injector (<code>d60817f</code>); regime-adaptive specialty allocation; accumulation-floor + dealer-GEX shadow detectors.</li>
+  <li><em>LLM/cost</em>: gemini-sub FC client (<code>4f98cb4</code>); council resilient defender Claude→Grok→GPT (<code>cbe8082</code>); judge-reorder subscription-first; 5-bucket failover; $0 subscription token_usage rows.</li>
+  <li><em>Observability</em>: token_probe / funnel_baseline / waste_detector / render_funnel / token_waste_scan; omega-llm token-funnel tab.</li>
+  <li><em>Infra</em>: DO→KS3 migration; Massive circuit-breaker + /api/massive-health; broker-vs-journal reconciler; Rho overseer; narrative-risk Inc0; watchtower digest.</li>
+  <li><em>Audit (continuing)</em>: cohort P&L attribution; council_judge_efficacy v2 (judge-disagreement→outcome, actual_model-keyed).</li>
+</ul></p>
+
+<p>---</p>
+
+<p><em>Distilled by science-claude (research/synthesis seat), 2026-06-26. Method = git-history release digest (no packaged tool — defined for this run). Hand-off to lab for the scoped trading-brain index; held until the droplet/lab/science allowlist locks.</em></p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#2026-03-genesis-pre-conventional-commits-from-git-history-backfill">2026-03 — Genesis (pre-conventional-commits; from git-history backfill)</a></li>
+<li><a href="#2026-04-the-build-out-219-commits-the-foundational-month">2026-04 — The Build-Out (219 commits — the foundational month)</a></li>
+<li><a href="#2026-05-consolidation-16-commits-quiet">2026-05 — Consolidation (16 commits — quiet)</a></li>
+<li><a href="#2026-06-composite-elimination-risk-tiers-the-0-llm-arc-114-commits">2026-06 — Composite Elimination, Risk Tiers & the $0 LLM Arc (114 commits)</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

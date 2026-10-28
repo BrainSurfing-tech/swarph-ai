@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>swarph memory graph traversal — Design Spec | Technical Whitepaper</title>
+  <meta name="description" content="swarph memory graph traversal — Design Spec — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-07-16-swarph-memory-graph-traversal-design.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">swarph memory graph traversal — Design Spec</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 6 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># swarph memory graph traversal — Design Spec</p>
+
+<p><strong>Board card #42</strong> · Sub-project B of the OKF traversal brain
+([parent spec](../../../../swarph-shim/docs/superpowers/specs/2026-07-15-okf-traversal-brain-design.md))
+<strong>Date:</strong> 2026-07-16 · <strong>Target:</strong> swarph-cli (public PyPI, stdlib-only)</p>
+
+<h2 id="thesis">Thesis</h2>
+
+<p><code>swarph memory links</code> gains <strong>backlinks</strong> and <strong>multi-hop, directional</strong> graph
+traversal over the OKF knowledge corpus. The graph is derived <strong>file-native</strong>
+from page <em>bodies</em> (the <code>[[links]]</code> an author actually wrote), using gbrain only
+as the page store (<code>get_page</code>/<code>list_pages</code> over MCP) and the shared
+<code>okf_links.parse_okf_links</code> parser as the edge extractor. No gbrain change, no
+brain-data mutation, no deploy gate.</p>
+
+<h2 id="why-file-native-the-load-bearing-finding">Why file-native (the load-bearing finding)</h2>
+
+<p>The gbrain graph tools (<code>traverse_graph</code>, <code>get_backlinks</code>, <code>get_links</code>) are
+already live MCP tools on the prod brain — but lab's brain has <strong><code>link_count: 0</code></strong>.
+The <code>[[links]]</code> in all 198 pages were never reconciled into gbrain's edge table
+(gbrain's <code>markdown</code>/<code>wikilink-resolved</code> reconciliation never ran on our corpus).
+So the links exist <strong>only in the page bodies</strong>. Deriving the graph from bodies
+therefore both (a) works today against the real corpus, and (b) matches the
+parent spec's "file-native for shippability" thesis — it ships to any gbrain
+regardless of whether its edge index is populated.</p>
+
+<p>Populating gbrain's edge index is real, mesh-wide value (it would light up
+<code>traverse_graph</code>/<code>get_backlinks</code> for brain-ask and the future walker too), but
+it is a <strong>separate, gated, brain-health task</strong> — see <em>Decoupled follow-up</em> below.
+<code>traverse_graph</code> remains a documented optional fast-path for a future revision
+once edges exist; it is out of scope here.</p>
+
+<h2 id="scope">Scope</h2>
+
+<p><strong>In scope (this spec):</strong>
+1. Migrate <code>swarph memory</code>'s link parsing to the shared <code>okf_links.parse_okf_links</code>
+   (retire the weaker local <code>parse_links</code>; closes the duplication the timeline
+   sub-project explicitly deferred).
+2. File-native traversal engine in <code>memory.py</code>: forward BFS, reverse (backlinks)
+   index, directional + depth-bounded, cycle-safe, depth-capped.
+3. New flags on <code>swarph memory links <slug></code>: <code>--backlinks</code>, <code>--depth N</code>,
+   <code>--direction in|out|both</code>. Default (no new flags) = today's behaviour exactly.
+4. <code>--json</code> emits the parent spec's OKF <strong>edge</strong> records.
+5. Extend the <code>swarph_memory_navigate</code> MCP tool with <code>backlinks</code>/<code>traverse</code> ops
+   (whitelisted, fail-safe → <code>[]</code>).
+6. README §memory update + version bump <code>0.31.0 → 0.32.0</code>.</p>
+
+<p><strong>Out of scope:</strong> any gbrain change; wiring to <code>traverse_graph</code>/<code>get_backlinks</code>;
+the gbrain edge backfill; the Phase-2 <code>swarph brain</code> unified walker (sub-project C).</p>
+
+<h2 id="architecture">Architecture</h2>
+
+<p><code></code>`
+swarph memory links <slug> [--backlinks] [--depth N] [--direction in|out|both] [--json]
+        │
+        ▼
+  memory.traverse(url, token, slug, depth, direction)      ← file-native BFS
+        │  edges via okf_links.parse_okf_links(page body)
+        ├── direction=out  → BFS following forward [[links]]; fetches only reachable pages
+        ├── direction=in   → reverse index (one full-corpus scan) then BFS backward
+        └── direction=both → union of the two
+        │
+        ▼
+  gbrain (page store): list_pages / get_page over MCP  (memory._mcp_call, unchanged transport)
+<code></code>`</p>
+
+<p>Nothing new touches the network transport — <code>memory._mcp_call</code> / <code>brain_ask</code>
+endpoint+token resolution are reused verbatim. The only new I/O pattern is the
+<strong>corpus scan</strong> needed for reverse (<code>in</code>/<code>both</code>) traversal.</p>
+
+<h2 id="components-interfaces">Components & interfaces</h2>
+
+<p>All additions live in <code>src/swarph_cli/commands/memory.py</code> (the file this feature
+belongs to; it stays focused — one verb, one responsibility). Signatures:</p>
+
+<ul class="article-list">
+  <li><code>parse_links(content)</code> — <strong>retire</strong> the local wiki-only regex; re-export</li>
+</ul>
+  <code>okf_links.parse_okf_links</code> under the name for any importer, and call the
+  shared parser everywhere. (One grammar, pinned, tested — no second copy.)
+<ul class="article-list">
+  <li><code>_all_page_slugs(url, token) -> list[str]</code> — every page slug via <code>list_pages</code></li>
+</ul>
+  with a high limit (single call). Used only by reverse traversal.
+<ul class="article-list">
+  <li><code>_forward_targets(url, token, slug) -> list[str]</code> — <code>parse_okf_links</code> of one</li>
+</ul>
+  page's body (<code>get_page(slug).content</code>). The out-edge primitive.
+<ul class="article-list">
+  <li><code>_reverse_index(url, token) -> dict[str, list[str]]</code> — full-corpus scan:</li>
+</ul>
+  for every page, map each forward target → list of pages linking to it. One
+  unreadable/missing page is <strong>skipped</strong>, never aborts the scan. The in-edge
+  source of truth.
+<ul class="article-list">
+  <li><code>traverse(url, token, slug, depth, direction) -> list[tuple[str, str, int]]</code> —</li>
+</ul>
+  BFS returning ordered <code>(from, to, hop)</code> edges, cycle-safe (visited set),
+  <code>depth</code> clamped to <code>[1, DEPTH_CAP]</code> (<code>DEPTH_CAP = 10</code>, mirroring gbrain's own
+  <code>TRAVERSE_DEPTH_CAP</code>). <code>direction</code> ∈ <code>{"out","in","both"}</code>.
+<ul class="article-list">
+  <li><code>backlinks(url, token, slug) -> list[str]</code> — sugar: single-hop <code>in</code> targets</li>
+</ul>
+  (the pages linking to <code>slug</code>), order-preserving.
+<ul class="article-list">
+  <li><code>links(url, token, slug) -> list[str]</code> — unchanged public behaviour</li>
+</ul>
+  (single-hop forward), now via the shared parser.
+<ul class="article-list">
+  <li><code>_as_okf_edge(frm, to, direction, hop) -> dict</code> — the OKF edge record (below).</li>
+</ul>
+
+<h3 id="cli-flag-semantics-swarph-memory-links">CLI flag semantics (<code>swarph memory links</code>)</h3>
+
+<ul class="article-list">
+  <li><code>--depth N</code> (int, default <code>1</code>) — hops. Clamped to <code>[1, 10]</code>.</li>
+  <li><code>--direction {out,in,both}</code> (default <code>out</code>).</li>
+  <li><code>--backlinks</code> (flag) — sugar for <code>--direction in</code>. <strong>Rejected</strong> (exit 2, clear</li>
+</ul>
+  message) if combined with an explicit <code>--direction</code>, to avoid an ambiguous
+  request.
+<ul class="article-list">
+  <li>No new flags → <code>depth=1, direction=out</code> → <strong>byte-for-byte the current output</strong>.</li>
+  <li>Human output: discovered target slugs, order-preserving de-dupe, one per line</li>
+</ul>
+  (unchanged shape). For <code>both</code>, out-edges then in-edges.
+<ul class="article-list">
+  <li><code>--json</code> → a JSON array of OKF edge records.</li>
+</ul>
+
+<h3 id="okf-edge-record-json">OKF edge record (<code>--json</code>)</h3>
+
+<p>Mirrors the parent spec's node/edge schema and the timeline sub-project's
+<code>_as_okf</code> style (hemisphere-tagged, direction-carrying — the exact keys the
+Phase-2 walker will read):</p>
+
+<p><code></code>`json
+{"type": "edge", "hemisphere": "knowledge", "from": "<slug>",
+ "to": "<target-slug>", "rel": "links", "direction": "out", "hop": 1}
+<code></code>`</p>
+
+<p><code>direction</code> is <code>"out"</code> or <code>"in"</code> per edge (a <code>both</code> traversal yields a mix).
+This changes the <code>links --json</code> shape from the current flat slug-array to edge
+records — an intentional, documented enrichment for a young (0.30-era) command
+with no external consumers; noted in the README changelog line.</p>
+
+<h2 id="reverse-scan-cost-no-silent-caps">Reverse-scan cost (no silent caps)</h2>
+
+<p><code>--backlinks</code> / <code>--direction in|both</code> perform <strong>one full-corpus scan</strong> —
+<code>list_pages</code> + <code>get_page</code> per page (≈198 calls today). This is O(N) per
+invocation and correct; it is <em>not</em> cached across invocations. The README §memory
+note states this plainly and points at the (separate) gbrain edge-index backfill
+as the eventual O(1) fast-path. <code>out</code>-only traversal never scans the corpus — it
+fetches only pages reachable from <code>slug</code> within <code>depth</code>.</p>
+
+<h2 id="error-handling-fail-safe-contract-unchanged">Error handling (fail-safe contract, unchanged)</h2>
+
+<ul class="article-list">
+  <li>CLI: every new path stays inside the existing <code>try/except</code> → stderr note +</li>
+</ul>
+  non-zero exit, <strong>never a traceback</strong> (matches <code>get</code>/<code>list</code>/<code>links</code>).
+<ul class="article-list">
+  <li>Corpus scan: a single page that 404s or fails to parse is skipped; the scan</li>
+</ul>
+  continues and returns a partial graph rather than failing the command.
+<ul class="article-list">
+  <li>MCP: <code>_memory_navigate</code> swallows everything to <code>[]</code> (host never sees a raise).</li>
+</ul>
+  The new <code>backlinks</code>/<code>traverse</code> ops are <strong>explicitly whitelisted</strong>; an
+  unrecognised <code>op</code> returns <code>[]</code> (same guard the timeline navigate op added).
+
+<h2 id="testing-tdd">Testing (TDD)</h2>
+
+<p>Unit, stdlib <code>unittest</code> + the repo's pytest runner (<code>venv/bin/python -m pytest</code>),
+gbrain stubbed via a fake <code>_mcp_call</code> (no network). Cases:
+<ul class="article-list">
+  <li>shared-parser migration: <code>[[slug|alias]]</code>→<code>slug</code>, <code>[[slug#h]]</code>→<code>slug</code>, <code>![[embed]]</code>, <code>![text](path.md)</code> all resolve (proves the upgrade over the old wiki-only regex).</li>
+  <li><code>traverse</code> out depth-1 == <code>links</code> (back-compat).</li>
+
+  <li>out depth-2 BFS follows the frontier; depth clamp at 10; <strong>cycle</strong> (A↔B) terminates.</li>
+  <li>reverse index: backlinks of a target = every page whose body links it; a page</li>
+</ul>
+  that fails to fetch is skipped, scan still returns.
+<ul class="article-list">
+  <li><code>both</code> = union, out-then-in ordering.</li>
+  <li><code>--backlinks</code> + <code>--direction</code> → exit 2.</li>
+  <li><code>--json</code> emits well-formed OKF edge records with correct <code>direction</code>/<code>hop</code>.</li>
+  <li>MCP <code>backlinks</code>/<code>traverse</code> ops return records; unknown op → <code>[]</code>; backend</li>
+</ul>
+  error → <code>[]</code>.
+<ul class="article-list">
+  <li>version pin flips to <code>0.32.0</code>.</li>
+</ul></p>
+
+<h2 id="global-constraints">Global constraints</h2>
+
+<ul class="article-list">
+  <li>stdlib-only; public PyPI package; no new dependencies.</li>
+  <li>Additive verb-flag change; <strong>no hook touch</strong>; inert-safe.</li>
+  <li>Default <code>links</code> output unchanged (back-compat).</li>
+  <li>Publish to PyPI is <strong>commander-gated</strong>; the plan ends at green + PR. A new</li>
+</ul>
+  public surface → PR left for review (not auto-merged under standing green-auth).
+<ul class="article-list">
+  <li>Stage only named files; never <code>git add -A</code>; never stage <code>.codegraph/</code> or stray docs.</li>
+</ul>
+
+<h2 id="decoupled-follow-up-separate-card-not-this-spec">Decoupled follow-up (separate card — NOT this spec)</h2>
+
+<p><strong>gbrain edge backfill.</strong> lab's brain is 198 pages / <strong>0 edges</strong>. Run gbrain's
+designed link reconciliation (managed sources <code>markdown</code>/<code>wikilink-resolved</code>) to
+populate the edge table from page bodies, so <code>traverse_graph</code>/<code>get_backlinks</code>
+light up for <em>all</em> consumers (brain-ask, the walker). This mutates prod brain
+data (write scope) → <strong>commander-gated</strong>; exact trigger (re-ingest vs sync vs
+<code>run_doctor</code>) to be determined. Tracked separately so this shippable CLI feature
+never blocks on a gated brain migration.</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#cli-flag-semantics-swarph-memory-links">CLI flag semantics (`swarph memory links`)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#okf-edge-record-json">OKF edge record (`--json`)</a></li>
+<li><a href="#thesis">Thesis</a></li>
+<li><a href="#why-file-native-the-load-bearing-finding">Why file-native (the load-bearing finding)</a></li>
+<li><a href="#scope">Scope</a></li>
+<li><a href="#architecture">Architecture</a></li>
+<li><a href="#components-interfaces">Components & interfaces</a></li>
+<li><a href="#reverse-scan-cost-no-silent-caps">Reverse-scan cost (no silent caps)</a></li>
+<li><a href="#error-handling-fail-safe-contract-unchanged">Error handling (fail-safe contract, unchanged)</a></li>
+<li><a href="#testing-tdd">Testing (TDD)</a></li>
+<li><a href="#global-constraints">Global constraints</a></li>
+<li><a href="#decoupled-follow-up-separate-card-not-this-spec">Decoupled follow-up (separate card — NOT this spec)</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>All-Channels Prospect (+ Customer) Segmentation — Design Spec | Technical Whitepaper</title>
+  <meta name="description" content="All-Channels Prospect (+ Customer) Segmentation — Design Spec — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-05-26-all-channels-prospect-segmentation-design.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">All-Channels Prospect (+ Customer) Segmentation — Design Spec</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># All-Channels Prospect (+ Customer) Segmentation — Design Spec</p>
+
+<p>_2026-05-26 · workstation-lc · status: draft for review_</p>
+
+<h2 id="problem">Problem</h2>
+
+<p>We have two prospect-segmentation pieces working:
+<ul class="article-list">
+  <li><strong>Fit</strong> — firmographic-proximity communities (look-alike matching prospects to</li>
+</ul>
+  customer communities via BvD SIC/business-line, size, region) → product-family
+  propensity + the 5-SKU offer.
+<ul class="article-list">
+  <li><strong>Online behaviour</strong> — GA4-derived web intent for identified visitors.</li>
+</ul></p>
+
+<p>We want a <strong>single all-channels segmentation</strong> that also folds in email (Eloqua),
+social (Meta/LinkedIn), offline/sales-readiness, and a contagion overlay — without
+each becoming its own silo, and <strong>surfaced as a proper Prospect tab</strong> in the
+dashboard.</p>
+
+<p>The naive frame (<code>fit × engagement × channel × product</code> as multiplied categorical
+axes) explodes into ~thousands of sparse, unactionable cells — "cubic." This spec
+adopts the mesh-sourced resolution (lab-ovh #1412, gridiron #1416): the blow-up is
+an <strong>analytics</strong> problem, not a storage one, and the fix is <strong>volume shrinkage</strong>.</p>
+
+<h2 id="core-idea-a-layered-stack-not-four-models">Core idea — a layered stack, not four models</h2>
+
+<p><code></code>`
+Layer 4  CONTAGION    position vs converters across shared signals   (overlay, later)
+Layer 3  ROUTING      fit × warmth × hottest channel → next action   (lead-gen payoff)
+Layer 2  ENGAGEMENT   web + email + social → coverage-aware warmth
+Layer 1  FIT          firmographic proximity community → 5-SKU offer ✓ exists
+Layer 0  PROFILE      one record per prospect, all channel signals joined  (substrate)
+<code></code>`</p>
+
+<p>Humans see a flat <strong>2-axis quadrant</strong> (Fit × Engagement); channel, offer and
+contagion are <strong>attributes on each prospect</strong>, not extra grid dimensions. Under the
+hood a <strong>shrinkage-resolved cube</strong> lets us slice any dimension combination
+(channel, product family, region, tenure) only as deep as the data supports.</p>
+
+<h2 id="architecture">Architecture</h2>
+
+<p><code></code>`
+PG :5433 (CRM, communities, BvD)  ┐
+TS :5434 (GA4, email, orders)     ├─►  DuckDB (ATTACH via postgres_scanner)
+Neo4j :7688 (contagion graph)     ┘         │
+                                            ├─ fact: prospect_interaction (1 row/interaction)
+                                            ├─ canonical dims (normalized BEFORE cubing)
+                                            ├─ materialized rollups (cron)  + cheap query-time GROUP BY
+                                            └─ shrinkage layer (pure fns, downstream of rollup)
+                                                    │
+                                   prospect_profile (1 row/prospect: fit, warmth, best channel,
+                                                     offer, contagion flag, coverage)
+                                                    │
+                                            Dashboard → Prospect tab (quadrant → list → card)
+<code></code>`</p>
+
+<h3 id="components-each-a-separable-testable-unit">Components (each a separable, testable unit)</h3>
+
+<p>1. <strong>Dimension taxonomy + per-source normalizers</strong> (<code>core/prospect_dims.py</code> + config).
+   Canonical <em>coarse</em> value sets for <code>fit</code>, <code>engagement</code>, <code>channel</code>, <code>product_family</code>,
+   <code>region</code>, <code>tenure</code>, plus deterministic source→canonical mappers. <em></em>Locked before
+   cubing<em></em> — gridiron's #1 lesson: retrofitting normalization after the cube is the
+   expensive path. High-cardinality dims that can't fully resolve are modelled at the
+   collapsed level honestly (no faked granularity).</p>
+
+<p>2. <strong>Interaction fact assembly</strong> (<code>workers/build_prospect_interactions.py</code>).
+   One row per prospect-interaction (email open/click, web session, social touch,
+   campaign response), normalized into canonical dims. Prospect identity bridged via
+   the existing CRO / contact_email / gravitee↔sso paths. Grain = interaction, <strong>not</strong>
+   aggregate (gridiron's analog).</p>
+
+<p>3. <strong>DuckDB cube builder</strong> (<code>workers/prospect_cube.py</code>).
+   <code>ATTACH</code> Postgres + read Timescale (no ETL copy for warm data), build the fact view,
+   <strong>materialize the expensive rollups</strong> on a cron; reserve query-time <code>GROUP BY</code> for
+   cheap interactive cuts. Embedded/batch only — <strong>never exposed as an API</strong> (gridiron
+   gotcha c).</p>
+
+<p>4. <strong>Shrinkage module</strong> (<code>core/shrinkage.py</code>) — pure, unit-tested functions, downstream
+   of the rollup:
+<ul class="article-list">
+  <li>distribution cells: <code>out[k] = (count_k + K·parent_k)/(n+K)</code>, renormalize</li>
+  <li>continuous metrics: shrink the deviation <code>(cell_mean − base)·n/(n+K)</code></li>
+  <li><strong>volume floor</strong> before a cell may surface (gridiron gotcha d)</li>
+  <li>K is <strong>per-dimension/per-level, never global</strong></li>
+</ul></p>
+
+<p>5. <strong>Persistence estimator</strong> (<code>workers/dim_persistence.py</code>).
+   Split-half / period-over-period correlation per dimension → sets <em></em>K inversely to
+   persistence<strong> (noisy dims shrink harder) </strong>and<em></em> the parent walk-up order (collapse
+   the lowest-persistence dim first). Computed early — it gives both K and the backoff
+   order, so we never guess K.</p>
+
+<p>6. <strong>Profile scorer</strong> (<code>workers/compute_prospect_profile.py</code>).
+   Assembles <code>prospect_profile</code>: fit community, <strong>coverage-aware warmth</strong> (only weight
+   channels we actually observe — an unobserved channel is not "cold"), best-next
+   channel, inherited 5-SKU offer, contagion flag, and a confidence field.</p>
+
+<p>7. <strong>Prospect tab</strong> (<code>dashboard/app.py</code> + <code>templates/_prospect_*.html</code>).
+   Quadrant map (Fit × Engagement) → ranked prospect list → per-prospect card
+   (offer, best channel, contagion, coverage). Built with the <code>frontend-design</code> skill.</p>
+
+<h2 id="data-flow">Data flow</h2>
+
+<p>1. Normalize sources into canonical dims → write <code>prospect_interaction</code> fact.
+2. DuckDB builds + materializes rollups (cron).
+3. Persistence estimator sets per-dim K + walk-up order.
+4. Shrinkage resolves each requested slice to its supported depth.
+5. Scorer writes <code>prospect_profile</code> (one row/prospect).
+6. Prospect tab reads the profile + queries the cube for slices on demand.</p>
+
+<h2 id="coverage-awareness-hard-constraint">Coverage-awareness (hard constraint)</h2>
+
+<p>Per-prospect channel coverage is uneven: firmographic ≈ all, email = Eloqua
+responders, web = bridge-identified visitors only, social ≈ thin per named company.
+The warmth score is <strong>weighted by observed channels + carries a confidence</strong>; missing
+channels are "unobserved," never silently scored as cold. (The GA4 dual-bridge lesson.)</p>
+
+<h2 id="testing">Testing</h2>
+
+<ul class="article-list">
+  <li><code>core/shrinkage.py</code> — pure-function unit tests (limits: n→0 ⇒ parent, n→∞ ⇒ cell;</li>
+</ul>
+  distribution renormalizes to 1; deviation shrink → 0 at n→0). Seed from gridiron's
+  reference snippets (incoming DM #1417).
+<ul class="article-list">
+  <li>Persistence estimator — validate K ranking on a known dim.</li>
+  <li>Profile scorer — coverage-weighting + offer-inheritance integration tests.</li>
+</ul>
+
+<h2 id="phasing">Phasing</h2>
+
+<p>1. <strong>Taxonomy + normalizers</strong> (lock canonical dims first).
+2. <strong>Interaction fact + DuckDB cube</strong> (ATTACH, materialized rollups).
+3. <strong>Shrinkage + persistence</strong> (the load-bearing 80%; pure fns + K/walk-up).
+4. <strong>Profile scorer</strong> (coverage-aware warmth + attributes).
+5. <strong>Prospect tab</strong> (quadrant → list → card).
+6. <strong>Contagion overlay</strong> (Layer 4; OMEGA hyperbolic-contagion — consult droplet).</p>
+
+<h2 id="open-items-dependencies">Open items / dependencies</h2>
+
+<ul class="article-list">
+  <li><strong>gridiron snippets</strong> (DM #1418, received) — <code>norm_shrunk</code> / <code>value_oa</code> / <code>MIN_N</code> volume-floor / <code>persistence</code>→<code>k_from_persistence</code>→<code>carry</code>; seed <code>core/shrinkage.py</code> from these.</li>
+  <li><strong>OMEGA contagion</strong> mapping for Layer 4 — consult droplet.</li>
+  <li>DuckDB added to <code>requirements.txt</code> (new embedded-analytics dependency).</li>
+  <li>Retention/refresh cadence for materialized rollups.</li>
+</ul>
+
+<h2 id="credits">Credits</h2>
+
+<p>Architecture reframe: lab-ovh (mesh DM #1412). Build-level blueprint (grain, dim
+normalization, DuckDB rollup pattern, shrinkage mechanics + K-by-persistence):
+gridiron (mesh DM #1416).</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#components-each-a-separable-testable-unit">Components (each a separable, testable unit)</a></li>
+<li><a href="#problem">Problem</a></li>
+<li><a href="#core-idea-a-layered-stack-not-four-models">Core idea — a layered stack, not four models</a></li>
+<li><a href="#architecture">Architecture</a></li>
+<li><a href="#data-flow">Data flow</a></li>
+<li><a href="#coverage-awareness-hard-constraint">Coverage-awareness (hard constraint)</a></li>
+<li><a href="#testing">Testing</a></li>
+<li><a href="#phasing">Phasing</a></li>
+<li><a href="#open-items-dependencies">Open items / dependencies</a></li>
+<li><a href="#credits">Credits</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

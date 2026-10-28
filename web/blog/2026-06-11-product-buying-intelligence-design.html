@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Product Buying-Intelligence Layer — Design | Technical Whitepaper</title>
+  <meta name="description" content="Product Buying-Intelligence Layer — Design — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-06-11-product-buying-intelligence-design.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Product Buying-Intelligence Layer — Design</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Product Buying-Intelligence Layer — Design</p>
+
+<p><strong>Date:</strong> 2026-06-11
+<strong>Status:</strong> Approved (brainstorm) — pending spec review
+<strong>Repo:</strong> lead-contagion-project (Lyréco tenant), with a hybrid prove-then-extract
+path into <code>ppi-core</code>.</p>
+
+<h2 id="goal">Goal</h2>
+
+<p>Give sales/marketing a <strong>buying profile</strong> per customer: each week, the <em></em>Top-10
+products bought<em></em> — at individual-user grain rolling up to company, ranked by
+purchase <strong>frequency</strong> and <strong>units</strong>, stored as weekly snapshots so the
+week-over-week shift is visible. Add a <strong>basket layer</strong> that registers every
+ordered line (product, qty, timestamp) and its cart grouping into the timeline
+for cross-product analysis, and a <strong>firmographic/behavioral cluster overlay</strong>
+("which cluster buys these") under two lenses.</p>
+
+<h2 id="decisions-locked-in-brainstorm">Decisions locked in brainstorm</h2>
+
+<p>| Question | Decision |
+|---|---|
+| Profile grain | <strong>Both</strong> — individual user (<code>ecom_user_id</code>), rolled up to company (<code>soldto_number</code>) |
+| Ranking measure | <strong>Order frequency + units (quantity)</strong> — both stored & ranked. Spend stored, not ranked. |
+| Window / cadence | <strong>Weekly snapshot of a trailing window</strong> (default 13 weeks); appended → time-series of Top-10 lists |
+| Cluster overlay | <strong>Both lenses</strong> — emergent graph communities ("behaves alike") AND firmographic look-alike / BvD-SIC clusters ("is alike") |
+| Build approach | <strong>Hybrid</strong> — Lyréco-native now, written config-shaped; lift the generalizable compute into <code>ppi-core</code> once proven |
+| Source table | <strong><code>ecom_order_lines</code></strong> (orders) — <code>order_number</code> = the cart; frequency = distinct orders. Not invoices (they split/merge, no clean basket). |</p>
+
+<h2 id="architecture-three-layers">Architecture — three layers</h2>
+
+<h3 id="layer-2-basket-events-substrate-built-first">Layer 2 — Basket events (substrate, built first)</h3>
+
+<p><strong>Reconciled with reality (2026-06-11 dependency dig):</strong> <code>ecom_order_lines</code> is
+already a TimescaleDB hypertable carrying <code>soldto_number</code>, <code>ecom_user_id</code>,
+<code>product_reference</code>, <code>quantity</code>, <code>sales_amount</code>, <code>order_date</code>, <code>order_number</code>
+(first-class — the cart id), <code>order_channel_code</code>, <code>source_country</code>. And
+<code>compute_timeline</code> already emits <strong>per-line <code>ORDER_PLACED</code> events</strong> (PK includes
+<code>order_line_number</code>; carries <code>product_reference</code> + <code>quantity</code> + <code>amount</code>, with
+<code>order_number</code> inside <code>event_details</code>). So a separate <code>purchase_lines</code> table was
+dropped as pure duplication.</p>
+
+<p>What we build for layer 2:
+1. <strong>Promote <code>order_id</code> to a first-class column</strong> on <code>customer_timeline</code> (lifted
+   from <code>event_details->>'order_number'</code> on <code>ORDER_PLACED</code> rows) + index, so
+   baskets regroup with a fast <code>GROUP BY order_id</code> instead of JSONB extraction.
+   Populate it in <code>compute_timeline</code>; backfill existing <code>ORDER_PLACED</code> rows.
+2. <strong><code>v_order_baskets</code></strong> — a thin view over <code>ORDER_PLACED</code> grouping by
+   <code>order_id</code>, the basket substrate for cross-product / co-purchase analysis
+   (complements existing <code>product_co_occurrence</code> / Neo4j <code>:BOUGHT_TOGETHER</code>).</p>
+
+<h3 id="layer-1-weekly-buying-profile">Layer 1 — Weekly buying profile</h3>
+
+<p><strong><code>buying_profile_weekly</code></strong>:
+`(scope_type ['user'|'company'], scope_id, source_country, snapshot_week,
+product_reference, orders_count, units_qty, sales_amount, rank_freq, rank_qty,
+window_weeks)`.</p>
+
+<p>A weekly worker (invoked from <code>daily_refresh</code>, gated to fire once per ISO week)
+recomputes the Top-N (default 10) over a <strong>trailing <code>window_weeks</code> window</strong>
+(default 13) and <strong>appends</strong> the snapshot keyed by <code>snapshot_week</code>. Ranks by
+both <code>orders_count</code> (frequency) and <code>units_qty</code>; deterministic tie-break
+(product_reference asc) so snapshots are reproducible.</p>
+
+<h3 id="layer-3-cluster-overlay-dual-lens">Layer 3 — Cluster overlay (dual lens)</h3>
+
+<p><strong><code>cluster_buying_profile_weekly</code></strong>:
+`(cluster_source ['emergent'|'firmographic'], cluster_id, source_country,
+snapshot_week, product_reference, orders_count, units_qty, rank_freq, rank_qty,
+n_accounts)`.</p>
+
+<p>Rolls company-level purchases up via an <strong>account→cluster map</strong>, run under both
+lenses. The rollup accepts <em>any</em> mapping table (the generalization that makes it
+liftable):
+<ul class="article-list">
+  <li><strong>Firmographic</strong> — <code>account_firmographic_community</code> (account_number →</li>
+</ul>
+  community_id, KMeans on BvD-SIC firmographic features, built by
+  <code>workers/community_match_soft.py</code>). Populated today — wired in Plan 1.
+<ul class="article-list">
+  <li><strong>Behavioral</strong> — account-grain Louvain communities. <strong>Does not exist yet</strong></li>
+</ul>
+  (Neo4j <code>:EmergentCommunity</code> nodes are empty); stood up in <strong>Plan 2</strong>, then
+  plugged into this same rollup as a second mapping.</p>
+
+<p><strong>Decisions 2026-06-11:</strong> <code>order_id</code> promoted to a timeline column (not a new
+<code>purchase_lines</code> table); behavioral communities built now (Plan 2) so both
+lenses ship. Build split into two plans, each independently shippable.</p>
+
+<h2 id="consumption">Consumption</h2>
+
+<p>Dashboard <strong>script-backed report</strong> (<code>logs/reports/*.json</code>, `refresh_mode:
+script<code>, </code>PYTHONIOENCODING=utf-8`): weekly Top-10 per account/user and per
+cluster, with week-over-week shift indicators. XLSX export alongside, following
+<code>export_wise_top10_by_family.py</code> / <code>refresh_prospect_intelligence_hub.py</code>.</p>
+
+<h2 id="hybrid-extraction-path">Hybrid extraction path</h2>
+
+<p>Layer-1 ranking/window logic and layer-3 rollup are written as clean,
+config-shaped units (pure functions over a query result + a spec object), so
+once proven on Lyréco data they lift into <code>ppi-core</code> as:
+<ul class="article-list">
+  <li>a <strong><code>buying_profile</code></strong> engine (top-N over a trailing window), and</li>
+  <li>a <strong><code>cluster_rollup</code></strong> overlay (top-N per cluster given an account→cluster map),</li>
+</ul></p>
+
+<p>each gated by a <strong>parity golden test</strong> — the same path funnel/cohort took.
+Co-purchase maps onto the existing contagion / co-occurrence engine; not
+re-built here.</p>
+
+<h2 id="testing">Testing</h2>
+
+<ul class="article-list">
+  <li><strong>Hermetic unit tests</strong> on ranking, trailing-window selection, and tie-break</li>
+</ul>
+  (fake row sets — no DB).
+<ul class="article-list">
+  <li><strong>Parity gate</strong>: worker output == an independent direct SQL query over one</li>
+</ul>
+  closed week, per the established discipline.
+
+<h2 id="data-flow-platform-notes">Data-flow & platform notes</h2>
+
+<ul class="article-list">
+  <li><strong>Cross-DB</strong>: <code>ecom_order_lines</code> / <code>customer_timeline</code> / <code>purchase_lines</code> live</li>
+</ul>
+  in TimescaleDB (:5434); <code>ecom_products</code>, taxonomy, cluster maps live in
+  Postgres (:5433). No cross-DB joins — 2-step bridge (<code>WHERE col = ANY(%s)</code>).
+<ul class="article-list">
+  <li><strong>Timeline volume</strong>: adding ~25M per-line <code>PRODUCT_PURCHASED</code> events to a</li>
+</ul>
+  173M-row hypertable. Appends are safe; do NOT mutate columns on compressed
+  chunks (cf. the decompression-cap incident — backlog #115).
+<ul class="article-list">
+  <li><strong>Cadence</strong>: weekly snapshot worker is gated inside <code>daily_refresh</code> (runs only</li>
+</ul>
+  on the first refresh of each ISO week) to avoid daily recompute.
+
+<h2 id="open-dependencies-resolve-at-plan-time">Open dependencies (resolve at plan time)</h2>
+
+<p>1. <strong>Emergent community table</strong> — confirm exact Postgres name + freshness/refresh
+   cadence of the account→<code>community_id</code> assignment.
+2. <strong>Firmographic cluster table</strong> — confirm the <code>prospect_lookalike</code> account→
+   cluster map name and that it is current.
+3. <strong><code>purchase_lines</code> vs reusing <code>ecom_order_lines</code></strong> — decide whether the
+   substrate is a distinct hypertable or a thin view/projection over
+   <code>ecom_order_lines</code> (it already holds the same columns); the timeline-event
+   emission is needed either way.</p>
+
+<h2 id="yagni-cuts">YAGNI cuts</h2>
+
+<p>No spend ranking; no per-calendar-week buckets (too sparse for B2B); no new
+clustering model (reuse existing); no real-time — weekly batch only.</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#layer-2-basket-events-substrate-built-first">Layer 2 — Basket events (substrate, built first)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#layer-1-weekly-buying-profile">Layer 1 — Weekly buying profile</a></li>
+<li style="margin-left: 0.8rem;"><a href="#layer-3-cluster-overlay-dual-lens">Layer 3 — Cluster overlay (dual lens)</a></li>
+<li><a href="#goal">Goal</a></li>
+<li><a href="#decisions-locked-in-brainstorm">Decisions locked in brainstorm</a></li>
+<li><a href="#architecture-three-layers">Architecture — three layers</a></li>
+<li><a href="#consumption">Consumption</a></li>
+<li><a href="#hybrid-extraction-path">Hybrid extraction path</a></li>
+<li><a href="#testing">Testing</a></li>
+<li><a href="#data-flow-platform-notes">Data-flow & platform notes</a></li>
+<li><a href="#open-dependencies-resolve-at-plan-time">Open dependencies (resolve at plan time)</a></li>
+<li><a href="#yagni-cuts">YAGNI cuts</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

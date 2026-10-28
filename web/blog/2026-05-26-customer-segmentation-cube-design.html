@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Customer Segmentation Cube — Design Spec | Technical Whitepaper</title>
+  <meta name="description" content="Customer Segmentation Cube — Design Spec — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-05-26-customer-segmentation-cube-design.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Customer Segmentation Cube — Design Spec</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Customer Segmentation Cube — Design Spec</p>
+
+<p>_2026-05-26 · workstation-lc · status: draft for review_</p>
+
+<h2 id="problem">Problem</h2>
+
+<p>We have rich customer data (orders, web, email, offline, product affinity) and
+<strong>existing customer segmentations</strong> — <code>firmographic_communities</code> (the 60 customer
+communities), the <strong>emergent</strong> behavioural communities (<code>community_memberships</code>),
+and <strong>tenure</strong> cohorts. Last week we shipped <code>segment_family_appetence</code> (segment ×
+product-family: online/offline lean, <code>buy_with</code> lift, view→cart) keyed by exactly
+those three <code>segment_type</code>s.</p>
+
+<p>We want to promote that into a full <strong>shrinkage cube</strong> that drives four
+go-to-market decisions — cross-sell, channel migration, churn/retention, and
+share-of-wallet/whitespace — <strong>without</strong> reinventing segmentation (reuse the
+existing communities) and <strong>without</strong> the "cubic" sparse-cell blow-up.</p>
+
+<h2 id="the-unifying-insight-one-cube-four-lenses">The unifying insight — one cube, four lenses</h2>
+
+<p>All four decisions are the <strong>same question</strong>: *how does this segment-cell compare
+to its peer-expected baseline?*
+<ul class="article-list">
+  <li>under-index a family vs peers → <strong>cross-sell</strong></li>
+  <li>offline-heavy where peers index online → <strong>channel migration</strong></li>
+  <li>spend/recency below own history or peers → <strong>churn</strong></li>
+  <li>spend below peer-expected → <strong>whitespace / share-of-wallet</strong></li>
+</ul></p>
+
+<p>That "cell − peer-expected" deviation is exactly what <strong><code>core/shrinkage.value_oa</code></strong>
+computes (and <code>norm_shrunk</code> for distributions). So shrinkage is not just
+de-noising — <strong>the shrunk deviation IS the signal</strong> for all four. One cube with
+the union of measures; each decision is a ranked query over it.</p>
+
+<h2 id="architecture">Architecture</h2>
+
+<p><code></code>`
+PG :5433 (communities, segments, accounts, appetence)  ┐
+TS :5434 (ecom_order_lines, ga4, email)                ├─► DuckDB (ATTACH, plan-2 pattern)
+                                                       ┘        │
+                                  fact: customer_interaction (1 row / order-line | touch)
+                                  spine: existing community/segment membership
+                                  rollup: segment × family × channel × value_tier × tenure_band
+                                  shrinkage downstream: per-dim K from persistence
+                                          │
+                          segment_cube_cell (shrunk deviations: spend, lean, appetence, recency)
+                                          │
+                          4 lens views (cross-sell / migration / churn / whitespace)
+                                          │
+                                  dashboard panels (Customers tab)
+<code></code>`</p>
+
+<h3 id="reuse-almost-everything-is-built">Reuse (almost everything is built)</h3>
+<ul class="article-list">
+  <li><strong>Spine</strong> = existing <code>firmographic</code> / <code>emergent</code> / <code>tenure</code> segment_types (same resolvers <code>segment_family_appetence</code> already uses).</li>
+  <li><strong>Measures</strong> = the appetence metrics already computed (online/offline lean, <code>buy_with</code>, view→cart) + spend/recency/frequency.</li>
+  <li><strong>Engine</strong> = <code>core/shrinkage.py</code> (<code>value_oa</code>, <code>norm_shrunk</code>, <code>k_from_persistence</code>), the DuckDB cube pattern (<code>core/cube.py</code>), canonical channel normalizer (<code>core/prospect_dims.py</code>).</li>
+  <li>This cube <strong>subsumes <code>segment_family_appetence</code></strong> (its segment × family table is the 2-D base slice).</li>
+</ul>
+
+<h3 id="dimensions">Dimensions</h3>
+<code>segment_type</code> × <code>segment_id</code> × <code>product_family</code> × <code>channel</code> × <code>value_tier</code> × <code>tenure_band</code>.
+Canonical, coarse, locked before cubing (gridiron lesson). <code>value_tier</code> from spend
+quantiles; <code>tenure_band</code> from <code>tenure_cohorts</code>; <code>channel</code> from the existing
+order-channel ('W' = web/online vs offline) normalized via <code>core/prospect_dims</code>.
+
+<h3 id="measures-each-stored-as-a-shrunk-deviation-from-peer">Measures (each stored as a shrunk deviation-from-peer)</h3>
+<ul class="article-list">
+  <li><strong>spend_oa</strong> — <code>value_oa(cell_spend_mean, parent_spend_mean, n, K)</code> → whitespace, churn, SoW.</li>
+  <li><strong>channel_lean</strong> — shrunk online/offline mix (<code>norm_shrunk</code>) → migration.</li>
+  <li><strong>family_appetence / buy_with</strong> — shrunk family share + lift → cross-sell.</li>
+  <li><strong>recency / frequency</strong> — for the churn lens (engagement decay).</li>
+  <li>plus raw <code>n_accounts</code>, <code>spend</code>, <code>penetration</code> for sizing.</li>
+</ul>
+
+<h3 id="the-four-lenses-views-not-separate-builds">The four lenses (views, not separate builds)</h3>
+| Lens | Ranked query over the cube |
+|---|---|
+| Cross-sell | families where the cell's appetence deviation is most <strong>negative</strong> (under-indexed vs peers) but the segment buys the parent world |
+| Channel migration | offline-lean cells whose families show <strong>positive online deviation</strong> for peer segments |
+| Churn | value×tenure cells with negative <strong>spend_oa</strong> + decaying recency |
+| Whitespace / SoW | largest negative <strong>spend_oa</strong> vs peer-expected, sized by n_accounts |
+
+<h2 id="components-each-a-separable-unit">Components (each a separable unit)</h2>
+1. <strong><code>workers/build_customer_interaction.py</code></strong> — customer fact at order-line/touch grain, keyed to existing segment membership + normalized dims. (Mirrors <code>build_prospect_interactions</code>.)
+2. <strong><code>workers/customer_cube.py</code></strong> — DuckDB rollups (segment × family × channel × value × tenure) + downstream shrinkage via <code>core/shrinkage</code>. (Mirrors <code>prospect_cube</code>.)
+3. <strong><code>core/value_tiers.py</code></strong> (small) — spend-quantile → <code>value_tier</code>, tenure → <code>tenure_band</code> (canonical, testable).
+4. <strong><code>workers/segment_cube.py</code></strong> — writes <code>segment_cube_cell</code> (the shrunk-deviation cells) + per-dim K via <code>dim_persistence</code> (persistence measured on real multi-period order history — finally computable for customers).
+5. <strong>Four lens views</strong> — SQL/queries ranking cells per decision.
+6. <strong>Customers-tab panels</strong> — surface the lenses (extends the existing appetence panel rather than a new tab; customers already have a Customers tab).
+
+<h2 id="coverage-discipline">Coverage / discipline</h2>
+<ul class="article-list">
+  <li>Lock canonical dims first; high-cardinality (region, fine product) collapses honestly.</li>
+  <li>Persistence→K <strong>measured</strong> here (multi-period order history exists) — not guessed.</li>
+  <li>Contagion overlay (Layer 4) is <em>more</em> meaningful for customers (<code>:BOUGHT_TOGETHER</code>) — still deferred to a later pass (droplet/OMEGA).</li>
+</ul>
+
+<h2 id="testing">Testing</h2>
+<ul class="article-list">
+  <li><code>core/value_tiers.py</code> — pure quantile/band unit tests.</li>
+  <li>shrinkage reused (already tested).</li>
+  <li>cube rollup → in-memory DuckDB fixture asserting a thin cell shrinks toward its parent (mirrors <code>test_prospect_cube</code>).</li>
+  <li>scorer integration smoke against live PG/TS.</li>
+</ul>
+
+<h2 id="phasing-likely-2-plans">Phasing (likely 2 plans)</h2>
+<ul class="article-list">
+  <li><strong>Plan A:</strong> customer fact + value/tenure dims + the cube rollup + <code>segment_cube_cell</code> with shrinkage (the engine, extending appetence).</li>
+  <li><strong>Plan B:</strong> the four lens views + Customers-tab surfacing.</li>
+</ul>
+
+<h2 id="open-items">Open items</h2>
+<ul class="article-list">
+  <li>DuckDB rollup volume — customer order-lines are 25.5M; materialize the expensive rollups, query-time GROUP BY for cheap cuts (plan-2 gotcha).</li>
+  <li><code>value_tier</code> cut-points — global vs per-segment quantiles (decide in plan A).</li>
+  <li>emergent segment_type bridge (<code>community_memberships.lead_id ↔ ecom_users.internal_lead_id</code>) — confirm coverage (was thin for appetence).</li>
+  <li>Contagion lens — separate, later.</li>
+</ul>
+
+<h2 id="credits">Credits</h2>
+Same lineage as the prospect cube: reframe + shrinkage from lab-ovh (#1412) / gridiron (#1416, #1418). This spec extends <code>segment_family_appetence</code> (shipped 2026-05-22).
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#reuse-almost-everything-is-built">Reuse (almost everything is built)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#dimensions">Dimensions</a></li>
+<li style="margin-left: 0.8rem;"><a href="#measures-each-stored-as-a-shrunk-deviation-from-peer">Measures (each stored as a shrunk deviation-from-peer)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#the-four-lenses-views-not-separate-builds">The four lenses (views, not separate builds)</a></li>
+<li><a href="#problem">Problem</a></li>
+<li><a href="#the-unifying-insight-one-cube-four-lenses">The unifying insight — one cube, four lenses</a></li>
+<li><a href="#architecture">Architecture</a></li>
+<li><a href="#components-each-a-separable-unit">Components (each a separable unit)</a></li>
+<li><a href="#coverage-discipline">Coverage / discipline</a></li>
+<li><a href="#testing">Testing</a></li>
+<li><a href="#phasing-likely-2-plans">Phasing (likely 2 plans)</a></li>
+<li><a href="#open-items">Open items</a></li>
+<li><a href="#credits">Credits</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Playground REST API | Technical Whitepaper</title>
+  <meta name="description" content="Playground REST API — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/playground-api.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Playground REST API</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 6 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Playground REST API</p>
+
+<p>This document describes the Playground HTTP API exposed by
+<code>backend.api.app:app</code>. All application endpoints are mounted under <code>/api</code>.</p>
+
+<p>Interactive OpenAPI documentation is also available at <code>/docs</code> when the backend
+is running.</p>
+
+<h2 id="conventions">Conventions</h2>
+
+<ul class="article-list">
+  <li>JSON uses camelCase field names.</li>
+  <li>The API does not require authentication in local development.</li>
+  <li>Long-running work is launched through <code>POST /api/harbor/jobs</code>. Clients poll</li>
+</ul>
+  <code>GET /api/harbor/jobs/{job_name}</code> until <code>launch.status</code> is <code>completed</code> or
+  <code>failed</code>.
+<ul class="article-list">
+  <li>Common Matraix Playground launch statuses are <code>queued</code>, <code>running</code>, <code>completed</code>, and</li>
+</ul>
+  <code>failed</code>.
+<ul class="article-list">
+  <li>FastAPI may return <code>422</code> for malformed requests or failed validation.</li>
+  <li>Application handlers return <code>404</code> for unknown jobs, trials, personas, cohorts,</li>
+</ul>
+  screenshots, recordings, or tasks where applicable.
+
+<h2 id="runtime-boundary">Runtime boundary</h2>
+
+<p>Playground launches evaluations through Matraix Playground batch jobs. The Playground and
+<code>POST /api/harbor/jobs</code> share the same artifact layout under <code>jobs/</code>.</p>
+
+<p>Execution can stay on the API host or dispatch to a Remote Runner worker:</p>
+
+<p><code></code>`bash
+MATRIX_EXECUTION_PLANE=harbor    # default — local harbor run
+MATRIX_EXECUTION_PLANE=remote    # HTTP dispatch to Remote Runner
+REMOTE_RUNNER_API_URL=http://127.0.0.1:9100
+REMOTE_RUNNER_API_KEY=...        # optional bearer token for the worker API
+<code></code>`</p>
+
+<p>Survey, chatbot, web, and os-app jobs share the same API regardless of plane.
+See [unified-runtime.md](../environment/runtime.md) for worker setup and remote payload
+fields.</p>
+
+<p>Optional per-request override: <code>"plane": "harbor"</code> or <code>"plane": "remote"</code> on
+<code>POST /api/harbor/jobs</code>.</p>
+
+<h2 id="endpoint-index">Endpoint index</h2>
+
+<p>| Method | Path | Purpose |
+|---|---|---|
+| <code>GET</code> | <code>/api/health</code> | Backend liveness. |
+| <code>GET</code> | <code>/api/preflight</code> | Environment and resource readiness checks. |
+| <code>GET</code> | <code>/api/chatbot-sidecars</code> | List chat sidecar statuses. |
+| <code>POST</code> | <code>/api/chatbot-sidecars/{application_id}/start</code> | Start one chat sidecar. |
+| <code>GET</code> | <code>/api/config/options</code> | Editable config knobs, defaults, and runtime facts. |
+| <code>GET</code> | <code>/api/playground/personas</code> | List persona profiles (searchable). |
+| <code>GET</code> | <code>/api/playground/personas/{persona_id}</code> | Read one full persona profile. |
+| <code>GET</code> | <code>/api/harbor/jobs</code> | List Matraix Playground batch jobs. |
+| <code>POST</code> | <code>/api/harbor/jobs</code> | Launch a Matraix Playground batch job. |
+| <code>GET</code> | <code>/api/harbor/jobs/{job_name}</code> | Read one job detail view. |
+| <code>DELETE</code> | <code>/api/harbor/jobs/{job_name}</code> | Delete one job and its artifacts. |
+| <code>GET</code> | <code>/api/harbor/jobs/{job_name}/aggregation</code> | Read refreshed job aggregation JSON. |
+| <code>GET</code> | <code>/api/harbor/jobs/{job_name}/live</code> | Live job/trial progress for the Playground. |
+| <code>GET</code> | <code>/api/harbor/jobs/{job_name}/trials/{trial_name}/events</code> | Incremental trial event stream. |
+| <code>GET</code> | <code>/api/harbor/jobs/{job_name}/trials/{trial_name}/debrief</code> | Post-run debrief for one trial. |
+| <code>GET</code> | <code>/api/harbor/jobs/{job_name}/trials/{trial_name}/instruction</code> | Persona-facing instruction for one trial. |
+| <code>GET</code> | <code>/api/harbor/jobs/{job_name}/trials/{trial_name}/trace</code> | Web trace payload for one trial. |
+| <code>GET</code> | <code>/api/harbor/jobs/{job_name}/trials/{trial_name}/screenshots/{filename}</code> | Fetch one web trace screenshot. |
+| <code>GET</code> | <code>/api/harbor/jobs/{job_name}/trials/{trial_name}/recording</code> | Fetch one os-app screen recording. |
+| <code>GET</code> | <code>/api/persona-pool/catalog</code> | Persona pool dimension catalog. |
+| <code>POST</code> | <code>/api/persona-pool/sample</code> | Sample personas from a pool. |
+| <code>GET</code> | <code>/api/persona-pool/personas</code> | List persona cards from a pool. |
+| <code>GET</code> | <code>/api/persona-pool/personas/{persona_id}</code> | Read one persona card/detail from a pool. |
+| <code>GET</code> | <code>/api/persona-pool/cohorts</code> | List saved persona cohorts. |
+| <code>POST</code> | <code>/api/persona-pool/cohorts</code> | Save a persona cohort. |
+| <code>GET</code> | <code>/api/persona-pool/cohorts/{cohort_id}</code> | Read one saved cohort. |
+| <code>GET</code> | <code>/api/tasks/detail</code> | Task detail for Playground setup (<code>taskPath</code> query). |
+| <code>GET</code> | <code>/api/survey-eval/instruments</code> | List task-backed survey questionnaires. |
+| <code>GET</code> | <code>/api/survey-eval/harbor-tasks</code> | List survey Harbor tasks for the Playground. |
+| <code>GET</code> | <code>/api/chatbot-eval/tasks</code> | List chatbot Harbor tasks for the Playground. |
+| <code>GET</code> | <code>/api/web-eval/tasks</code> | List web Harbor tasks for the Playground. |
+| <code>GET</code> | <code>/api/os-app-eval/tasks</code> | List os-app Harbor tasks for the Playground. |</p>
+
+<h2 id="health">Health</h2>
+
+<h3 id="get-api-health"><code>GET /api/health</code></h3>
+
+<p>Returns a process liveness response.</p>
+
+<p><code></code>`json
+{
+  "status": "ok"
+}
+<code></code>`</p>
+
+<h3 id="get-api-preflight"><code>GET /api/preflight</code></h3>
+
+<p>Returns user-facing readiness checks for credentials, catalogs, optional
+sidecars, and eval surfaces.</p>
+
+<p><code></code>`json
+{
+  "ready": true,
+  "checks": [
+    {
+      "group": "Core",
+      "name": "OpenAI credentials",
+      "ok": true,
+      "detail": "Configured.",
+      "optional": false
+    }
+  ]
+}
+<code></code>`</p>
+
+<p><code>ready</code> ignores checks marked <code>optional</code>.</p>
+
+<h3 id="get-api-chatbot-sidecars"><code>GET /api/chatbot-sidecars</code></h3>
+
+<p>Returns sidecar container status for supported chat applications.</p>
+
+<h3 id="post-api-chatbot-sidecars-application-id-start"><code>POST /api/chatbot-sidecars/{application_id}/start</code></h3>
+
+<p>Starts the sidecar for one supported <code>application_id</code> when it is not already
+running. Returns <code>404</code> for unknown application ids.</p>
+
+<h2 id="config">Config</h2>
+
+<h3 id="get-api-config-options"><code>GET /api/config/options</code></h3>
+
+<p>Returns the available config knobs, canonical defaults, and fixed runtime
+environment metadata used by the Playground.</p>
+
+<h2 id="personas">Personas</h2>
+
+<h3 id="get-api-playground-personas"><code>GET /api/playground/personas</code></h3>
+
+<p>Query parameters:</p>
+
+<ul class="article-list">
+  <li><code>q</code> — optional substring search</li>
+  <li><code>limit</code> — optional result cap</li>
+  <li><code>domain</code> — accepted for backwards compatibility; no domain-specific blurb is</li>
+</ul>
+  returned
+
+<h3 id="get-api-playground-personas-persona-id"><code>GET /api/playground/personas/{persona_id}</code></h3>
+
+<p>Returns the full persona record (<code>id</code>, <code>name</code>, <code>source</code>, <code>context</code>).</p>
+
+<h2 id="matraix-playground-batch-jobs">Matraix Playground batch jobs</h2>
+
+<p>Matraix Playground jobs are the canonical launch path. Artifacts are written under
+<code>jobs/{job_name}/</code>.</p>
+
+<h3 id="get-api-harbor-jobs"><code>GET /api/harbor/jobs</code></h3>
+
+<p>Returns a list of job summaries (<code>jobName</code>, trial counts, status, timestamps).</p>
+
+<h3 id="post-api-harbor-jobs"><code>POST /api/harbor/jobs</code></h3>
+
+<p>Launch a multi-trial Matraix Playground job from one application task.</p>
+
+<p>Request body:</p>
+
+<p><code></code>`json
+{
+  "taskPath": "application/tasks/example-survey_product-feedback",
+  "sampleSize": 3,
+  "seed": 42,
+  "personaPool": "persona/datasets/matraix-persona-dev-sample",
+  "personaIds": ["0042"],
+  "mode": "auto",
+  "plane": "harbor",
+  "personaModel": "anthropic/claude-haiku-4-5",
+  "nConcurrentTrials": 2
+}
+<code></code>`</p>
+
+<p>Common optional fields:</p>
+
+<p>| Field | Purpose |
+|---|---|
+| <code>agentName</code> | Override resolved Matraix Playground agent |
+| <code>jobName</code> | Explicit job basename; if omitted, defaults to <code>pg-{task_slug}-{8 hex chars}</code> |
+| <code>cohortId</code> | Launch from a saved persona cohort |
+| <code>personaSources</code> / <code>personaFilters</code> | Pool sampling filters |
+| <code>chatDomain</code>, <code>chatApplicationId</code>, <code>chatApplicationContext</code>, <code>chatMaxTurns</code> | Chatbot / user-sim tasks |
+| <code>osAppSubmissionProfile</code>, <code>osAppBackend</code> | os-app / CUA tasks |</p>
+
+<p><code>mode</code> must be one of <code>auto</code>, <code>force_docker</code>, or <code>smoke</code>.
+<code>plane</code> must be <code>harbor</code> or <code>remote</code>.</p>
+
+<p>Response:</p>
+
+<p><code></code>`json
+{
+  "jobName": "pg-example-survey-product-feedback-abc123",
+  "configPath": "configs/jobs/application-task-job-recipe/pg-example-survey-product-feedback-abc123.yaml",
+  "jobsDir": "jobs",
+  "agentName": "persona-json-survey",
+  "taskType": "survey",
+  "trialProfile": "json_survey",
+  "mode": "auto",
+  "plane": "harbor"
+}
+<code></code>`</p>
+
+<p>Poll <code>GET /api/harbor/jobs/{job_name}</code> until <code>launch.status</code> is terminal.</p>
+
+<h3 id="get-api-harbor-jobs-job-name"><code>GET /api/harbor/jobs/{job_name}</code></h3>
+
+<p>Returns the job detail view: launch metadata, generated config path, trial list,
+and per-trial result summaries when available.</p>
+
+<h3 id="delete-api-harbor-jobs-job-name"><code>DELETE /api/harbor/jobs/{job_name}</code></h3>
+
+<p>Deletes the job directory and generated config when present.</p>
+
+<h3 id="get-api-harbor-jobs-job-name-aggregation"><code>GET /api/harbor/jobs/{job_name}/aggregation</code></h3>
+
+<p>Returns <code>jobs/{job_name}/aggregation.json</code>, refreshing it when needed.</p>
+
+<h3 id="get-api-harbor-jobs-job-name-live"><code>GET /api/harbor/jobs/{job_name}/live</code></h3>
+
+<p>Returns live progress for the Playground: launch status, trial phases, and basic
+persona labels.</p>
+
+<h3 id="trial-inspection-routes">Trial inspection routes</h3>
+
+<p>| Route | Purpose |
+|---|---|
+| <code>GET .../trials/{trial_name}/events?after=0</code> | Incremental event stream |
+| <code>GET .../trials/{trial_name}/debrief</code> | Structured post-run debrief |
+| <code>GET .../trials/{trial_name}/instruction</code> | Persona-facing instruction text |
+| <code>GET .../trials/{trial_name}/trace</code> | Web trajectory / trace JSON |
+| <code>GET .../trials/{trial_name}/screenshots/{filename}</code> | Binary screenshot |
+| <code>GET .../trials/{trial_name}/recording</code> | Binary screen recording (mp4) |</p>
+
+<h2 id="persona-pool">Persona pool</h2>
+
+<p>Used by the Playground setup rails for sampling and cohort management.</p>
+
+<h3 id="get-api-persona-pool-catalog-pool"><code>GET /api/persona-pool/catalog?pool=...</code></h3>
+
+<p>Returns dimension metadata for one persona pool.</p>
+
+<h3 id="post-api-persona-pool-sample"><code>POST /api/persona-pool/sample</code></h3>
+
+<p>Samples personas from a pool with optional filters and stratification.</p>
+
+<h3 id="get-api-persona-pool-personas"><code>GET /api/persona-pool/personas</code></h3>
+
+<p>Lists persona cards. Supports <code>limit</code>, <code>offset</code>, <code>seed</code>, <code>personaIds</code>, <code>detail</code>,
+and <code>all</code>.</p>
+
+<h3 id="get-api-persona-pool-personas-persona-id-pool"><code>GET /api/persona-pool/personas/{persona_id}?pool=...</code></h3>
+
+<p>Returns one persona card or detail record from the requested pool.</p>
+
+<h3 id="get-api-persona-pool-cohorts"><code>GET /api/persona-pool/cohorts</code></h3>
+
+<p>Lists saved cohorts.</p>
+
+<h3 id="post-api-persona-pool-cohorts"><code>POST /api/persona-pool/cohorts</code></h3>
+
+<p>Saves a cohort from explicit persona ids or a sampled/filtered selection.</p>
+
+<h3 id="get-api-persona-pool-cohorts-cohort-id"><code>GET /api/persona-pool/cohorts/{cohort_id}</code></h3>
+
+<p>Returns one saved cohort definition.</p>
+
+<h2 id="task-catalogs">Task catalogs</h2>
+
+<p>Read-only catalogs for Playground task pickers. Each route returns a <code>tasks</code> array
+with task metadata plus optional profile markdown when available.</p>
+
+<p>| Route | Surface |
+|---|---|
+| <code>GET /api/tasks/detail?taskPath=...</code> | One task detail record (includes <code>personaStrategy</code> from <code>persona_strategy.json</code>) |
+| <code>GET /api/survey-eval/instruments</code> | Survey questionnaires |
+| <code>GET /api/survey-eval/harbor-tasks</code> | Survey Matraix Playground tasks |
+| <code>GET /api/chatbot-eval/tasks</code> | Chatbot Matraix Playground tasks |
+| <code>GET /api/web-eval/tasks</code> | Web Matraix Playground tasks |
+| <code>GET /api/os-app-eval/tasks</code> | os-app Matraix Playground tasks |</p>
+
+<h2 id="related-docs">Related docs</h2>
+
+<ul class="article-list">
+  <li>[unified-runtime.md](../environment/runtime.md) — Matraix Playground vs remote execution planes</li>
+  <li>[quickstart.md](../quickstart.md) — terminal smoke and Playground setup</li>
+  <li>OpenAPI <code>/docs</code> — generated from FastAPI models in <code>backend/api/schemas.py</code></li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#get-api-health">`GET /api/health`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#get-api-preflight">`GET /api/preflight`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#get-api-chatbot-sidecars">`GET /api/chatbot-sidecars`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#post-api-chatbot-sidecars-application-id-start">`POST /api/chatbot-sidecars/{application_id}/start`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#get-api-config-options">`GET /api/config/options`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#get-api-playground-personas">`GET /api/playground/personas`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#get-api-playground-personas-persona-id">`GET /api/playground/personas/{persona_id}`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#get-api-harbor-jobs">`GET /api/harbor/jobs`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#post-api-harbor-jobs">`POST /api/harbor/jobs`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#get-api-harbor-jobs-job-name">`GET /api/harbor/jobs/{job_name}`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#delete-api-harbor-jobs-job-name">`DELETE /api/harbor/jobs/{job_name}`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#get-api-harbor-jobs-job-name-aggregation">`GET /api/harbor/jobs/{job_name}/aggregation`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#get-api-harbor-jobs-job-name-live">`GET /api/harbor/jobs/{job_name}/live`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#trial-inspection-routes">Trial inspection routes</a></li>
+<li style="margin-left: 0.8rem;"><a href="#get-api-persona-pool-catalog-pool">`GET /api/persona-pool/catalog?pool=...`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#post-api-persona-pool-sample">`POST /api/persona-pool/sample`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#get-api-persona-pool-personas">`GET /api/persona-pool/personas`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#get-api-persona-pool-personas-persona-id-pool">`GET /api/persona-pool/personas/{persona_id}?pool=...`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#get-api-persona-pool-cohorts">`GET /api/persona-pool/cohorts`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#post-api-persona-pool-cohorts">`POST /api/persona-pool/cohorts`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#get-api-persona-pool-cohorts-cohort-id">`GET /api/persona-pool/cohorts/{cohort_id}`</a></li>
+<li><a href="#conventions">Conventions</a></li>
+<li><a href="#runtime-boundary">Runtime boundary</a></li>
+<li><a href="#endpoint-index">Endpoint index</a></li>
+<li><a href="#health">Health</a></li>
+<li><a href="#config">Config</a></li>
+<li><a href="#personas">Personas</a></li>
+<li><a href="#matraix-playground-batch-jobs">Matraix Playground batch jobs</a></li>
+<li><a href="#persona-pool">Persona pool</a></li>
+<li><a href="#task-catalogs">Task catalogs</a></li>
+<li><a href="#related-docs">Related docs</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

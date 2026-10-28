@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Persona 1M Build Results | Technical Whitepaper</title>
+  <meta name="description" content="Persona 1M Build Results — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/RESULTS.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Persona 1M Build Results</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Persona 1M Build Results</p>
+
+<p>Validated rows: <strong>999,847</strong>. Human-grounded: <strong>599,847 (60%)</strong>; synthetic: <strong>400,000 (40%)</strong>.</p>
+
+<p>| Source | Rows |
+|---|---:|
+| wiki | 323,438 |
+| amazon | 97,915 |
+| stackoverflow | 113,120 |
+| prism | 1,487 |
+| gss | 63,532 |
+| real_human_survey | 355 |
+| synthetic | 400,000 |</p>
+
+<p>Rows with field-level natural-language descriptions: <strong>422,590 (42.26%)</strong>.</p>
+
+<p>Mean populated attributes per persona: <strong>656.01 / 1,290</strong>.</p>
+
+<h2 id="calibration-results">Calibration results</h2>
+
+<h3 id="age-bracket"><code>age_bracket</code></h3>
+
+<p>Known: 704,641; missing: 295,359; maximum absolute error: 0.0749%.</p>
+
+<p>| Value | Target | Achieved | Absolute error |
+|---|---:|---:|---:|
+| Under 5 | 8.3000% | 8.3749% | 0.0749% |
+| 5-12 | 13.0000% | 12.9652% | 0.0348% |
+| 13-17 | 8.3000% | 8.2419% | 0.0581% |
+| 18-24 | 10.6000% | 10.5699% | 0.0301% |
+| 25-34 | 14.5000% | 14.4976% | 0.0024% |
+| 35-44 | 13.3000% | 13.3242% | 0.0242% |
+| 45-54 | 11.5000% | 11.5183% | 0.0183% |
+| 55-64 | 10.5000% | 10.4983% | 0.0017% |
+| 65-74 | 6.1000% | 6.1057% | 0.0057% |
+| 75-84 | 2.8000% | 2.8089% | 0.0089% |
+| 85+ | 1.1000% | 1.0950% | 0.0050% |</p>
+
+<h3 id="region"><code>region</code></h3>
+
+<p>Known: 874,653; missing: 125,347; maximum absolute error: 14.0047%.</p>
+
+<p>| Value | Target | Achieved | Absolute error |
+|---|---:|---:|---:|
+| North America | 4.8008% | 18.8055% | 14.0047% |
+| Latin America | 8.2737% | 6.7756% | 1.4981% |
+| Western Europe | 5.0051% | 11.7297% | 6.7246% |
+| Eastern Europe | 4.0858% | 4.8821% | 0.7962% |
+| Sub-Saharan Africa | 16.8539% | 12.1796% | 4.6744% |
+| MENA | 6.9459% | 5.3725% | 1.5733% |
+| South Asia | 25.2298% | 18.3780% | 6.8518% |
+| East Asia | 19.4076% | 14.0525% | 5.3550% |
+| Southeast Asia | 8.7845% | 6.3996% | 2.3849% |
+| Oceania | 0.6129% | 1.4249% | 0.8120% |</p>
+
+<h3 id="gender-identity"><code>gender_identity</code></h3>
+
+<p>Known: 774,736; missing: 225,264; maximum absolute error: 0.0375%.</p>
+
+<p>| Value | Target | Achieved | Absolute error |
+|---|---:|---:|---:|
+| Woman | 49.5000% | 49.5375% | 0.0375% |
+| Man | 49.8000% | 49.7652% | 0.0348% |
+| Non-binary | 0.3000% | 0.3001% | 0.0001% |
+| Self-described | 0.2000% | 0.2001% | 0.0001% |
+| Prefer not to say | 0.2000% | 0.1971% | 0.0029% |</p>
+
+<h3 id="urbanicity"><code>urbanicity</code></h3>
+
+<p>Known: 582,321; missing: 417,679; maximum absolute error: 0.0478%.</p>
+
+<p>| Value | Target | Achieved | Absolute error |
+|---|---:|---:|---:|
+| Dense urban | 24.5000% | 24.4709% | 0.0291% |
+| Suburban | 21.0000% | 21.0478% | 0.0478% |
+| Small town | 18.5000% | 18.5015% | 0.0015% |
+| Rural | 34.5000% | 34.4891% | 0.0109% |
+| Nomadic / remote | 1.5000% | 1.4908% | 0.0092% |</p>
+
+<p>Detailed residual feasibility diagnostics and source statistics are in <code>audit.json</code>.</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#age-bracket">`age_bracket`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#region">`region`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#gender-identity">`gender_identity`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#urbanicity">`urbanicity`</a></li>
+<li><a href="#calibration-results">Calibration results</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MatrAIx Persona 1M Public Release | Technical Whitepaper</title>
+  <meta name="description" content="MatrAIx Persona 1M Public Release — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/coreset_dataset_card.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">MatrAIx Persona 1M Public Release</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 8 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p>---
+pretty_name: MatrAIx Persona 1M Public Release
+task_categories:
+<ul class="article-list">
+  <li>text-generation</li>
+</ul>
+tags:
+<ul class="article-list">
+  <li>persona</li>
+  <li>coreset</li>
+  <li>synthetic</li>
+  <li>survey</li>
+  <li>parquet</li>
+</ul>
+size_categories:
+<ul class="article-list">
+  <li>100K<n<1M</li>
+</ul>
+---</p>
+
+<p># MatrAIx Persona 1M Public Release</p>
+
+<p>This dataset is a deterministic, quality-filtered and deduplicated 1,000,000-row
+coreset of the MatrAIx 8.4B persona corpus. It contains exactly <em></em>600,000
+human-grounded personas (60%)<strong> and </strong>400,000 synthetic personas (40%)<em></em>.</p>
+
+<h2 id="source-composition">Source composition</h2>
+
+<p>| Source | Rows | Inclusion rule |
+|---|---:|---|
+| Wiki extraction | 323,438 | Calibrated sample from 1,936,153 available retained rows |
+| Amazon Review extraction | 97,915 | All retained rows |
+| Stack Overflow survey extraction | 113,120 | All retained rows |
+| PRISM Alignment | 1,487 | All retained rows |
+| GSS | 63,532 | All retained rows |
+| Real Human Survey | 508 | All rows |
+| Full-DAG synthetic | 400,000 | Calibrated sample from 40 seed-selected source shards |</p>
+
+<p>“Human-grounded” means derived from a real profile, history, respondent, or
+survey record. It does not mean every model-extracted attribute is a verified
+fact. Wiki, Amazon, Stack Overflow, and PRISM descriptions/evidence can contain
+model extraction errors. GSS and Survey mappings depend on crosswalk quality.</p>
+
+<h2 id="calibration-method">Calibration method</h2>
+
+<p>The build uses constrained, without-replacement calibration rather than trying
+to reproduce a full joint world distribution that is not observed in any
+single source.</p>
+
+<p>1. Apply the upstream contradiction filter and 0.95 MinHash deduplication.
+2. Include every retained row from the five smaller human-grounded products.
+3. Fit bounded inclusion weights for Wiki against evidence-supported global
+   marginal targets.
+4. Compute the human sample's known-value counts. Missing attributes remain
+   missing and are never imputed merely to satisfy a quota.
+5. Convert each global target into a synthetic residual target. If <span class="math-inline">\(h_{dv}\)</span> is
+   the human count for value <span class="math-inline">\(v\)</span> of dimension <span class="math-inline">\(d\)</span>, then the desired synthetic
+   count is</p>
+
+<div class="math-block">\[r_{dv}=p_{dv}(H_d+400{,}000)-h_{dv}.\]</div>
+
+<p>Negative residuals are clipped and the remainder is projected back onto the
+   400,000-row simplex; clipped mass is reported as infeasibility rather than
+   hidden.
+6. Draw an approximately 2.2M-row synthetic candidate pool by selecting 40
+   distinct shards with the fixed seed, then selecting one Parquet file and one
+   row group within each shard. Calibrate and sample 400,000 rows from this
+   distributed pool.
+7. Use deterministic exponential-race priorities for weighted sampling without
+   replacement. At every calibration iteration, solve <span class="math-inline">\(t\)</span> so that</p>
+
+<div class="math-block">\[\sum_i (1-e^{-t w_i})=n,\]</div>
+
+<p>then update category weights using the resulting fixed-size inclusion
+   probabilities. Stable source row IDs and seed <code>20260720</code> make the result
+   reproducible and input-order independent.</p>
+
+<p>This approach is efficient because optimization sees only a few integer
+calibration codes per candidate. Full 1,290-attribute rows, descriptions, and
+grounding are read only for selected records.</p>
+
+<h2 id="calibration-mechanics-with-examples">Calibration mechanics with examples</h2>
+
+<h3 id="shared-sample-weights-not-one-greedy-decision-at-a-time">Shared sample weights, not one greedy decision at a time</h3>
+
+<p>Calibration does not add one persona to the final pool and then immediately
+update all realized counts. Instead, every candidate persona has one shared
+positive sampling weight <span class="math-inline">\(w_i\)</span>. Age, region, gender identity, and urbanicity all
+update that same weight. After those weights approximately satisfy all supplied
+margins in expectation, the build performs one fixed-size, without-replacement
+sample.</p>
+
+<p>For category <span class="math-inline">\(v\)</span> of dimension <span class="math-inline">\(d\)</span>, the basic multiplicative update is</p>
+
+<div class="math-block">\[w_i \leftarrow w_i\frac{T_{dv}}{E_{dv}}
+\quad\text{for candidates }i\text{ with }x_{id}=v,\]</div>
+
+<p>where <span class="math-inline">\(T_{dv}\)</span> is the target expected count and <span class="math-inline">\(E_{dv}\)</span> is the current expected
+count. A category that is overrepresented receives a factor below one; an
+underrepresented category receives a factor above one.</p>
+
+<p>The expected counts use fixed-size inclusion probabilities rather than raw
+candidate counts. Given current weights, the algorithm solves <span class="math-inline">\(t\)</span> such that</p>
+
+<div class="math-block">\[\pi_i=1-e^{-t w_i},
+\qquad
+\sum_i\pi_i=n,\]</div>
+
+<p>where <span class="math-inline">\(n\)</span> is the required sample size. The current expected count for one
+category is</p>
+
+<div class="math-block">\[E_{dv}=\sum_{i:x_{id}=v}\pi_i,\]</div>
+
+<p>and its target count is <span class="math-inline">\(T_{dv}=n p_{dv}\)</span> for target share <span class="math-inline">\(p_{dv}\)</span>.</p>
+
+<h3 id="numerical-age-example">Numerical age example</h3>
+
+<p>Suppose a pool has 100 candidates and the build must select 20. The pool has 80
+Young and 20 Old candidates, while the desired age margin is 60% Young and 40%
+Old. With equal initial weights, each candidate initially has expected inclusion
+probability 0.2, so the expected sample is:</p>
+
+<p>| Age | Current expected count | Target count | Update factor |
+|---|---:|---:|---:|
+| Young | 16 | 12 | <span class="math-inline">\(12/16=0.75\)</span> |
+| Old | 4 | 8 | <span class="math-inline">\(8/4=2.00\)</span> |</p>
+
+<p>All Young weights are multiplied by 0.75 and all Old weights by 2.00. This does
+not yet select anyone; it changes their relative inclusion probabilities.</p>
+
+<h3 id="why-all-margins-must-be-revisited">Why all margins must be revisited</h3>
+
+<p>Now also require a 50% Urban and 50% Rural margin. After the age update, suppose
+the expected sample contains 14 Urban and 6 Rural candidates. The region factors
+are therefore <span class="math-inline">\(10/14=0.714\)</span> and <span class="math-inline">\(10/6=1.667\)</span>. Because each row has one shared
+weight, the combined effects are approximately:</p>
+
+<p>| Candidate profile | Age factor | Region factor | Combined weight |
+|---|---:|---:|---:|
+| Young + Urban | 0.75 | 0.714 | 0.536 |
+| Young + Rural | 0.75 | 1.667 | 1.250 |
+| Old + Urban | 2.00 | 0.714 | 1.428 |
+| Old + Rural | 2.00 | 1.667 | 3.334 |</p>
+
+<p>The region update can move the age margin away from 60/40. The algorithm
+therefore cycles through age, region, gender identity, and urbanicity repeatedly:</p>
+
+<p><code></code>`text
+age -> region -> gender identity -> urbanicity -> age -> ...
+<code></code>`</p>
+
+<p>Later updates can partially undo earlier ones, but the next sweep observes and
+corrects that error. This is why the method is iterative rather than a single
+pass. The implementation uses bounded positive weights, at most 200 sweeps, and
+a small expected-margin convergence tolerance. Correlated or incompatible
+margins may prevent an exact solution; in that case the result is a bounded
+compromise and the achieved errors are reported.</p>
+
+<p>The <code>quality</code> and <code>weight</code> entries in <code>calibration_targets.json</code> document target
+provenance and confidence. The current optimizer applies every supplied margin
+sequentially; those metadata weights do not alter the multiplicative update.</p>
+
+<h3 id="turning-calibrated-weights-into-an-exact-size-sample">Turning calibrated weights into an exact-size sample</h3>
+
+<p>After expected margins converge, deterministic exponential-race sampling assigns
+candidate <span class="math-inline">\(i\)</span> the priority</p>
+
+<div class="math-block">\[q_i=\frac{-\log U_i}{w_i},\]</div>
+
+<p>where <span class="math-inline">\(U_i\)</span> is generated deterministically from the seed and stable row ID. The
+build selects the <span class="math-inline">\(n\)</span> smallest priorities. This gives exactly <span class="math-inline">\(n\)</span> unique rows,
+favors candidates with larger calibrated weights, is independent of input order,
+and is reproducible for the same seed. It is not a sequential greedy procedure.</p>
+
+<p>Expected margins can differ slightly from the realized fixed-size sample. The
+final audit therefore measures the actual selected rows rather than assuming the
+expectations were achieved.</p>
+
+<h3 id="human-to-synthetic-residual-example">Human-to-synthetic residual example</h3>
+
+<p>Synthetic calibration is not asked to match the global target independently.
+It compensates for the human-grounded component. Suppose one field has two
+categories with a 60%/40% target. Assume that field is known for 500,000 of the
+600,000 selected human-grounded rows and for all 400,000 synthetic rows. The
+final known-value denominator is therefore 900,000, giving desired counts:</p>
+
+<div class="math-block">\[T_A=900{,}000\times0.60=540{,}000,
+\qquad
+T_B=900{,}000\times0.40=360{,}000.\]</div>
+
+<p>If the human-grounded selection already contains 350,000 known <span class="math-inline">\(A\)</span> values and
+150,000 known <span class="math-inline">\(B\)</span> values, the synthetic residual is</p>
+
+<div class="math-block">\[r_A=540{,}000-350{,}000=190{,}000,
+\qquad
+r_B=360{,}000-150{,}000=210{,}000.\]</div>
+
+<p>The synthetic target is thus 47.5% <span class="math-inline">\(A\)</span> and 52.5% <span class="math-inline">\(B\)</span>, even though the global
+target is 60%/40%. Combining human-grounded and synthetic rows then moves the
+full coreset toward the global target.</p>
+
+<p>If the human-grounded component already exceeds a category's final target, its
+raw residual is negative and synthetic rows cannot subtract observations. The
+implementation clips that residual to zero, renormalizes the remaining positive
+residuals, and records the clipped mass as infeasibility in <code>audit.json</code>.</p>
+
+<h3 id="missing-values-and-acceptance-evidence">Missing values and acceptance evidence</h3>
+
+<p>Missing calibration values receive no update for that dimension and are never
+imputed. Consequently, a statement such as "age matches the target" means the
+age distribution among selected rows with known age. <code>audit.json</code> and
+<code>RESULTS.md</code> report, for every calibrated dimension:</p>
+
+<ul class="article-list">
+  <li>target and achieved share for each category;</li>
+  <li>absolute error and maximum absolute error;</li>
+  <li>number of known and missing selected rows;</li>
+  <li>negative residual mass when the human-grounded component makes a target</li>
+</ul>
+   category infeasible; and
+<ul class="article-list">
+  <li>exact synthetic candidate file and row-group provenance.</li>
+</ul>
+
+<p>These outputs distinguish best-effort marginal calibration from a claim of a
+fully representative joint population sample.</p>
+
+<h2 id="calibration-scope-and-evidence">Calibration scope and evidence</h2>
+
+<p>The hard evidence scope is global population in 2024:</p>
+
+<ul class="article-list">
+  <li><code>age_bracket</code>: UN World Population Prospects 2024.</li>
+  <li><code>region</code>: UN WPP 2024 with the repository's documented region crosswalk.</li>
+  <li><code>gender_identity</code>: UN binary sex totals anchor only Woman/Man. The small</li>
+</ul>
+  non-binary/self-described/prefer-not-to-say tail is a schema prior, not a UN
+  estimate. This target is therefore medium confidence.
+<ul class="article-list">
+  <li><code>urbanicity</code>: World Bank WDI/UN urban share; the split among dense urban,</li>
+</ul>
+  suburban, and small town retains the schema prior and is medium confidence.
+
+<p>The evidence bundle proposed in <code>MatrAIx2026/Existing_Data</code> discussion #59 is
+well curated: it pins ACS PUMS, BLS OEWS, O*NET, UN WPP, ILOSTAT, World Bank
+WDI, CLDR, Glottolog, and Stack Overflow sources with checksums and license
+records. We deliberately do <strong>not</strong> hard-calibrate language from CLDR (metadata
+is not population prevalence), nor education/employment from unconditional
+marginals (they require age/region conditioning). GSS, WVS, Pew, and IPIP raw
+files were also excluded from that bundle where redistribution permission was
+uncertain.</p>
+
+<p>Calibration matches each dimension among rows where that dimension is known.
+It does not claim the resulting joint distribution is a statistically
+representative survey sample. Marginal targets can conflict, real-grounded
+sources have selection bias, and schema categories are coarser than source
+statistics. <code>calibration_targets.json</code> is the machine-readable contract;
+<code>audit.json</code> records feasibility and source diagnostics.</p>
+
+<h2 id="columns">Columns</h2>
+
+<p>The Parquet files preserve the unified Persona8B representation:</p>
+
+<ul class="article-list">
+  <li><code>source</code>, <code>source_row_index</code>, <code>source_record_id</code>: provenance.</li>
+  <li><code>attributes</code>: 645-byte packed vector for 1,290 categorical attributes.</li>
+  <li><code>null_bitmap</code>: missing-attribute bitmap; null means no attributes are missing.</li>
+  <li><code>attribute_overrides</code>: exact legacy values outside the current codebook.</li>
+  <li><code>populated_attribute_count</code>: number of non-null attributes in this row.</li>
+  <li><code>has_description</code>, <code>description_count</code>, <code>descriptions</code>: field-level natural</li>
+</ul>
+  language availability and text. Synthetic personas are skeletons and have no
+  generated descriptions.
+<ul class="article-list">
+  <li><code>grounding</code>: sparse evidence, confidence, and assignment type.</li>
+  <li><code>metadata_json</code>: source-specific metadata.</li>
+</ul>
+
+<p>Decode packed attributes with <code>persona_codes.schema.json</code>: field <span class="math-inline">\(i\)</span> uses the
+low nibble when <span class="math-inline">\(i\)</span> is even and the high nibble when <span class="math-inline">\(i\)</span> is odd. Apply the null
+bitmap and then sparse overrides.</p>
+
+<h2 id="files-and-reproducibility">Files and reproducibility</h2>
+
+<p><code>data/</code> contains ten 100K-row Zstandard-compressed Parquet shards. <code>manifest.json</code>
+contains exact source counts, byte sizes, and SHA-256 hashes. <code>RESULTS.md</code>
+summarizes the completed build. The implementation and tests live under
+<code>persona/post_process/coreset_1m/</code> in the MatrAIx repository.</p>
+
+<p>Source licenses and terms continue to apply. Do not treat model-generated
+descriptions or inferred sensitive attributes as independently verified facts.</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#shared-sample-weights-not-one-greedy-decision-at-a-time">Shared sample weights, not one greedy decision at a time</a></li>
+<li style="margin-left: 0.8rem;"><a href="#numerical-age-example">Numerical age example</a></li>
+<li style="margin-left: 0.8rem;"><a href="#why-all-margins-must-be-revisited">Why all margins must be revisited</a></li>
+<li style="margin-left: 0.8rem;"><a href="#turning-calibrated-weights-into-an-exact-size-sample">Turning calibrated weights into an exact-size sample</a></li>
+<li style="margin-left: 0.8rem;"><a href="#human-to-synthetic-residual-example">Human-to-synthetic residual example</a></li>
+<li style="margin-left: 0.8rem;"><a href="#missing-values-and-acceptance-evidence">Missing values and acceptance evidence</a></li>
+<li><a href="#source-composition">Source composition</a></li>
+<li><a href="#calibration-method">Calibration method</a></li>
+<li><a href="#calibration-mechanics-with-examples">Calibration mechanics with examples</a></li>
+<li><a href="#calibration-scope-and-evidence">Calibration scope and evidence</a></li>
+<li><a href="#columns">Columns</a></li>
+<li><a href="#files-and-reproducibility">Files and reproducibility</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

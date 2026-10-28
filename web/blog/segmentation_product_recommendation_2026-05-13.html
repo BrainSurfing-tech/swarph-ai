@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Customer segmentation framework + product recommendation seeds — FR + GB, 180-day window | Technical Whitepaper</title>
+  <meta name="description" content="Customer segmentation framework + product recommendation seeds — FR + GB, 180-day window — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/segmentation_product_recommendation_2026-05-13.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Customer segmentation framework + product recommendation seeds — FR + GB, 180-day window</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Customer segmentation framework + product recommendation seeds — FR + GB, 180-day window</p>
+
+<h2 id="headline-finding">Headline finding</h2>
+The HDBSCAN segmentation surface is <strong>already in place</strong> (35 segments, 47,523 accounts) and <strong>78% of accounts sit in the top 5 segments</strong>, but the existing <code>segment_product_affinity</code> z-score currently surfaces <em>popularity</em> rather than <em>distinctiveness</em> — family <code>021001</code> (welfare/pantry/coffee/snacks SKUs) ranks #1 for almost every premium <em>and</em> dormant segment, which means it cannot be used as-is for differentiated recs.
+
+<h2 id="supporting-metrics">Supporting metrics</h2>
+
+<p>| Metric | FR | GB | Source |
+|---|---:|---:|---|
+| Segments with usable affinity rows | 33 | 30 | <code>segment_product_affinity</code> |
+| Accounts in top-5 segments / total | 17,823 / 24,760 (72%) | 19,168 / 22,763 (84%) | <code>emergent_communities.dominant_features.country_breakdown</code> |
+| Country × segment cells "rec-ready" (≥20 SKUs at z≥2) | 21 / 33 | 16 / 30 | rolled-up from <code>segment_product_affinity</code> |
+| Co-purchase pairs at lift ≥10 (decisive cross-sell) | 28,453 / 1,164,264 (2.4%) | 40,957 / 563,058 (7.3%) | <code>product_co_occurrence</code> |
+| Pairs with <code>n_co_purchases ≥ 5</code> | 1,164,264 | 563,058 | <code>product_co_occurrence</code> (n≥5 floor) |
+| CH coverage | — | — | <strong>zero rows in either table</strong> |</p>
+
+<p>Top distinctive families per anchor segment (z-score, freight/catalogue/flyer SKUs stripped):</p>
+
+<p>| Segment (size) | FR top family (avg z) | GB top family (avg z) |
+|---|---|---|
+| Stable Multi-Stage Customers (24,123) | 021002 (10.31), 021001 (7.91), 008001-paper (5.79) | 021001 (12.73), 021002 (4.80), 008001-paper (4.74) |
+| High-RFM Quiet Buyers (3,713) | 021001 (8.07), 021002 (4.59), 005004 (2.88) | 021001 (8.49), 003003 (4.63), 003004 (3.10) |
+| Email-Engaged Premium (1,257) | 021001 (14.14), 003007 (4.32), 005004 (3.12) | 021001 (8.62), 001001 (4.95), 003004 (4.59) |
+| Cold Dormant Accounts (2,580) | 021001 (4.30), 003006 (1.16), 005005 (1.06) | 021001 (2.83), 001004 (2.54), 006001 (1.33) |</p>
+
+<p><code></code>`chart
+{"type":"bar","data":{"labels":["Rec-ready (≥20 SKUs at z≥2)","Partial (5–19)","Thin (<5)"],"datasets":[{"label":"FR","data":[21,5,7],"backgroundColor":"#88a0c0"},{"label":"GB","data":[16,8,6],"backgroundColor":"#4a8aaa"}]},"options":{"plugins":{"legend":{"labels":{"color":"#e0e0e6"}},"title":{"display":true,"text":"Recommendation-readiness of segment × country cells","color":"#e0e0e6"}},"scales":{"y":{"ticks":{"color":"#888"}},"x":{"ticks":{"color":"#888"}}}}}
+<code></code>`</p>
+
+<h2 id="anomalies-risks-opportunities">Anomalies / risks / opportunities</h2>
+<ul class="article-list">
+  <li><strong>Universal-popularity bleed:</strong> family <code>021001</code> (welfare/coffee/snacks SKUs — Haribo Starmix, Bosch coffee machine, ice-cream maker, thermal mug) ranks top-3 for both <em>Email-Engaged Premium</em> (z=14.1) and <em>Cold Dormant Accounts</em> (z=4.3) in FR. The z-score is computed against a population baseline that itself includes these everyone-buys items — recommending them won't differentiate. Operationally: layer a "distinctiveness" filter (e.g. require <code>z_score_segment − max(z_score_other_segs) > 1</code>) before serving.</li>
+  <li><strong>Pseudo-product noise in the affinity table:</strong> the raw top-3 list per segment is dominated by <code>FLYERS HAPPY NEW YEAR 26</code>, <code>SPECIAL PACKAGING AND SHIPPING CATA 2026</code>, <code>FREIGHT CHARGE</code> — these are not products. They inflate <code>n_accounts</code> per segment and they account for the highest absolute z-scores (FR Stable seg <code>PK25 CATALOGUE DIARIES STOCK</code> z=82.5). Need a <code>product_type_code</code> / SKU-deny-list filter at the recommendation-serving layer.</li>
+  <li><strong>CH gap:</strong> no rows in <code>segment_product_affinity</code>, <code>product_co_occurrence</code>, or <code>emergent_communities.country_breakdown</code> for CH. Briefing-tier surfaces don't cover it yet — <code>compute_segment_affinity</code> and <code>compute_co_occurrence</code> need a CH backfill run before the recommender can ship to CH.</li>
+</ul>
+
+<h2 id="recommended-a-b-hypotheses">Recommended A/B hypotheses</h2>
+1. <strong>Distinctiveness re-rank:</strong> If we re-rank <code>segment_product_affinity</code> to penalize items where ≥3 segments also rank them top-10, we predict the top-3 served SKUs for <em>Email-Engaged Premium</em> will shift away from family <code>021001</code> toward <code>001001</code> / <code>003004</code> (GB) and <code>005004</code> / <code>003007</code> (FR) — and segment-level click-through on the recommendation slot will rise by 10–20 pts (low confidence — no historical CTR baseline yet, only the FR-vs-GB lift-decisiveness gap of 7.3% vs 2.4% suggests GB has the headroom).
+2. <strong>Co-occurrence anchor swap:</strong> If we replace the current "frequently bought together" widget on PDP for <em>Stable Multi-Stage Customers</em> with the top-3 <code>product_co_occurrence</code> pairs filtered to lift ≥10, basket-add rate from PDP should rise by 5–8% in GB (40,957 strong pairs available) and 2–4% in FR (28,453 strong pairs — thinner, lift bar may need to drop to ≥5).
+3. <strong>Cold-Dormant reactivation:</strong> If we trigger an outbound email to the 2,580 <em>Cold Dormant Accounts</em> offering the segment-distinctive families (FR: 021001 small-format welfare; GB: 001004/006001), we predict reactivation conversion will land in the 0.8–2.0% range — bracketed by the <em>Email-Engaged Premium</em> segment's existing avg_score of 72.9 vs Cold Dormant's 39.9 (linear extrapolation against engagement score, low confidence: only two cohort anchors).
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#headline-finding">Headline finding</a></li>
+<li><a href="#supporting-metrics">Supporting metrics</a></li>
+<li><a href="#anomalies-risks-opportunities">Anomalies / risks / opportunities</a></li>
+<li><a href="#recommended-a-b-hypotheses">Recommended A/B hypotheses</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

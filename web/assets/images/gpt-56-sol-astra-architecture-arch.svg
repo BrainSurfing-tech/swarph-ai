@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 380" width="100%" height="100%">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#06b6d4"/>
+    </marker>
+  </defs>
+
+  <rect width="600" height="380" fill="#0f172a" rx="12"/>
+  <text x="300" y="38" fill="#f8fafc" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="middle">Topology Flow: Gpt 56 Sol Astra Architecture</text>
+
+  <!-- Node Alpha -->
+  <rect x="40" y="75" width="160" height="55" rx="8" fill="#1e293b" stroke="#8b5cf6" stroke-width="2"/>
+  <text x="120" y="108" fill="#f8fafc" font-family="sans-serif" font-size="13" text-anchor="middle" font-weight="bold">Ingestion Node A</text>
+
+  <!-- Node Beta -->
+  <rect x="400" y="75" width="160" height="55" rx="8" fill="#1e293b" stroke="#8b5cf6" stroke-width="2"/>
+  <text x="480" y="108" fill="#f8fafc" font-family="sans-serif" font-size="13" text-anchor="middle" font-weight="bold">Telemetry Node B</text>
+
+  <!-- Connecting Lines to Center -->
+  <path d="M 120 130 L 230 180" stroke="#06b6d4" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M 480 130 L 370 180" stroke="#06b6d4" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Center Gateway Core -->
+  <rect x="180" y="180" width="240" height="75" rx="12" fill="#1e293b" stroke="#38bdf8" stroke-width="2.5"/>
+  <text x="300" y="215" fill="#38bdf8" font-family="sans-serif" font-size="15" text-anchor="middle" font-weight="bold">ASYMMETRIC CORE ENGINE</text>
+  <text x="300" y="238" fill="#94a3b8" font-family="sans-serif" font-size="11" text-anchor="middle">Non-Blocking Hodge Laplacian Flow</text>
+
+  <!-- Output Path -->
+  <path d="M 300 255 L 300 295" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Output Storage / Web Node -->
+  <rect x="150" y="295" width="300" height="55" rx="8" fill="#1e293b" stroke="#06b6d4" stroke-width="2"/>
+  <text x="300" y="328" fill="#06b6d4" font-family="sans-serif" font-size="13" text-anchor="middle" font-weight="bold">Production Web &amp; Edge Infrastructure</text>
+</svg>

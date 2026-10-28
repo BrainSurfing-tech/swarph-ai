@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HubSpot CMS tagging — `content.lyreco.com/create-my-lyreco-account` | Technical Whitepaper</title>
+  <meta name="description" content="HubSpot CMS tagging — `content.lyreco.com/create-my-lyreco-account` — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/hubspot_cms_tagging_content_lyreco.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">HubSpot CMS tagging — `content.lyreco.com/create-my-lyreco-account`</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># HubSpot CMS tagging — <code>content.lyreco.com/create-my-lyreco-account</code></p>
+
+<p><strong>Goal:</strong> when a visitor completes the create-my-lyreco-account form, fire three conversions from the HubSpot-hosted page:</p>
+
+<p>1. <strong>GA4</strong> custom event <code>lyreco_account_form_submit</code> (property <code>G-368886698</code>)
+2. <strong>Google Ads</strong> conversion <code>AW-10896946911 / LsSbCPLmhZcZEN_tiMwo</code>
+3. <strong>LinkedIn Insight</strong> conversion <code>27842865</code> (partner <code>3989897</code>)</p>
+
+<p>No GTM container, no external dependency beyond the three vendor tag bases.</p>
+
+<p>---</p>
+
+<h2 id="1-paste-in-hubspot-settings-website-pages-edit-head-html">1. Paste in HubSpot — Settings → Website → Pages → Edit head HTML</h2>
+
+<p><code></code>`html
+<!-- ─── GA4 + Google Ads (one gtag.js, two configs) ───────────────────── -->
+&lt;script async src="https://www.googletagmanager.com/gtag/js?id=G-368886698"&gt;&lt;/script&gt;
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){ dataLayer.push(arguments); }
+  gtag('js', new Date());</p>
+
+<p>// GA4 — cross-domain linker keeps client_id stable between
+  // content.lyreco.com and lyreco.com (otherwise the same user
+  // shows up as two distinct visitors in reporting).
+  gtag('config', 'G-368886698', {
+    linker: { domains: ['lyreco.com', 'content.lyreco.com'] }
+  });</p>
+
+<p>// Google Ads — same gtag() function routes by ID.
+  gtag('config', 'AW-10896946911');
+</script></p>
+
+<p><!-- ─── LinkedIn Insight Tag base (partner 3989897) ───────────────────── -->
+<script type="text/javascript">
+  _linkedin_partner_id = "3989897";
+  window._linkedin_data_partner_ids = window._linkedin_data_partner_ids || [];
+  window._linkedin_data_partner_ids.push(_linkedin_partner_id);
+</script>
+<script type="text/javascript">
+  (function(l){
+    if (!l){window.lintrk=function(a,b){window.lintrk.q.push([a,b])};window.lintrk.q=[];}
+    var s=document.getElementsByTagName("script")[0];
+    var b=document.createElement("script");
+    b.type="text/javascript"; b.async=true;
+    b.src="https://snap.licdn.com/li.lms-analytics/insight.min.js";
+    s.parentNode.insertBefore(b,s);
+  })(window.lintrk);
+</script>
+<noscript>
+  <img height="1" width="1" style="display:none" alt=""
+       src="https://px.ads.linkedin.com/collect/?pid=3989897&fmt=gif"/>
+</noscript>
+<code></code>`</p>
+
+<h2 id="2-paste-in-hubspot-settings-website-pages-edit-footer-html">2. Paste in HubSpot — Settings → Website → Pages → Edit footer HTML</h2>
+
+<p><code></code>`html
+<script>
+(function () {
+  // Public entry point — call this when the lyreco-account creation
+  // is genuinely complete. Wired below to HubSpot's onFormSubmitted
+  // postMessage; can also be called directly from a thank-you page
+  // (e.g. <script>window.fireLyrecoAccountConversion({...});</script>).
+  window.fireLyrecoAccountConversion = function (params) {
+    params = params || {};</p>
+
+<p>if (typeof gtag === 'function') {
+      // 1) GA4 — custom event with parameters
+      gtag('event', 'lyreco_account_form_submit', {
+        form_id:                   params.form_id                   || '',
+        form_variant:              params.form_variant              || 'two_page_form',
+        preferred_payment_method:  params.preferred_payment_method  || '',
+        page_location:             window.location.href,
+        page_referrer:             document.referrer
+      });</p>
+
+<p>// 2) Google Ads conversion
+      gtag('event', 'conversion', {
+        send_to: 'AW-10896946911/LsSbCPLmhZcZEN_tiMwo',
+        // value: 0, currency: 'GBP',          // uncomment to attach a value
+        transaction_id: params.form_submission_id || ''
+      });
+    }</p>
+
+<p>// 3) LinkedIn Insight conversion
+    if (typeof window.lintrk === 'function') {
+      window.lintrk('track', { conversion_id: 27842865 });
+    }
+  };</p>
+
+<p>// HubSpot embedded-form submit hook.
+  window.addEventListener('message', function (e) {
+    if (!e || !e.data || e.data.type !== 'hsFormCallback') return;
+    if (e.data.eventName !== 'onFormSubmitted') return;</p>
+
+<p>var f = (e.data.data && e.data.data.submissionValues) || {};
+    window.fireLyrecoAccountConversion({
+      form_id:                  e.data.id || '',
+      form_submission_id:       (e.data.data && e.data.data.submissionId) || '',
+      form_variant:             f.form_variant             || 'two_page_form',
+      preferred_payment_method: f.preferred_payment_method || ''
+    });
+  });
+})();
+</script>
+<code></code>`</p>
+
+<h2 id="3-test-plan-5-min-browser-only">3. Test plan (5 min, browser-only)</h2>
+
+<p>1. Open <code>https://content.lyreco.com/create-my-lyreco-account</code> in Chrome with DevTools → Network → filter <code>collect</code> (GA4), <code>googleads.g.doubleclick</code> (Google Ads), <code>px.ads.linkedin</code> (LinkedIn).
+2. Confirm one <code>collect?v=2&tid=G-368886698&…</code> hit on page load → GA4 page_view firing.
+3. Confirm one <code>px.ads.linkedin.com/collect?pid=3989897</code> hit on page load → LinkedIn Insight base loaded.
+4. Submit a test form. Watch for three hits in quick succession:
+<ul class="article-list">
+  <li>GA4 collect with <code>en=lyreco_account_form_submit</code> and your event params,</li>
+  <li>Google Ads conversion with <code>tid=AW-10896946911</code> and <code>cd=LsSbCPLmhZcZEN_tiMwo</code>,</li>
+  <li>LinkedIn <code>lintrk.gif?pid=3989897&conversionId=27842865</code>.</li>
+</ul>
+5. In GA4 → Reports → Realtime, confirm the event appears within ~30s.
+6. In Google Ads → Tools → Conversions → "Create a Lyreco account" (or whatever the conversion is labelled), confirm the count ticks up within ~3 h.
+7. In LinkedIn Campaign Manager → Account Assets → Conversion Tracking, confirm conversion <code>27842865</code> ticks within ~24 h.</p>
+
+<h2 id="4-operational-gotchas">4. Operational gotchas</h2>
+
+<ul class="article-list">
+  <li><strong>Don't double-fire.</strong> If the form redirects to a thank-you page AND the <code>onFormSubmitted</code> listener also runs, conversions count twice. Pick one trigger: either keep the postMessage listener (works for embedded forms that stay on the same page) OR drop it and put <code><script>window.fireLyrecoAccountConversion({...});</script></code> on the thank-you page directly (more reliable when the user has slow JS / closes the tab fast).</li>
+  <li><strong>GA4 custom dimensions.</strong> <code>form_variant</code> and <code>preferred_payment_method</code> only show in GA4 standard reports if registered as event-scoped custom dimensions in GA4 Admin → Custom Definitions. BigQuery raw is unaffected.</li>
+  <li><strong>Consent / GDPR.</strong> If Lyreco runs a consent banner on <code>content.lyreco.com</code>, the GA4 + LinkedIn + Google Ads tags must respect it. Wrap the three calls in a consent check, or use gtag's <code>consent</code> API (<code>gtag('consent', 'default', {ad_storage:'denied', analytics_storage:'denied'})</code> then update on accept).</li>
+  <li><strong>Data flow.</strong> This populates Lyreco's GA4 property + Google Ads + LinkedIn — none of these route into our Oracle warehouse automatically. The Oracle GA4 ETL only carries the webshop property. If we want the event in <code>ga4_action_events</code>, that requires extending Lyreco's ETL to include the content.lyreco.com GA4 stream. Today we bridge via the HubSpot Contacts API (<code>workers/sync_hubspot_onboarding_submissions.py</code>).</li>
+</ul>
+
+<p>---</p>
+
+<p>_Authored 2026-06-01. IDs verified live: GA4 <code>G-368886698</code>, Google Ads <code>AW-10896946911 / LsSbCPLmhZcZEN_tiMwo</code>, LinkedIn partner <code>3989897</code>, LinkedIn conversion <code>27842865</code>._</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#1-paste-in-hubspot-settings-website-pages-edit-head-html">1. Paste in HubSpot — Settings → Website → Pages → Edit head HTML</a></li>
+<li><a href="#2-paste-in-hubspot-settings-website-pages-edit-footer-html">2. Paste in HubSpot — Settings → Website → Pages → Edit footer HTML</a></li>
+<li><a href="#3-test-plan-5-min-browser-only">3. Test plan (5 min, browser-only)</a></li>
+<li><a href="#4-operational-gotchas">4. Operational gotchas</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

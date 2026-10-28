@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WISE Market-Location Prospect-Conversion Report — Design Spec | Technical Whitepaper</title>
+  <meta name="description" content="WISE Market-Location Prospect-Conversion Report — Design Spec — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-07-07-wise-marketloc-conversion-report-design.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Quant Telemetry</div>
+        <h1 class="article-title">WISE Market-Location Prospect-Conversion Report — Design Spec</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 6 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># WISE Market-Location Prospect-Conversion Report — Design Spec</p>
+
+<p><strong>Date:</strong> 2026-07-07 · <strong>Owner:</strong> Pierre Samson · <strong>Audience:</strong> WISE (UK) Lead Gen (Daniel Shu / Tiago), Lucas
+<strong>Status:</strong> design — pending review before planning</p>
+
+<h2 id="1-goal">1. Goal</h2>
+
+<p>Measure the effectiveness of the WISE <strong>market-location cold-email</strong> prospecting (the firmographic
+cohorts built via Companies House / firmocology and sent through Eloqua). For every <strong>company</strong>
+addressed in the send files, answer: did they become a Lyréco customer, <strong>on which journey</strong> (old
+webshop vs new HubSpot onboarding), <strong>how long</strong> each leg took, <strong>how much</strong> they spent on 1st/2nd
+purchase, <strong>what</strong> they bought, and <strong>where they sat on our prospect levels</strong> before converting.
+Deliver as a <strong>WISE-only, refreshable custom report</strong> (per-company table + cohort rollups +
+journey-map visual).</p>
+
+<h2 id="2-scope-phasing">2. Scope & phasing</h2>
+
+<ul class="article-list">
+  <li><strong>v1 (this spec):</strong> the purchase/activation <strong>spine</strong> — buildable entirely on existing local</li>
+</ul>
+  tables. Ingest → match → dual-journey activation → 1st/2nd purchase (timing, amounts, product
+  mix) → prospect <strong>model</strong> level → email engagement → full multi-leg timeline → report.
+<ul class="article-list">
+  <li><strong>v2 (deferred, separate spec):</strong> GA4 <strong>pre-purchase web activity</strong> (UTM landing attribution via</li>
+</ul>
+  <code>eloqua_contact_id</code>; online behavioral tier from <code>prospect_tiers</code>), and the full <em></em>Sankey /
+  experience-map<em></em> viz. Deferred because GA4 anonymous-prospect attribution coverage is unmeasured.
+<ul class="article-list">
+  <li><strong>Tenant scope:</strong> WISE / UK only (<code>source_country = 'GB'</code>). Report exists only for WISE.</li>
+  <li><strong>Grain:</strong> one row per <strong>company</strong> = <code>lyreco_118_id</code> (rolls up multiple contacts/sends).</li>
+</ul>
+
+<h2 id="3-data-sources-all-local-no-external-api">3. Data sources (all local; no external API)</h2>
+
+<p>| Source | DB | Role | Key |
+|---|---|---|---|
+| <code>imports/marketlocation/*.xlsx</code> | file | daily send files (118 ID, campaign, sent date, firmographics, open/click) | <code>118 ID</code> |
+| <code>eloqua_campaign_responders</code> | PG | ingest target; prospect firmographics + engagement | <code>lyreco_118_id</code>, <code>campaign_label</code> |
+| <code>eloqua_responder_bridge</code> | PG | 118 ID → <code>payer_number</code> (BvD-matched) + <code>match_method</code>/<code>bvd_sim</code> | <code>lyreco_118_id</code> |
+| <code>companies_house_profiles</code>, <code>ecom_bvd_companies/_payers</code>, <code>prospect_community_match</code> | PG | CH + community match to lift linkage past BvD-only | company / CRO |
+| <code>prospect_profile</code>, <code>prospect_world_propensity</code> | PG | <strong>prospect model level</strong> (fit_tier, warmth_score, world, predicted_pct) | <code>lyreco_118_id</code> |
+| <code>ecom_accounts</code> | PG | <strong>old-journey</strong> activation: <code>creation_date</code>, <code>creation_channel</code>, <code>ecom_creation_source_campaign/_medium/_ad_content</code> | <code>account_number</code> |
+| <code>hubspot_downstream_funnel</code> | PG | <strong>new-journey</strong> activation + pre-computed order summary | <code>account_number</code>, <code>email</code> |
+| <code>hubspot_contacts</code> | PG | HubSpot registration detail (lifecyclestage, createdate) | <code>account_number</code>, <code>email</code> |
+| <code>ecom_order_lines</code> | TS | 1st/2nd purchase date, amount, product mix | <code>soldto_number</code> (= account), <code>source_country</code> |
+| <code>prospect_tiers</code> | TS | (v2) GA4 online behavioral tier | <code>visitor_id</code> |</p>
+
+<p><strong>Cross-DB:</strong> responders/bridge/accounts/hubspot/prospect-model in Postgres (<code>leadcontagion</code>);
+<code>ecom_order_lines</code> + <code>prospect_tiers</code> in TimescaleDB (<code>lc_timeseries</code>). No cross-DB SQL — pull
+matched <code>account_number</code>s from PG, then query TS with <code>WHERE soldto_number = ANY(%s)</code>.</p>
+
+<h2 id="4-linkage-matching-company-account">4. Linkage / matching (company → account)</h2>
+
+<p>1. <strong>Primary:</strong> <code>lyreco_118_id → eloqua_responder_bridge.payer_number → ecom_accounts.account_number</code>
+   (LPAD-10 both sides). Carries <code>match_method</code> + <code>bvd_sim</code> → <code>match_confidence</code>
+   (<code>confident</code> ≥0.70 / <code>likely</code> / <code>weak</code> / <code>no_match</code>), reusing the logic in
+   <code>scripts/export_eloqua_responder_priority.py</code>.
+2. <strong>Enrichment (Pierre's ask):</strong> where the BvD bridge yields <code>no_match</code> (~78% of responders), fall
+   back to the <strong>Companies House / community</strong> match used to build the cohorts —
+   <code>companies_house_profiles</code> + <code>prospect_community_match</code> + <code>community_match_soft.py</code> — matching on
+   CRO number / company name + post code. Every matched row records <strong>how</strong> it matched
+   (<code>match_source ∈ {bvd, companies_house, community}</code>) and its confidence, so match quality is
+   auditable and never silently inflated.
+3. Files carry <strong>email <em>domain</strong></em> not full email, so prospect→HubSpot linkage runs
+   <code>118 ID → account_number → hubspot_downstream_funnel.account_number</code> (not on email).</p>
+
+<h2 id="5-per-company-data-model-report-row">5. Per-company data model (report row)</h2>
+
+<p><strong>Identity / firmographics</strong> (from <code>eloqua_campaign_responders</code>): <code>lyreco_118_id</code>, <code>company</code>,
+<code>market_sector</code>, <code>sic_07_2digit_desc</code>, <code>employees_band</code>, <code>post_code</code>, <code>town</code>.
+<strong>Campaign:</strong> <code>campaign_label</code>, <code>email_version</code> (derived from UTM version token e.g.
+<code>V1_EMAIL_F_ML_OFFICE_FINANCE</code>), <code>first_sent_date</code> (MIN sent), <code>n_sends</code>.
+<strong>Email engagement:</strong> <code>open_count</code>, <code>click_count</code>, <code>engagement_tier</code> (T1_super…T5_none / X_optout).
+<strong>Prospect model level:</strong> <code>world</code>, <code>predicted_pct</code> (<code>prospect_world_propensity</code>); <code>fit_tier</code>,
+<code>warmth_score</code>, <code>engagement_tier</code> (<code>prospect_profile</code>) — joined on <code>lyreco_118_id</code>.
+<strong>Match:</strong> <code>account_number</code>, <code>match_source</code>, <code>match_confidence</code>.
+<strong>Activation (dual-journey):</strong>
+<ul class="article-list">
+  <li>webshop/old: <code>ecom_creation_date</code>, <code>creation_channel</code>, <code>campaign_attributed</code> (= <code>ecom_creation_source_campaign</code> matches a market-loc UTM).</li>
+  <li>HubSpot/new: <code>funnel_stage</code> (<code>1_hubspot_only</code>→<code>4_repeat_customer</code>), <code>lifecyclestage</code>, <code>hubspot_created</code>.</li>
+  <li><code>activation_journey ∈ {webshop, hubspot, both, none}</code>; <code>activated</code> flag; <code>net_new</code> (activation date > <code>first_sent_date</code>) vs pre-existing customer.</li>
+</ul>
+<strong>Purchases:</strong>
+<ul class="article-list">
+  <li>1st: <code>first_order_date</code>, <code>days_to_first_order</code> (<code>hubspot_downstream_funnel</code>, cross-checked vs <code>order_lines</code> MIN), <code>first_order_amount</code> (Σ <code>sales_amount</code> of the first <code>order_number</code>), <code>first_order_top_families</code>.</li>
+  <li>2nd: <code>second_order_date</code> (2nd distinct <code>order_number</code> by <code>order_date</code>), <code>days_after_first</code>, <code>second_order_amount</code>, <code>second_order_top_families</code>.</li>
+  <li>totals: <code>total_orders</code>, <code>lifetime_orders</code>, <code>monetary_12mo</code> (<code>hubspot_downstream_funnel</code>).</li>
+</ul>
+<strong>Timeline legs (days):</strong> <code>sent→activation</code>, <code>activation→1st</code>, <code>1st→2nd</code>, plus totals <code>sent→1st</code>, <code>sent→2nd</code>.</p>
+
+<h2 id="6-metric-rules">6. Metric rules</h2>
+
+<ul class="article-list">
+  <li><strong>Purchase hygiene</strong> (order_lines): <code>order_channel_code = 'W'</code> (web) + exclude the known corrupt</li>
+</ul>
+  channel-<code>C</code> mega-lines; <code>source_country = 'GB'</code>; amounts = Σ <code>sales_amount</code> per <code>order_number</code>.
+<ul class="article-list">
+  <li><strong>Product mix</strong> ("most popular products in cart"): rank <code>product_reference</code> → product family via</li>
+</ul>
+  <code>SHARED.T_PRODUCT_HIERARCHY</code> labels (or <code>product_group_code</code>); report top 3 families per order and
+  per cohort.
+<ul class="article-list">
+  <li><strong>1st vs 2nd order</strong> = the two earliest distinct <code>order_number</code> by <code>order_date</code> for the account.</li>
+  <li><strong>Averages</strong> are cohort-level (avg first-order amount, avg second-order amount) over converters</li>
+</ul>
+  only; conversion <strong>rate</strong> = converters / companies reached (denominator = distinct 118 IDs sent).
+<ul class="article-list">
+  <li><strong>Net-new vs pre-existing:</strong> a company whose account/HubSpot record predates <code>first_sent_date</code> is</li>
+</ul>
+  flagged pre-existing and excluded from campaign-attributed conversion rate (reported separately).
+
+<h2 id="7-deliverable">7. Deliverable</h2>
+
+<p>A <strong>refreshable WISE custom report</strong> (the script-backed Report pattern:
+script prints <code>===RESULT_MARKDOWN===</code> + writes an XLSX; registered under <code>logs/reports/</code>):</p>
+
+<p>1. <strong>Per-company table</strong> — all §5 fields, filterable by email version/sector, engagement tier,
+   prospect level, match confidence, activation journey.
+2. <strong>Cohort rollups</strong> — conversion rate, median leg-times, avg 1st/2nd amounts, top product
+   families, sliced by: email version/sector · engagement tier · prospect level (fit_tier / world) ·
+   activation journey · match confidence.
+3. <strong>Cohort journey-map viz</strong> (v1 = data-driven wave, image-1/3 style): stages
+   <code>Reached → Engaged → Activated (webshop|HubSpot) → 1st purchase → 2nd purchase → Repeat</code>, each
+   carrying count, conversion %, median days-to-next, avg amount. Rendered as inline SVG/HTML
+   (CSP-safe). v2 layers real GA4 web touchpoints + Sankey.</p>
+
+<h2 id="8-components-build-units">8. Components (build units)</h2>
+
+<p>1. <code>scripts/ingest_market_location.py</code> — load <code>imports/marketlocation/*.xlsx</code> → <code>eloqua_campaign_responders</code>
+   (map columns, derive <code>campaign_label</code> from Campaign Name + <code>email_version</code> from UTM token, WISE
+   tag, dedupe on <code>(lyreco_118_id, campaign_label, sent_date)</code>; idempotent for daily reruns).
+2. <code>scripts/refresh_marketloc_match.py</code> (or extend <code>_build_eloqua_bridge.sql</code>) — run BvD + CH +
+   community match for the newly-ingested 118 IDs, populate <code>eloqua_responder_bridge</code> + <code>match_source</code>.
+3. <code>scripts/compute_marketloc_conversion.py</code> — the cross-DB spine (§3–6); emits per-company + cohort
+   result + the journey-map viz; registers the WISE report.
+4. Report registration JSON under <code>logs/reports/</code>.</p>
+
+<h2 id="9-gotchas-carry-into-the-plan">9. Gotchas (carry into the plan)</h2>
+
+<ul class="article-list">
+  <li>Cross-DB 2-step (§3); <code>soldto_number</code> = account_number (LPAD-10); WISE = <code>source_country='GB'</code>.</li>
+  <li>VPN-on localhost→IPv6 DB hang → use <code>127.0.0.1</code> URIs (already in <code>.env</code>).</li>
+  <li>Files have email <strong>domain</strong> not full email → link via <code>account_number</code>, never email.</li>
+  <li><code>funnel_stage</code> numeric <code>lifecyclestage</code> values exist (SAP account ids as strings) — treat any</li>
+</ul>
+  non-<code>subscriber</code>/<code>customer</code> <code>lifecyclestage</code> as "known account"; rely on <code>funnel_stage</code> for the ladder.
+<ul class="article-list">
+  <li>Do not inflate match: every row records <code>match_source</code> + confidence; <code>no_match</code> companies are</li>
+</ul>
+  reported as "reached, unlinked," not dropped.
+
+<h2 id="10-success-criteria">10. Success criteria</h2>
+
+<ul class="article-list">
+  <li>Per-company table covers 100% of ingested market-loc companies (matched + unlinked).</li>
+  <li>1st/2nd purchase timing, amounts, and top families populate for converters, cross-checked between</li>
+</ul>
+  <code>hubspot_downstream_funnel</code> and <code>ecom_order_lines</code> (first-order date agreement logged).
+<ul class="article-list">
+  <li>Cohort rollups + journey-map render in a WISE-only refreshable report.</li>
+  <li>Dual-journey (webshop vs HubSpot) activation is distinguished and counted per company.</li>
+</ul>
+
+<h2 id="11-open-v2">11. Open / v2</h2>
+
+<ul class="article-list">
+  <li>GA4 pre-purchase web activity (UTM landing via <code>eloqua_contact_id</code>) + <code>prospect_tiers</code> online tier.</li>
+  <li>Sankey / experience-map viz (image-4 style) with real web touchpoints.</li>
+  <li>If a <code>funnel_stage</code>/lineage ambiguity arises, <code>brain-ask</code> the swarph brain as tiebreak.</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#1-goal">1. Goal</a></li>
+<li><a href="#2-scope-phasing">2. Scope & phasing</a></li>
+<li><a href="#3-data-sources-all-local-no-external-api">3. Data sources (all local; no external API)</a></li>
+<li><a href="#4-linkage-matching-company-account">4. Linkage / matching (company → account)</a></li>
+<li><a href="#5-per-company-data-model-report-row">5. Per-company data model (report row)</a></li>
+<li><a href="#6-metric-rules">6. Metric rules</a></li>
+<li><a href="#7-deliverable">7. Deliverable</a></li>
+<li><a href="#8-components-build-units">8. Components (build units)</a></li>
+<li><a href="#9-gotchas-carry-into-the-plan">9. Gotchas (carry into the plan)</a></li>
+<li><a href="#10-success-criteria">10. Success criteria</a></li>
+<li><a href="#11-open-v2">11. Open / v2</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contributing a `swarph bench` pack | Technical Whitepaper</title>
+  <meta name="description" content="Contributing a `swarph bench` pack — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/CONTRIBUTING.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Contributing a `swarph bench` pack</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Contributing a <code>swarph bench</code> pack</p>
+
+<p><code>packs/</code> is the v1 home for the community pack registry (board card #101). A
+separate <code>swarph-packs</code> sibling repo is a plausible later graduation once this
+directory outgrows a single repo's PR volume — not built yet; this directory
+is the whole registry for now.</p>
+
+<h2 id="the-three-required-parts-of-a-pack">The three required parts of a pack</h2>
+
+<p>A pack is <strong>one JSON file</strong> with three required parts (spec §1):</p>
+
+<p>1. <strong><code>system</code></strong> — the skill/operating context. Every model under test gets
+   this VERBATIM. This is the highest-leverage part of a pack: per
+   <code>2026-07-24-model-showdown-findings.md</code>, changing ONLY the <code>system</code>
+   flipped every reference model's behavior on identical tasks. A pack whose
+   <code>system</code> doesn't mirror a real deployment context measures the author's
+   framing, not the model.
+2. <strong><code>tasks[].prompt</code></strong> — the tests, with <strong>no answer leaked</strong>.
+3. <strong><code>tasks[].expected</code></strong> — the ground-truth answer, shaped to match
+   <code>tasks[].type</code> (<code>numeric</code>→number, <code>categorical</code>→string, <code>ranking</code>→array,
+   <code>text</code>→string).</p>
+
+<p>Packs are <strong>DATA only</strong> — never code. The scoring engine
+(<code>swarph_cli.bench.quality</code>) is fixed and shared across every pack.</p>
+
+<p>See <code>packs/arithmetic_demo.json</code> for a minimal synthetic example covering all
+four task types.</p>
+
+<h2 id="the-four-validate-gates-spec-5">The four <code>validate</code> gates (spec §5)</h2>
+
+<p>A PR adding or changing a pack <strong>must pass <code>swarph bench validate</code></strong>:</p>
+
+<ul class="article-list">
+  <li><strong>(a) schema + integrity</strong> — conforms to the normative pack schema; task</li>
+</ul>
+  <code>id</code>s are unique; <code>expected</code>'s shape matches <code>type</code>; <code>system</code> present
+  (warning if not — an unusual but not-strictly-invalid pack).
+<ul class="article-list">
+  <li><strong>(b) answer-leak scan</strong> — FAILS the pack if <code>expected</code> (or an obvious</li>
+</ul>
+  paraphrase) appears in that task's own <code>prompt</code> or in <code>system</code>. Note: a
+  categorical task's instruction naming BOTH valid answers (e.g. `"BUY" or
+  "SKIP"`) is not a leak — that's the answer-format spec. A leak is when only
+  the correct value's vocabulary term appears, with no genuine alternative
+  offered.
+<ul class="article-list">
+  <li><strong>(c) discrimination check</strong> — run a small set of <code>--reference-models</code>; a</li>
+</ul>
+  pack that scores every model near-identically is flagged. A rigorous-
+  looking pack that can't tell models apart is not useful (an arithmetic
+  finance pack once scored 5 models all 1.00).
+<ul class="article-list">
+  <li><strong>(d) context-calibration guidance</strong> — <code>validate</code> always emits the</li>
+</ul>
+  calibration requirement above as a reminder. If the pack declares
+  <code>meta.calibration</code> (<code>{model, task_ids, expected_mean_distance_max}</code>),
+  <code>validate</code> checks that model+system reproduce it. This format is minimal
+  and NOT yet fully standardized (deferred).
+
+<p><code>swarph bench add <pack-file></code> runs these same gates and, if they pass,
+installs the pack at <code>packs/<theme>.json</code> — the filename is derived from the
+pack's OWN <code>theme</code> header (slugified), never asked for on the command line.
+It REFUSES (writes nothing) on a schema failure or an answer leak, and
+refuses to overwrite an existing pack of the same theme without <code>--force</code>.</p>
+
+<h2 id="what-stays-out-of-this-registry">What stays out of this registry</h2>
+
+<p>Private packs built from real proprietary data (e.g. a real trading desk's
+trade history) stay OUT of this public registry. Community packs use
+synthetic or otherwise-shareable examples — see <code>arithmetic_demo.json</code>.</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#the-three-required-parts-of-a-pack">The three required parts of a pack</a></li>
+<li><a href="#the-four-validate-gates-spec-5">The four `validate` gates (spec §5)</a></li>
+<li><a href="#what-stays-out-of-this-registry">What stays out of this registry</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Session_Log | Technical Whitepaper</title>
+  <meta name="description" content="Session_Log — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/session_log.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Session_Log</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <h2 id="session-summary-2026-08-08-ovhcloud-dns-nginx-vhosts-configured">Session Summary — 2026-08-08 (OVHcloud DNS & Nginx Vhosts Configured)</h2>
+<ul class="article-list">
+  <li><strong>Session ID</strong>: b7e2cc54-28fb-4292-91e6-ba2d1200643e</li>
+  <li><strong>OVHcloud DNS A Records</strong>: Created A records in OVH API for leadcontagion.brainsurfing.tech, quant.brainsurfing.tech, and seo.brainsurfing.tech pointing to 51.38.39.156. Refreshed OVH DNS zone.</li>
+  <li><strong>Nginx Vhosts Configured</strong>: Created /etc/nginx/sites-available/ vhosts for leadcontagion.swarph.ai, quant.swarph.ai, and seo.swarph.ai with dual server_names (.brainsurfing.tech fallbacks). Tested syntax and reloaded Nginx.</li>
+  <li><strong>HTTP 200 Verified</strong>: Confirmed HTTP 200 OK for all 3 product entities with /api/ reverse-proxied to port 8767.</li>
+</ul>
+
+<h2 id="session-8ffada04-2980-41cb-995e-6cf79c6d3447-2026-08-13-12-01-54">Session 8ffada04-2980-41cb-995e-6cf79c6d3447 - 2026-08-13 12:01:54</h2>
+<ul class="article-list">
+  <li><strong>Task</strong>: Fixed markdown table translation, code block containment, KaTeX text mangling, and missing CSS styles on swarph.ai/blog/enterprise-b2b-lead-contagion-multi-tenant-attribution-mesh.html.</li>
+  <li><strong>Key Actions</strong>:</li>
+</ul>
+  1. Converted raw Markdown table syntax in HTML whitepapers to semantic <table> elements wrapped in .table-container.
+  2. Fixed KaTeX auto-render script JS delimiter escaping to \\( and \\) and added ignoredTags: ['pre', 'code'] to prevent mangling plain text inside parentheses.
+  3. Added CSS layout containment rules (min-width: 0, max-width: 100%) to pre, .code-block, and grid elements.
+  4. Unified landing page and whitepaper CSS rules into a 16.8KB master styles.css and deployed to /var/www/swarph-ai/.
+<ul class="article-list">
+  <li><strong>Status</strong>: Completed and verified live on https://swarph.ai.</li>
+</ul>
+
+<h2 id="session-update-8ffada04-2980-41cb-995e-6cf79c6d3447-2026-08-13-12-28-04">Session Update 8ffada04-2980-41cb-995e-6cf79c6d3447 - 2026-08-13 12:28:04</h2>
+<ul class="article-list">
+  <li><strong>Task</strong>: Fixed CodeCogs LaTeX formula image URL generation for Medium syndication.</li>
+  <li><strong>Key Actions</strong>:</li>
+</ul>
+  1. Identified that invalid \bg{black} preamble commands were causing CodeCogs to literally render 'dpi180gblackcolorwhite' as text at the start of generated PNG images.
+  2. Fixed CodeCogs URL encoder in getMediumPayload() to pass clean '\dpi{150} ' + formula.
+  3. Re-deployed updated syndication JS across all whitepapers on https://swarph.ai.
+<ul class="article-list">
+  <li><strong>Status</strong>: Completed and verified live.</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#session-summary-2026-08-08-ovhcloud-dns-nginx-vhosts-configured">Session Summary — 2026-08-08 (OVHcloud DNS & Nginx Vhosts Configured)</a></li>
+<li><a href="#session-8ffada04-2980-41cb-995e-6cf79c6d3447-2026-08-13-12-01-54">Session 8ffada04-2980-41cb-995e-6cf79c6d3447 - 2026-08-13 12:01:54</a></li>
+<li><a href="#session-update-8ffada04-2980-41cb-995e-6cf79c6d3447-2026-08-13-12-28-04">Session Update 8ffada04-2980-41cb-995e-6cf79c6d3447 - 2026-08-13 12:28:04</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

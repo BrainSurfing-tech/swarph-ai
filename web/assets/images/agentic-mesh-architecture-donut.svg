@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 380" width="100%" height="100%">
+  <rect width="600" height="380" fill="#0a0e1a" rx="12"/>
+  <text x="300" y="38" fill="#f9fafb" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="middle">Resource &amp; Feature Weight Distribution</text>
+
+  <!-- Donut Rings -->
+  <circle cx="220" cy="200" r="90" fill="none" stroke="#00f2fe" stroke-width="28" stroke-dasharray="320 200"/>
+  <circle cx="220" cy="200" r="90" fill="none" stroke="#00e676" stroke-width="28" stroke-dasharray="140 380" stroke-dashoffset="-320"/>
+  <circle cx="220" cy="200" r="90" fill="none" stroke="#fbbf24" stroke-width="28" stroke-dasharray="100 420" stroke-dashoffset="-460"/>
+
+  <text x="220" y="195" fill="#f9fafb" font-family="sans-serif" font-size="22" font-weight="bold" text-anchor="middle">100%</text>
+  <text x="220" y="215" fill="#9ca3af" font-family="sans-serif" font-size="11" text-anchor="middle">ALLOCATION</text>
+
+  <!-- Legend -->
+  <g transform="translate(380, 140)">
+    <rect x="0" y="0" width="16" height="16" fill="#00f2fe" rx="3"/>
+    <text x="26" y="13" fill="#f9fafb" font-family="sans-serif" font-size="13" font-weight="bold">Kinematic Model (55%)</text>
+
+    <rect x="0" y="40" width="16" height="16" fill="#00e676" rx="3"/>
+    <text x="26" y="53" fill="#f9fafb" font-family="sans-serif" font-size="13" font-weight="bold">Hodge Flow (25%)</text>
+
+    <rect x="0" y="80" width="16" height="16" fill="#fbbf24" rx="3"/>
+    <text x="26" y="93" fill="#f9fafb" font-family="sans-serif" font-size="13" font-weight="bold">Vector Memory (20%)</text>
+  </g>
+</svg>

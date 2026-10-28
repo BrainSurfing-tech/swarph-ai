@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>claude-service on Windows — install notes | Technical Whitepaper</title>
+  <meta name="description" content="claude-service on Windows — install notes — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/windows_install.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">claude-service on Windows — install notes</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 16 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># claude-service on Windows — install notes</p>
+
+<p>The Linux install path (systemd + python3 venv + EnvironmentFile) doesn't translate cleanly to Windows. This page captures the deviations validated on <strong>razorpeter</strong> (Windows GPU peer, onboarded 2026-04-28). Mirror these for any future Windows peer.</p>
+
+<h2 id="pre-flight">Pre-flight</h2>
+
+<ul class="article-list">
+  <li>Windows 10/11 or Server 2022, <strong>PowerShell 5.1+ as Administrator</strong></li>
+  <li>Tailscale installed and <code>tailscale up</code> completed (peer must be on the tailnet)</li>
+  <li><code>claude</code> CLI installed and <code>claude login</code> completed under the operator's account (the <code>claude -p</code> subprocess inherits this auth — Max-subscription-billed)</li>
+  <li>Python 3.12+ on PATH (<code>winget install Python.Python.3.12</code>)</li>
+</ul>
+
+<h2 id="1-nssm-instead-of-systemd">1. NSSM instead of systemd</h2>
+
+<p>Windows has no systemd. Use <strong>NSSM (Non-Sucking Service Manager)</strong> to run uvicorn as a Windows service.</p>
+
+<p><code></code>`powershell
+winget install NSSM.NSSM
+# Service install — points at a start.bat (next section), NOT directly at python
+nssm install claude-service "C:\Users\pierr\claude-service\start.bat"
+nssm set claude-service AppDirectory "C:\Users\pierr\claude-service"
+nssm set claude-service Description "Tailnet-exposed claude -p wrapper"
+nssm set claude-service Start SERVICE_AUTO_START
+# Log rotation (10 MB)
+nssm set claude-service AppStdout "C:\Users\pierr\claude-service\logs\service.log"
+nssm set claude-service AppStderr "C:\Users\pierr\claude-service\logs\service.log"
+nssm set claude-service AppRotateFiles 1
+nssm set claude-service AppRotateBytes 10485760
+<code></code>`</p>
+
+<p><code>Start-Service claude-service</code> to bring it up; <code>Get-Service claude-service</code> for status.</p>
+
+<h2 id="1-5-nssm-log-on-user-must-match-the-user-that-ran-claude-login">1.5 NSSM Log On user must match the user that ran <code>claude login</code></h2>
+
+<p>By default <code>nssm install</code> registers the service to run as <strong>LocalSystem</strong>, which can't read per-user files. The <code>claude</code> CLI stores credentials in the operator's user profile (<code>%USERPROFILE%\.claude\.credentials.json</code>, ACLed to that account). LocalSystem-context invocations of <code>claude -p</code> therefore can't authenticate.</p>
+
+<p>Symptom (visible since claude-service v0.3.2's stdout-on-non-zero-exit logging — pre-v0.3.2 was opaque <code>rc=1 stderr=""</code>): peer-routed <code>/delegate</code> returns HTTP 500 with this in <code>service.log</code>:</p>
+
+<p><code></code>`
+ERROR claude rc=1 stderr= stdout={"is_error":true,"result":"Not logged in · Please run /login",...}
+<code></code>`</p>
+
+<p><strong>Fix</strong> — repoint NSSM at the operator's account. GUI route:</p>
+
+<p><code></code>`powershell
+nssm edit claude-service
+# Log on tab → "This account" → .\<USER> + password → Save
+Restart-Service claude-service   # see §6 if this hangs in StopPending
+<code></code>`</p>
+
+<p>CLI route:</p>
+
+<p><code></code>`powershell
+nssm set claude-service ObjectName ".\<USER>" "<password>"
+Restart-Service claude-service
+<code></code>`</p>
+
+<p>Verify the running uvicorn is now owned by the operator account, then prove <code>claude -p</code> can authenticate:</p>
+
+<p><code></code>`powershell
+# 1. Owner check
+Get-CimInstance Win32_Process -Filter "Name='python.exe'" | Where-Object {
+    $_.CommandLine -like '<em>claude-service</em>'
+} | ForEach-Object { (Invoke-CimMethod -InputObject $_ -MethodName GetOwner).User }
+# Expected: <USER>, NOT SYSTEM.</p>
+
+<p># 2. Self-pong against /delegate (proves credentials are visible to subprocess)
+$tok = '<CLAUDE_SERVICE_TOKEN from start.bat>'
+Invoke-RestMethod -Uri 'http://localhost:8787/delegate' -Method POST `
+    -Headers @{Authorization="Bearer $tok"} -ContentType 'application/json' `
+    -Body (@{prompt='reply with the single word: pong'} | ConvertTo-Json) -TimeoutSec 90
+# Expected: is_error=False, result="pong"
+<code></code>`</p>
+
+<p>If <code>is_error=True, result="Not logged in"</code> persists, the ObjectName change didn't take. Check <code>nssm get claude-service ObjectName</code> and Event Viewer → System → "Service Control Manager" → Event 7038 ("unable to log on as <code>.\X</code> with the currently configured password") — wrong password (or wrong account, see §4 dual-account corollary) is the most common cause.</p>
+
+<p><strong>See also:</strong> §7 generalizes the <em>admin-to-register-then-runs-unprivileged</em> Windows install primitive that this NSSM ObjectName fix is a concrete instance of; §8 is the same primitive's worked example for <code>cli-version-watcher</code> via Task Scheduler.</p>
+
+<h2 id="2-env-doesn-t-auto-load-use-start-bat">2. .env doesn't auto-load — use start.bat</h2>
+
+<p>NSSM doesn't read <code>.env</code> files. Python on Windows doesn't auto-load <code>.env</code> either (we don't pull in <code>python-dotenv</code>). Solution: a small <code>start.bat</code> that exports env vars then launches uvicorn.</p>
+
+<p><code></code>`bat
+@echo off
+REM start.bat — env exports + uvicorn launch for NSSM</p>
+
+<p>set CLAUDE_SERVICE_TOKEN=<paste-token>
+set CLAUDE_BIN=C:\Users\pierr\AppData\Roaming\npm\claude.cmd
+set DEFAULT_CWD=C:\Users\pierr
+set MAX_TIMEOUT_SECONDS=900
+set ALLOWED_CWDS=C:\Users\pierr,C:\Users\pierr\research,C:\temp
+set HOST=0.0.0.0
+set PORT=8787</p>
+
+<p>REM IMPORTANT: lowercase the node-id explicitly. Tailscale's HostName comes through
+REM camelcase ('RazorPeter') — set MESH_NODE_NAME to overide auto-detection.
+set MESH_NODE_NAME=razorpeter</p>
+
+<p>REM Mesh-gateway self-register (v0.3.0+) — both must be set or registration is skipped silently.
+set MESH_GATEWAY_URL=http://lab-ovh:8788
+set MESH_GATEWAY_TOKEN=<paste-mesh-token></p>
+
+<p>C:\Users\pierr\claude-service\venv\Scripts\python.exe -m uvicorn server:app --host %HOST% --port %PORT% --log-level info
+<code></code>`</p>
+
+<p><code>chmod 600</code> equivalent on Windows: right-click → Properties → Security → break inheritance, grant only the operator's account + SYSTEM.</p>
+
+<h2 id="3-firewall-netsh-not-new-netfirewallrule">3. Firewall — netsh, not New-NetFirewallRule</h2>
+
+<p><code>New-NetFirewallRule</code> PowerShell cmdlets need UAC elevation in ways that get awkward over an admin SSH session. <strong><code>netsh</code> works in a regular admin SSH session</strong>:</p>
+
+<p><code></code>`powershell
+netsh advfirewall firewall add rule `
+  name="claude-service-8787" `
+  dir=in action=allow protocol=TCP localport=8787 `
+  remoteip=100.64.0.0/10
+<code></code>`</p>
+
+<p>The <code>remoteip=100.64.0.0/10</code> clamp restricts inbound to the tailnet CGNAT range — no public internet exposure even if Windows Firewall is misconfigured upstream.</p>
+
+<h2 id="4-the-7-character-short-name-profile-gotcha-and-the-dual-account-corollary">4. The 7-character short-name profile gotcha (and the dual-account corollary)</h2>
+
+<p>Windows often truncates the user profile path to 7 chars when the original username is longer. <strong>Razorpeter's <code>Pierre</code> (6-char SAM account) profile lives at <code>C:\Users\pierr</code> (5-char path), not <code>C:\Users\Pierre</code>.</strong> Use <code>$env:USERPROFILE</code> in PowerShell or <code>%USERPROFILE%</code> in cmd, never hard-code <code>C:\Users\Pierre</code>.</p>
+
+<p><code></code>`powershell
+# Wrong (assumes long name):
+$env:CLAUDE_BIN = "C:\Users\Pierre\AppData\Roaming\npm\claude.cmd"</p>
+
+<p># Right:
+<span class="math-inline">\(env:CLAUDE_BIN = "\)</span>env:USERPROFILE\AppData\Roaming\npm\claude.cmd"
+<code></code>`</p>
+
+<p>This bites in <code>start.bat</code> too — verify <code>dir C:\Users\</code> to confirm the actual folder name before pasting paths into the bat.</p>
+
+<p><strong>Dual-account corollary (NSSM ObjectName trap).</strong> Windows lets two distinct SAM accounts share a truncated-name profile dir. On razorpeter there are TWO local accounts: <code>pierr</code> (5-char, dormant — last login pre-onboarding) and <code>Pierre</code> (6-char, active operator). Both legible to <code>Get-LocalUser</code>. The active <code>Pierre</code> account's profile is at <code>C:\Users\pierr</code> because the dormant <code>pierr</code> claimed the directory first. Critical: when configuring NSSM <code>ObjectName</code> (§1.5), use the <strong>SAM account name</strong> (what <code>whoami</code> returns — <code>Pierre</code>), NOT the profile-dir name (<code>pierr</code>). Verify before typing:</p>
+
+<p><code></code>`powershell
+whoami            # SAM account name — use this for NSSM ObjectName
+$env:USERPROFILE  # profile-dir path — use this for hardcoded paths only
+<code></code>`</p>
+
+<p>Setting NSSM <code>ObjectName</code> to the wrong account yields SCM event 7038 ("wrong password") even when the password is correct — because you're authenticating against a different account whose password you don't have. Razorpeter hit this loop 2026-04-30 during the v0.3.2 NSSM repoint.</p>
+
+<h2 id="5-verify">5. Verify</h2>
+
+<p>After service start:</p>
+
+<p><code></code>`powershell
+# Local liveness
+curl http://localhost:8787/health</p>
+
+<p># Mesh registry (replace TOKEN)
+curl -H "Authorization: Bearer $TOKEN" http://lab-ovh:8788/peers/razorpeter/health
+<code></code>`</p>
+
+<p>Expected: <code>node:"razorpeter"</code> (lowercase), <code>gpu</code> capability populated if NVIDIA GPU present, <code>last_seen</code> is fresh post-start (proof v0.3.0+ self-register fired).</p>
+
+<p><strong>Operational note.</strong> With v0.3.0+ self-register and v0.3.2+ stdout-capture both in place, this Windows peer participates in the canonical three-tier routing pattern (Swarph paper §6.3):</p>
+
+<p><code></code>`
+peer-Claude ─DM─▶ razor-Claude inbox ─(human, only at privilege boundary)─▶ service-Claude /delegate
+<code></code>`</p>
+
+<p>Mesh DMs land on <code>mesh-inbox-watcher</code>'s <code>inbox.log</code>; peer-routed task calls land on this service's <code>service.log</code>. Both are tail-able — consider arming a <code>Monitor</code> on each at session start so neither surface goes silent under live work. The human enters the loop only for tasks the AI can't traverse on its own (Windows password entry, MFA, payment auth, physical hardware — Swarph §6.3 exception class).</p>
+
+<p><strong>Verify every wake source the protocol assumes is actually armed.</strong> The routing pattern above presumes a session's <code>Monitor</code> catches <code>inbox.log</code> events; if the wake source is missing or wired to the wrong log, peer DMs accumulate without action and the protocol degrades silently. Razorpeter's 2026-04-30 onboarding hit exactly this: <code>Monitor</code> armed on <code>service.log</code> only, <code>inbox.log</code> unmonitored, a primer-adoption DM sat unread for ~3 hours until the operator prompted directly. Two-stream wake is the canonical Windows shape (<code>inbox.log</code> for mesh DMs, <code>service.log</code> for <code>/delegate</code> traffic); Linux nodes typically need only the inbox-watcher log if <code>/delegate</code> traffic surfaces through orchestrator outcomes. Audit the wake set before declaring an install operational.</p>
+
+<h2 id="6-troubleshooting-restart-service-hangs-in-stoppending">6. Troubleshooting — <code>Restart-Service</code> hangs in StopPending</h2>
+
+<p>Uvicorn on Windows doesn't handle SCM stop signals gracefully, so <code>Restart-Service claude-service</code> (and bare <code>Stop-Service</code>) sit in StopPending indefinitely while NSSM waits for the inner process to confirm shutdown. Symptom:</p>
+
+<p><code></code>`
+WARNING: Waiting for service 'claude-service (claude-service)' to stop...
+WARNING: Waiting for service 'claude-service (claude-service)' to stop...
+... (forever)
+<code></code>`</p>
+
+<p>Force-kill recipe:</p>
+
+<p><code></code>`powershell
+$nssmPid = (sc.exe queryex claude-service | Select-String 'PID\s+:\s+(\d+)').Matches[0].Groups[1].Value
+Stop-Process -Id $nssmPid -Force
+Start-Sleep -Seconds 2
+Start-Service claude-service
+<code></code>`</p>
+
+<p>Total downtime: ~5 seconds. Don't bother with <code>Restart-Service</code> for this service — go straight to the kill-and-start cycle when you need to apply config changes (NSSM ObjectName updates, env-var changes, etc.).</p>
+
+<h2 id="7-service-restart-privilege-boundary-three-tier-routing-canonical-sequence">7. Service-restart privilege boundary — three-tier routing canonical sequence</h2>
+
+<p>Restarting <code>claude-service</code> (or <code>mesh-inbox-watcher</code>) on Windows requires Pierre's <strong>elevated PowerShell</strong>. The current Claude shell on the Windows host is <code>razorpeter\pierre</code> non-elevated. NSSM service has <code>ObjectName=.\Pierre</code> + <code>LogonType=Interactive</code>, which is genuinely operator-credential-bound: granting elevation to the agent shell would compromise the UAC privilege boundary substantively.</p>
+
+<p>This is <strong>NOT bake-outable</strong> the way the Linux substrate's <code>sudoers.d</code> NOPASSWD is. The discriminator from the in-remit-credential-gap rule (lab+gpu-wsl observation 2026-05-01): <em>can this credential be granted to the agent narrowly without compromising the privilege boundary?</em> On Linux: yes (sudoers.d covers it). On Windows + NSSM + LogonType=Interactive: no — the UAC boundary IS the credential, not just sudo's tty requirement.</p>
+
+<p>§6.3 main paper privilege-boundary three-tier routing is therefore the <strong>canonical operational sequence</strong> for service restarts on Windows peers:</p>
+
+<p><code></code>`
+peer-Claude  ─DM─▶  razor-Claude inbox  ─Pierre's elevated PowerShell─▶  service-Claude
+   (asks)              (relays + flags                                      (gets restarted
+                       the human gate)                                      by the elevated
+                                                                            invocation)
+<code></code>`</p>
+
+<p>Concrete restart procedure when a peer DMs razorpeter asking for a restart:</p>
+
+<p>1. <strong>razor-Claude reads the DM</strong> in its own session (mesh inbox-watcher daemon writes the inbox.log line → Monitor wakes razor-Claude)
+2. <strong>razor-Claude DMs Pierre</strong> (via Discord webhook or whatever surfacing mechanism is wired) flagging the restart need + the reason
+3. <strong>Pierre opens an elevated PowerShell</strong> (Win+X → Windows PowerShell (Admin), or a saved elevated shortcut)
+4. <strong>Pierre runs the restart</strong> — direct kill-and-start per §6 (skip <code>Restart-Service</code>):</p>
+
+<p><code></code>`powershell
+   $nssmPid = (sc.exe queryex claude-service | Select-String 'PID\s+:\s+(\d+)').Matches[0].Groups[1].Value
+   Stop-Process -Id $nssmPid -Force
+   Start-Sleep -Seconds 2
+   Start-Service claude-service
+   <code></code>`</p>
+
+<p>5. <strong>razor-Claude DMs the originating peer</strong> confirming restart complete + new advertised <code>claude_cli</code> / <code>service_version</code> in <code>/peers</code></p>
+
+<p>This is NOT a workaround or a degraded mode — it's the correct §6.3 pattern fired correctly. UAC-class credentials are exactly what §6.3 is for. The two-tier "AI-to-AI" cooperative-protocol default doesn't apply at this layer because the credential isn't reducible to a narrow grant.</p>
+
+<p><strong>Operator-side runbook sticky-note:</strong> if a peer DM asks for a service restart on this Windows host, that's the §6.3 trigger — open elevated PowerShell, run the recipe, ack via mesh DM. ~30 seconds of operator time per restart; auto-update events typically batch this once per major Claude Code release across the mesh, not per-day.</p>
+
+<p>The 2026-04-30 NSSM ObjectName fix (yesterday's "Not logged in" → user-account-repointing) and the 2026-05-01 system-wide auto-update restart wave (today's claude_cli 2.1.123 → 2.1.126 across all peers) were both clean §6.3 fires on razorpeter — empirical confirmation the pattern works as specified.</p>
+
+<p><strong>Paired-primitive note.</strong> The same admin-to-register-then-runs-unprivileged shape applies to <strong>Task Scheduler</strong> registration as well — see §8 below for the cli-version-watcher install recipe, where <code>Register-ScheduledTask</code> requires admin even though the registered task itself runs as <code>Pierre/Limited</code>. Windows ships per-install-action admin gates (NSSM service registration, Task Scheduler entry creation, <code>netsh advfirewall add rule</code>, et al.) that are one-time costs at install but the running artifact is unprivileged. Pattern recognition: when a Win32 install step is admin-required, ask "is this register-time or runtime?" — register-time is §6.3 privilege-boundary fire; runtime gates need a separate audit.</p>
+
+<h2 id="8-cli-version-watcher-win32-install">8. cli-version-watcher (Win32 install)</h2>
+
+<p><code>cli-version-watcher</code> is a sibling daemon (Linux: systemd timer; Win32: Task Scheduler) that closes the "Claude Code CLI auto-updates on disk but <code>claude-service</code> keeps advertising the cached boot-time version" gap (surfaced 2026-05-01 by lab DM #201 → razorpeter). Polls <code>claude --version</code> vs <code>/health</code>-advertised <code>claude_cli</code>; if divergent, POSTs <code>/capabilities/refresh</code> to trigger re-detection + mesh-gateway re-register. Pure stdlib Python, idempotent, exits 0 on no-op.</p>
+
+<h3 id="install-recipe">Install recipe</h3>
+
+<p><code></code>`powershell
+# 1. Copy upstream script into the install dir
+$base = 'C:\Users\pierr\claude-service'
+Copy-Item -Path "<repo-clone>\scripts\cli_version_watcher.py" -Destination "$base\scripts\cli_version_watcher.py" -Force</p>
+
+<p># 2. Verify the version strings match exactly between <code>claude --version</code> and /health
+#    (mismatch would create a perpetual divergence loop — both must return identical strings):
+<span class="math-inline">\(installed = &\)</span>env:CLAUDE_BIN --version
+$advertised = (Invoke-RestMethod 'http://localhost:8787/health').capabilities.claude_cli
+"installed=<span class="math-inline">\(installed advertised=\)</span>advertised match=<span class="math-inline">\((\)</span>installed -eq $advertised)"
+# Expected: match=True
+<code></code>`</p>
+
+<h3 id="powershell-wrapper-loads-env-mirrors-start-inbox-watcher-bat-pattern">PowerShell wrapper (loads <code>.env</code>, mirrors <code>start_inbox_watcher.bat</code> pattern)</h3>
+
+<p>Save as <code>C:\Users\pierr\claude-service\scripts\run_cli_version_watcher.ps1</code>:</p>
+
+<p><code></code>`powershell
+$base = 'C:\Users\pierr\claude-service'
+Get-Content "$base\.env" -ErrorAction SilentlyContinue | ForEach-Object {
+    <span class="math-inline">\(line =\)</span>_.Trim()
+    if (-not <span class="math-inline">\(line -or\)</span>line.StartsWith('#') -or -not (<span class="math-inline">\(line -match '^([^=]+)=(.*)\)</span>')) { return }
+    [Environment]::SetEnvironmentVariable(
+        <span class="math-inline">\(Matches[1].Trim(),\)</span>Matches[2].Trim().Trim('"').Trim("'"), 'Process'
+    )
+}
+if (-not <span class="math-inline">\(env:CLAUDE_BIN) {\)</span>env:CLAUDE_BIN = 'C:\Users\pierr\.local\bin\claude.exe' }</p>
+
+<p>& "<span class="math-inline">\(base\venv\Scripts\python.exe" "\)</span>base\scripts\cli_version_watcher.py" 2>&1 |
+    Tee-Object -FilePath "$base\logs\cli_version_watcher.log" -Append
+exit $LASTEXITCODE
+<code></code>`</p>
+
+<p>Why a wrapper: <code>cli_version_watcher.py</code> reads <code>CLAUDE_BIN</code>, <code>CLAUDE_SERVICE_TOKEN</code>, <code>PORT</code> from <code>os.environ</code>. Task Scheduler doesn't auto-load <code>.env</code>. Same pattern that the inbox-watcher uses via <code>start_inbox_watcher.bat</code> — kept symmetric for cross-daemon consistency.</p>
+
+<h3 id="task-scheduler-registration-admin-required-7-privilege-boundary">Task Scheduler registration (admin required — §7 privilege-boundary)</h3>
+
+<p>In an <strong>elevated PowerShell</strong>:</p>
+
+<p><code></code>`powershell
+$base = 'C:\Users\pierr\claude-service'
+$action = New-ScheduledTaskAction -Execute 'powershell.exe' `
+    -Argument "-NoProfile -ExecutionPolicy Bypass -File <code>"$base\scripts\run_cli_version_watcher.ps1</code>""
+$repeatTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(5) `
+    -RepetitionInterval (New-TimeSpan -Hours 6)
+$logonTrigger  = New-ScheduledTaskTrigger -AtLogOn
+$settings  = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+                                          -StartWhenAvailable `
+                                          -ExecutionTimeLimit (New-TimeSpan -Minutes 5)
+<span class="math-inline">\(principal = New-ScheduledTaskPrincipal -UserId "\)</span>env:USERDOMAIN\$env:USERNAME" `
+                                         -LogonType Interactive -RunLevel Limited
+Register-ScheduledTask -TaskName 'CliVersionWatcher' `
+    -Description 'Polls claude --version every 6h; if diverges from advertised, POSTs /capabilities/refresh.' `
+    -Action <span class="math-inline">\(action -Trigger @(\)</span>repeatTrigger, $logonTrigger) `
+    -Settings <span class="math-inline">\(settings -Principal\)</span>principal -Force
+<code></code>`</p>
+
+<p><strong>Two-trigger rationale.</strong> Linux uses <code>OnBootSec=10min</code> to catch box-off-during-auto-update; Win32 needs a different cousin-shape because Windows desktops sleep/hibernate rather than always being booted. <code>AtLogOn</code> is the right Win32 cousin: when the operator logs in fresh after the box was off, the watcher fires immediately to catch any auto-update that happened during downtime. The 6h-repeat covers the always-on case during the workday. Lab DM #282 named this as environment-driven design extending the primitive (vs just porting it).</p>
+
+<h3 id="verify">Verify</h3>
+
+<p><code></code>`powershell
+Start-ScheduledTask -TaskName 'CliVersionWatcher'
+Start-Sleep -Seconds 4
+Get-ScheduledTaskInfo -TaskName 'CliVersionWatcher' |
+    Select-Object LastRunTime, LastTaskResult, NumberOfMissedRuns
+# Expected: LastTaskResult=0, NumberOfMissedRuns=0</p>
+
+<p>Get-Content "$base\logs\cli_version_watcher.log" -Tail 5
+# Expected: "INFO in sync: claude_cli=<version> (Claude Code)"
+<code></code>`</p>
+
+<h3 id="rollback">Rollback</h3>
+
+<p><code></code>`powershell
+Unregister-ScheduledTask -TaskName 'CliVersionWatcher' -Confirm:$false
+Remove-Item "<span class="math-inline">\(base\scripts\cli_version_watcher.py", "\)</span>base\scripts\run_cli_version_watcher.ps1"
+<code></code>`</p>
+
+<h2 id="9-mesh-inbox-watcher-win32-install">9. mesh-inbox-watcher (Win32 install)</h2>
+
+<p><code>mesh-inbox-watcher</code> is the second sibling daemon — polls <code>mesh-gateway:8788/messages?to=<node>&unread_only=true</code> every 60s, writes formatted DM records to <code>logs/inbox.log</code> (which the SessionStart hook tails to surface peer DMs into the next Claude session as context). Pure stdlib Python (<code>urllib</code>), in-memory dedup via <code>_HANDLED_IDS</code> set across polls, optional Discord webhook secondary surface.</p>
+
+<p><strong>Design choice: NSSM daemon, NOT Task Scheduler.</strong> This is different from §8 cli-version-watcher's Task Scheduler shape, and the difference is load-bearing:</p>
+
+<ul class="article-list">
+  <li>cli-version-watcher (§8) is genuinely intermittent: one HTTP probe every 6h, no in-memory state to preserve between fires. Task Scheduler <code>--once</code> mode is the right substrate.</li>
+  <li>mesh-inbox-watcher needs <code>_HANDLED_IDS</code> dedup across polls. Empirically validated 2026-04-30 on razorpeter onboarding: Task Scheduler <code>--once</code> mode + <code>INBOX_MARK_READ=0</code> re-logs the same unread message every fire because the per-process set resets between Task Scheduler invocations. Daemon-mode (long-running process) keeps the set in memory.</li>
+</ul>
+
+<p>If you set <code>INBOX_MARK_READ=1</code> (script auto-marks DMs read on the gateway after local-log write), Task Scheduler <code>--once</code> would work — the gateway then suppresses re-fetches because read_at gets set. But that loses the gateway's <code>unread_only=true</code> query as the canonical "needs Claude/operator attention" signal. The trade-off is operator-flow vs install-shape simplicity; razor (and lab) chose <code>INBOX_MARK_READ=0</code> daemon-mode to keep gateway-as-truth for the Claude session-start workflow.</p>
+
+<h3 id="install-recipe">Install recipe</h3>
+
+<p><code></code>`powershell
+# 1. Copy upstream script into the install dir
+$base = 'C:\Users\pierr\claude-service'
+Copy-Item -Path "<repo-clone>\scripts\inbox_watcher.py" -Destination "$base\scripts\inbox_watcher.py" -Force</p>
+
+<p># 2. Create logs/ and state/ subdirs (script writes both)
+New-Item -ItemType Directory -Path "<span class="math-inline">\(base\logs", "\)</span>base\state" -Force | Out-Null</p>
+
+<p># 3. (Optional but recommended) Verify the upstream script has the leaky-filter fix
+#    — gateway's <code>?to=X</code> query is leaky; client-side filter must drop both
+#    outgoing DMs (<code>from_node == node</code>) and cross-peer noise (<code>to_node != node</code>).
+#    Both filters present in upstream as of commit 0a0ab7b on darw007d/hedge-fund-mcp.
+Select-String -Path "$base\scripts\inbox_watcher.py" -Pattern "from_node.<em>!=.</em>node|to_node.<em>==.</em>node"
+# Expected: at least 2 matching lines.
+<code></code>`</p>
+
+<h3 id="wrapper-bat-loads-env-mirrors-start-bat-pattern-that-nssm-expects">Wrapper bat (loads <code>.env</code>, mirrors <code>start.bat</code> pattern that NSSM expects)</h3>
+
+<p>Save as <code>C:\Users\pierr\claude-service\start_inbox_watcher.bat</code>:</p>
+
+<p><code></code>`bat
+@echo off
+REM start_inbox_watcher.bat — env exports + python daemon launch for NSSM
+REM Sibling of start.bat (claude-service); same .env-loading pattern via for-loop.
+cd /d C:\Users\pierr\claude-service</p>
+
+<p>REM Source .env (KEY=VALUE lines; ignore comments & blanks)
+for /f "usebackq eol=# tokens=1,* delims==" %%a in ("C:\Users\pierr\claude-service\.env") do (
+    set "%%a=%%b"
+)</p>
+
+<p>REM Inbox-watcher win32 overrides — see "Design choice" above for INBOX_MARK_READ rationale
+set INBOX_MARK_READ=0
+set INBOX_LOG_FILE=C:\Users\pierr\claude-service\logs\inbox.log
+set INBOX_POLL_INTERVAL_SEC=60</p>
+
+<p>venv\Scripts\python.exe scripts\inbox_watcher.py
+<code></code>`</p>
+
+<p>Why <code>.bat</code> not <code>.ps1</code>: NSSM invokes the entrypoint directly, and cmd-style <code>for /f</code> with <code>eol=# tokens=1,* delims==</code> handles <code>.env</code> parsing without external dependencies. The cli-version-watcher §8 uses a PowerShell wrapper because Task Scheduler's argument shape is more PowerShell-friendly; NSSM is more cmd-friendly. Different scheduling substrate, different wrapper idiom — both load the same <code>.env</code> file.</p>
+
+<h3 id="nssm-service-registration-admin-required-7-privilege-boundary">NSSM service registration (admin required — §7 privilege-boundary)</h3>
+
+<p>In an <strong>elevated PowerShell</strong>:</p>
+
+<p><code></code>`powershell
+$base = 'C:\Users\pierr\claude-service'
+nssm install mesh-inbox-watcher "$base\start_inbox_watcher.bat"
+nssm set mesh-inbox-watcher AppDirectory $base
+nssm set mesh-inbox-watcher Description 'Polls mesh-gateway every 60s for incoming DMs to <node>; appends formatted records to logs\inbox.log.'
+nssm set mesh-inbox-watcher Start SERVICE_AUTO_START</p>
+
+<p># Logging (NSSM-captured python stderr/stdout — separate from logs\inbox.log which the script writes itself)
+nssm set mesh-inbox-watcher AppStdout "$base\logs\inbox-watcher.log"
+nssm set mesh-inbox-watcher AppStderr "$base\logs\inbox-watcher.log"
+nssm set mesh-inbox-watcher AppRotateFiles 1
+nssm set mesh-inbox-watcher AppRotateBytes 10485760</p>
+
+<p># Crash-recovery (Win32 cousin of systemd Restart=on-failure)
+nssm set mesh-inbox-watcher AppExit Default Restart
+nssm set mesh-inbox-watcher AppRestartDelay 5000     # 5s backoff between restarts
+nssm set mesh-inbox-watcher AppThrottle 10000        # 10s minimum lifetime to count as "started"</p>
+
+<p># CRITICAL: ObjectName must be the SAM account that ran <code>claude login</code> — see §1.5 dual-account trap
+nssm set mesh-inbox-watcher ObjectName ".\<USER>" "<password>"</p>
+
+<p>Start-Service mesh-inbox-watcher
+<code></code>`</p>
+
+<p>Two log files this creates:
+<ul class="article-list">
+  <li><code>logs\inbox.log</code> — formatted DM records the script writes itself (boxed UTF-8 records, primary surface for the SessionStart hook to tail).</li>
+  <li><code>logs\inbox-watcher.log</code> — NSSM-captured Python stderr/stdout, operational health (startup line, "recorded msg id=N from=peer kind=fyi" lines, crash tracebacks).</li>
+</ul></p>
+
+<h3 id="verify">Verify</h3>
+
+<p><code></code>`powershell
+Get-Service mesh-inbox-watcher | Format-Table Name, Status, StartType
+# Expected: Running, Automatic.</p>
+
+<p>Get-Content "$base\logs\inbox-watcher.log" -Tail 5
+# Expected: "INFO inbox-watcher starting: node=<NODE> poll=60s mesh=<URL> log=<LOG_FILE> once=False"</p>
+
+<p>Get-Content "$base\logs\inbox.log" -Encoding UTF8 -Tail 20
+# After ~1 minute and at least one mesh DM landing, expect formatted records.
+<code></code>`</p>
+
+<p>Crash-recovery test (skip if you don't want to disturb a running daemon):</p>
+
+<p><code></code>`powershell
+$nssmPid = (sc.exe queryex mesh-inbox-watcher | Select-String 'PID\s+:\s+(\d+)').Matches[0].Groups[1].Value
+Stop-Process -Id $nssmPid -Force
+Start-Sleep -Seconds 8
+Get-Service mesh-inbox-watcher | Format-Table Name, Status
+# Expected: Running again (NSSM AppExit=Restart auto-recovered after AppRestartDelay).
+<code></code>`</p>
+
+<h3 id="rollback">Rollback</h3>
+
+<p><code></code>`powershell
+Stop-Service mesh-inbox-watcher
+nssm remove mesh-inbox-watcher confirm
+Remove-Item "<span class="math-inline">\(base\scripts\inbox_watcher.py", "\)</span>base\start_inbox_watcher.bat"
+# Optionally also: Remove-Item "<span class="math-inline">\(base\logs\inbox.log", "\)</span>base\logs\inbox-watcher.log"
+<code></code>`</p>
+
+<h3 id="why-this-isn-t-bundled-into-start-bat-single-process-colocation">Why this isn't bundled into <code>start.bat</code> (single-process colocation)</h3>
+
+<p><code>claude-service</code> and <code>mesh-inbox-watcher</code> are intentionally separate NSSM services — same NSSM idiom, different process. Three reasons:</p>
+
+<p>1. <strong>Restart isolation.</strong> <code>claude-service</code> restarts trigger StopPending hangs (§6); the inbox-watcher should keep polling while we kill-and-start the FastAPI process. Separate services = independent lifecycles.
+2. <strong>Failure isolation.</strong> A bad <code>claude -p</code> invocation that crashes uvicorn shouldn't drop the mesh-DM surface. Operator can still see peer DMs via <code>inbox.log</code> even if <code>/delegate</code> is down.
+3. <strong>Symmetric with the Linux substrate.</strong> Linux peers run <code>claude-service.service</code> and <code>inbox-watcher.service</code> as separate systemd units. Cross-substrate cousin-class identity per §7's broader pattern — same primitive shape, different scheduling substrate.</p>
+
+<h2 id="rollback">Rollback</h2>
+
+<p><code></code>`powershell
+Stop-Service claude-service
+nssm remove claude-service confirm
+netsh advfirewall firewall delete rule name="claude-service-8787"
+Remove-Item -Recurse "C:\Users\pierr\claude-service"
+<code></code>`</p>
+
+<p>Mesh-gateway side: <code>DELETE /peers/razorpeter</code> (or <code>UPDATE claude_peers SET enabled=0 WHERE name='razorpeter'</code>).</p>
+
+<h2 id="when-to-use-this-vs-wsl">When to use this vs WSL</h2>
+
+<p>If the Windows host has WSL2 + tailscale on the WSL side (the gpu-wsl pattern), prefer running claude-service inside WSL — full Linux systemd, normal <code>.env</code> loading, no NSSM/netsh dance. Use this Windows-native install only when:
+<ul class="article-list">
+  <li>The Windows host has no WSL (razorpeter's case)</li>
+  <li>You need Windows-native GPU access (CUDA in WSL works, but driver-tied workflows may want pure Windows)</li>
+  <li>You want claude-service to drive Windows-only operations (winget, Windows registry, etc.)</li>
+</ul></p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#install-recipe">Install recipe</a></li>
+<li style="margin-left: 0.8rem;"><a href="#powershell-wrapper-loads-env-mirrors-start-inbox-watcher-bat-pattern">PowerShell wrapper (loads `.env`, mirrors `start_inbox_watcher.bat` pattern)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-scheduler-registration-admin-required-7-privilege-boundary">Task Scheduler registration (admin required — §7 privilege-boundary)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#verify">Verify</a></li>
+<li style="margin-left: 0.8rem;"><a href="#rollback">Rollback</a></li>
+<li style="margin-left: 0.8rem;"><a href="#install-recipe">Install recipe</a></li>
+<li style="margin-left: 0.8rem;"><a href="#wrapper-bat-loads-env-mirrors-start-bat-pattern-that-nssm-expects">Wrapper bat (loads `.env`, mirrors `start.bat` pattern that NSSM expects)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#nssm-service-registration-admin-required-7-privilege-boundary">NSSM service registration (admin required — §7 privilege-boundary)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#verify">Verify</a></li>
+<li style="margin-left: 0.8rem;"><a href="#rollback">Rollback</a></li>
+<li style="margin-left: 0.8rem;"><a href="#why-this-isn-t-bundled-into-start-bat-single-process-colocation">Why this isn't bundled into `start.bat` (single-process colocation)</a></li>
+<li><a href="#pre-flight">Pre-flight</a></li>
+<li><a href="#1-nssm-instead-of-systemd">1. NSSM instead of systemd</a></li>
+<li><a href="#1-5-nssm-log-on-user-must-match-the-user-that-ran-claude-login">1.5 NSSM Log On user must match the user that ran `claude login`</a></li>
+<li><a href="#2-env-doesn-t-auto-load-use-start-bat">2. .env doesn't auto-load — use start.bat</a></li>
+<li><a href="#3-firewall-netsh-not-new-netfirewallrule">3. Firewall — netsh, not New-NetFirewallRule</a></li>
+<li><a href="#4-the-7-character-short-name-profile-gotcha-and-the-dual-account-corollary">4. The 7-character short-name profile gotcha (and the dual-account corollary)</a></li>
+<li><a href="#5-verify">5. Verify</a></li>
+<li><a href="#6-troubleshooting-restart-service-hangs-in-stoppending">6. Troubleshooting — `Restart-Service` hangs in StopPending</a></li>
+<li><a href="#7-service-restart-privilege-boundary-three-tier-routing-canonical-sequence">7. Service-restart privilege boundary — three-tier routing canonical sequence</a></li>
+<li><a href="#8-cli-version-watcher-win32-install">8. cli-version-watcher (Win32 install)</a></li>
+<li><a href="#9-mesh-inbox-watcher-win32-install">9. mesh-inbox-watcher (Win32 install)</a></li>
+<li><a href="#rollback">Rollback</a></li>
+<li><a href="#when-to-use-this-vs-wsl">When to use this vs WSL</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,626 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Candidate Pool Normalization Method | Technical Whitepaper</title>
+  <meta name="description" content="Candidate Pool Normalization Method — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/candidate_pool_normalization_method.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Candidate Pool Normalization Method</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 7 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Candidate Pool Normalization Method</p>
+
+<p>Last updated: 2026-06-19</p>
+
+<h2 id="purpose">Purpose</h2>
+
+<p>This document explains the Step 2 normalization process for the persona attribute candidate pool.</p>
+
+<p>Step 2 takes the raw extended candidate pool from Step 1 and converts heterogeneous source records into a consistent, reviewable schema. The goal is not to remove duplicates yet. The goal is to make each candidate easier to compare, deduplicate, categorize, ground, and connect in the later attribute graph.</p>
+
+<p>Normalization is implemented in:</p>
+
+<ul class="article-list">
+  <li><code>normalize_candidate_pool.py</code></li>
+</ul>
+
+<p>The normalized outputs are written to:</p>
+
+<ul class="article-list">
+  <li><code>candidate_pool_outputs/normalized/candidate_pool_raw_extended_normalized.csv</code></li>
+  <li><code>candidate_pool_outputs/normalized/candidate_pool_high_quality_normalized.csv</code></li>
+  <li><code>candidate_pool_outputs/normalized/normalization_report.md</code></li>
+  <li><code>candidate_pool_outputs/normalized/normalization_source_summary.csv</code></li>
+</ul>
+
+<p>ACS support files are produced by:</p>
+
+<ul class="article-list">
+  <li><code>build_acs_curated_variables.py</code></li>
+  <li><code>dataset/acs_pums/PUMS_Data_Dictionary_2024.csv</code></li>
+  <li><code>dataset/acs_pums/acs_pums_curated_variables.csv</code></li>
+</ul>
+
+<h2 id="input-files">Input Files</h2>
+
+<p>The script reads:</p>
+
+<ul class="article-list">
+  <li><code>candidate_pool_outputs/candidate_pool_raw_extended.csv</code></li>
+  <li><code>candidate_pool_outputs/candidate_pool_high_quality.csv</code></li>
+</ul>
+
+<p>The raw extended file contains all candidates from Step 1. The high-quality file contains the curated subset used as the primary review pool.</p>
+
+<h2 id="output-principle">Output Principle</h2>
+
+<p>Normalization preserves every input row. It does not merge attributes.</p>
+
+<p>Each row receives additional normalized fields:</p>
+
+<ul class="article-list">
+  <li>canonical label and name;</li>
+  <li>normalized top-level category;</li>
+  <li>normalized subcategory;</li>
+  <li>inferred data type;</li>
+  <li>measurement level;</li>
+  <li>source family;</li>
+  <li>quality tier;</li>
+  <li>license risk;</li>
+  <li>deduplication keys;</li>
+  <li>aliases;</li>
+  <li>review flags;</li>
+  <li>application relevance.</li>
+</ul>
+
+<p>This makes Step 3 easier because exact duplicates, near duplicates, aliases, conflicts, and related constructs can be detected with more consistent metadata.</p>
+
+<h2 id="why-normalize-before-deduplication">Why Normalize Before Deduplication</h2>
+
+<p>Different sources describe similar concepts in different forms.</p>
+
+<p>Examples:</p>
+
+<ul class="article-list">
+  <li><code>political_leaning</code>, <code>political_orientation</code>, and <code>party_affiliation</code> may be related but are not always identical.</li>
+  <li><code>risk_aversion</code>, <code>risk_tolerance</code>, and <code>sensation_seeking</code> are related risk constructs but should not be automatically merged.</li>
+  <li><code>openness</code>, <code>curiosity</code>, <code>intellectual_curiosity</code>, and <code>need_for_cognition</code> overlap conceptually but come from different theories and measurement traditions.</li>
+</ul>
+
+<p>Normalization creates comparable labels, categories, source families, and dedup keys while preserving original source distinctions.</p>
+
+<h2 id="normalized-fields">Normalized Fields</h2>
+
+<h3 id="canonical-label"><code>canonical_label</code></h3>
+
+<p>A cleaned version of the source label.</p>
+
+<p>Examples:</p>
+
+<ul class="article-list">
+  <li>removes repeated suffixes such as <code>.1</code>;</li>
+  <li>normalizes encoding artifacts where possible;</li>
+  <li>preserves the human-readable wording.</li>
+</ul>
+
+<h3 id="canonical-name"><code>canonical_name</code></h3>
+
+<p>A machine-friendly snake_case identifier derived from <code>canonical_label</code>.</p>
+
+<p>Example:</p>
+
+<ul class="article-list">
+  <li><code>Political Orientation</code> -> <code>political_orientation</code></li>
+</ul>
+
+<h3 id="normalized-primary-category"><code>normalized_primary_category</code></h3>
+
+<p>The corrected top-level category using our 10-category persona schema:</p>
+
+<p>1. Demographics & Population Grounding
+2. Life Context & Constraints
+3. Personality Traits
+4. Values, Goals & Motivations
+5. Worldview, Beliefs & Attitudes
+6. Cognitive & Capability Profile
+7. Behavioral Patterns & Preferences
+8. Social Identity, Relationships & Community
+9. Narrative Identity & Life History
+10. Domain-Specific Overlays</p>
+
+<h3 id="normalized-subcategory"><code>normalized_subcategory</code></h3>
+
+<p>A cleaned and source-aware subcategory.</p>
+
+<p>Examples:</p>
+
+<ul class="article-list">
+  <li><code>Facet MAP personality facets</code></li>
+  <li><code>IPIP personality items</code></li>
+  <li><code>Schwartz values</code></li>
+  <li><code>sociodemographic attitudes</code></li>
+  <li><code>domain labels and expertise areas</code></li>
+  <li><code>hobbies interests and lifestyle</code></li>
+</ul>
+
+<h3 id="normalized-definition"><code>normalized_definition</code></h3>
+
+<p>A standardized definition. If the source already provides a useful definition, it is preserved. Otherwise, the script creates a light definition from the label, category, and subcategory.</p>
+
+<h3 id="normalized-data-type"><code>normalized_data_type</code></h3>
+
+<p>An inferred data type. Common values include:</p>
+
+<ul class="article-list">
+  <li><code>likert_self_report_item</code></li>
+  <li><code>psychometric_construct</code></li>
+  <li><code>theory_construct</code></li>
+  <li><code>ordinal_survey_item</code></li>
+  <li><code>ordinal_or_binary_survey_item</code></li>
+  <li><code>categorical</code></li>
+  <li><code>multi_select</code></li>
+  <li><code>free_text</code></li>
+  <li><code>dataset_schema_field</code></li>
+  <li><code>domain_label</code></li>
+  <li><code>unknown_or_source_defined</code></li>
+</ul>
+
+<h3 id="measurement-level"><code>measurement_level</code></h3>
+
+<p>The broad measurement type:</p>
+
+<ul class="article-list">
+  <li><code>nominal</code></li>
+  <li><code>ordinal</code></li>
+  <li><code>construct</code></li>
+  <li><code>free_text</code></li>
+  <li><code>source_defined</code></li>
+</ul>
+
+<h3 id="normalized-value-schema-json"><code>normalized_value_schema_json</code></h3>
+
+<p>A JSON object describing the value structure where known.</p>
+
+<p>For example, IPIP items are normalized as Likert-style self-report items with a standard agreement/accuracy scale.</p>
+
+<p>Official survey variables without value labels are marked as source-defined and flagged for later codebook lookup.</p>
+
+<h3 id="source-family"><code>source_family</code></h3>
+
+<p>A broader source grouping:</p>
+
+<ul class="article-list">
+  <li><code>psychometric</code></li>
+  <li><code>official_population_survey</code></li>
+  <li><code>official_survey</code></li>
+  <li><code>research_dataset</code></li>
+  <li><code>persona_dataset</code></li>
+  <li><code>llm_mined</code></li>
+  <li><code>local_project</code></li>
+  <li><code>validated_theory</code></li>
+  <li><code>other</code></li>
+</ul>
+
+<h3 id="quality-tier"><code>quality_tier</code></h3>
+
+<p>Derived from the Step 1 inclusion tier:</p>
+
+<ul class="article-list">
+  <li><code>A</code>: validated psychometric scale, official survey variable, or theory construct;</li>
+  <li><code>B</code>: peer-reviewed dataset, curated local schema, or dataset field;</li>
+  <li><code>C</code>: LLM-mined or automatically extracted candidate requiring review.</li>
+</ul>
+
+<h3 id="license-risk"><code>license_risk</code></h3>
+
+<p>A coarse flag for downstream reuse risk:</p>
+
+<ul class="article-list">
+  <li><code>low</code></li>
+  <li><code>medium</code></li>
+  <li><code>medium_high</code></li>
+  <li><code>unknown</code></li>
+</ul>
+
+<p>This is not legal advice. It is a review signal.</p>
+
+<h3 id="dedup-key-strict"><code>dedup_key_strict</code></h3>
+
+<p>A strict key based on normalized category and canonical label.</p>
+
+<p>Use it for exact or near-exact duplicate detection.</p>
+
+<h3 id="dedup-key-loose"><code>dedup_key_loose</code></h3>
+
+<p>A looser token-based key that removes common stopwords and sorts salient tokens.</p>
+
+<p>Use it for candidate duplicate clusters that need human or semantic review.</p>
+
+<h3 id="alias-candidates-json"><code>alias_candidates_json</code></h3>
+
+<p>A list of possible aliases derived from:</p>
+
+<ul class="article-list">
+  <li>original label;</li>
+  <li>source-provided name;</li>
+  <li>original source ID;</li>
+  <li>canonical name.</li>
+</ul>
+
+<h3 id="review-flags-json"><code>review_flags_json</code></h3>
+
+<p>Flags that indicate why a candidate needs special attention.</p>
+
+<p>Common flags:</p>
+
+<ul class="article-list">
+  <li><code>review_low_evidence_or_llm_mined</code></li>
+  <li><code>review_deeppersona_auto_extraction</code></li>
+  <li><code>domain_label_not_standalone_attribute</code></li>
+  <li><code>domain_specific_not_core_by_default</code></li>
+  <li><code>needs_value_schema_or_codebook_lookup</code></li>
+  <li><code>auto_augmented_values_review</code></li>
+  <li><code>label_too_generic_review</code></li>
+  <li><code>free_text_should_be_structured_before_final_schema</code></li>
+</ul>
+
+<h3 id="needs-review"><code>needs_review</code></h3>
+
+<p>Boolean value derived from whether the row has any review flags.</p>
+
+<h3 id="boolean-helper-fields">Boolean Helper Fields</h3>
+
+<p>The script also creates:</p>
+
+<ul class="article-list">
+  <li><code>is_questionnaire_item</code></li>
+  <li><code>is_construct</code></li>
+  <li><code>is_dataset_field</code></li>
+  <li><code>is_domain_label</code></li>
+  <li><code>is_generated_or_mined</code></li>
+</ul>
+
+<p>These make filtering easier.</p>
+
+<h3 id="application-relevance"><code>application_relevance</code></h3>
+
+<p>A broad application signal, such as:</p>
+
+<ul class="article-list">
+  <li><code>general_personality_and_behavior_simulation</code></li>
+  <li><code>survey_social_science_policy_and_alignment</code></li>
+  <li><code>motivation_preference_and_decision_simulation</code></li>
+  <li><code>education_workflow_task_capability_simulation</code></li>
+  <li><code>recommender_consumer_media_and_daily_behavior</code></li>
+  <li><code>population_grounding_sampling_and_fairness_analysis</code></li>
+  <li><code>domain_specific_module_selection</code></li>
+</ul>
+
+<h2 id="source-specific-normalization-rules">Source-Specific Normalization Rules</h2>
+
+<h3 id="psychometric-sources">Psychometric Sources</h3>
+
+<p>Sources:</p>
+
+<ul class="article-list">
+  <li>IPIP</li>
+  <li>Facet MAP</li>
+  <li>BFI-2</li>
+  <li>HEXACO</li>
+</ul>
+
+<p>Rules:</p>
+
+<ul class="article-list">
+  <li>map to <code>Personality Traits</code> by default;</li>
+  <li>preserve psychometric source names;</li>
+  <li>infer <code>likert_self_report_item</code> for IPIP items;</li>
+  <li>infer <code>psychometric_construct</code> for scales, facets, and domains;</li>
+  <li>assign high quality tier when the source is validated or public-domain psychometric material.</li>
+</ul>
+
+<p>Exception:</p>
+
+<ul class="article-list">
+  <li><code>Need for Cognition</code> can be treated as a cognitive style and may be cross-linked to personality in Step 3.</li>
+</ul>
+
+<h3 id="value-and-motivation-sources">Value and Motivation Sources</h3>
+
+<p>Sources:</p>
+
+<ul class="article-list">
+  <li>Schwartz Theory of Basic Values</li>
+  <li>Self-Determination Theory</li>
+</ul>
+
+<p>Rules:</p>
+
+<ul class="article-list">
+  <li>map to <code>Values, Goals & Motivations</code>;</li>
+  <li>infer <code>theory_construct</code>;</li>
+  <li>retain high evidence level.</li>
+</ul>
+
+<h3 id="official-survey-sources">Official Survey Sources</h3>
+
+<p>Sources:</p>
+
+<ul class="article-list">
+  <li>ACS PUMS curated variables</li>
+  <li>GSS</li>
+  <li>WVS</li>
+</ul>
+
+<p>Rules:</p>
+
+<ul class="article-list">
+  <li>treat ACS as an official population-grounding layer, not as a behavioral determinant;</li>
+  <li>map ACS variables into demographics, life context, capability, and social/family context;</li>
+  <li>normalize ACS fields as <code>official_population_numeric_variable</code>, <code>official_population_categorical_variable</code>, <code>official_population_binary_variable</code>, or <code>official_population_ordinal_variable</code>;</li>
+  <li>map survey variables/questions into the 10-category schema using keywords and source sections;</li>
+  <li>infer survey item types when possible;</li>
+  <li>mark variables without value labels as <code>needs_value_schema_or_codebook_lookup</code>;</li>
+  <li>preserve source IDs and raw category paths for grounding.</li>
+</ul>
+
+<h3 id="research-datasets">Research Datasets</h3>
+
+<p>Sources:</p>
+
+<ul class="article-list">
+  <li>Apple ML-PrimeX</li>
+</ul>
+
+<p>Rules:</p>
+
+<ul class="article-list">
+  <li>map worldview/opinion questions to <code>Worldview, Beliefs & Attitudes</code>;</li>
+  <li>map PI-18 Primal World Beliefs items to <code>primal world beliefs</code>;</li>
+  <li>mark explanation fields as belief explanations;</li>
+  <li>keep license risk visible because PrimeX has non-commercial/no-derivatives terms.</li>
+</ul>
+
+<h3 id="persona-dataset-sources">Persona Dataset Sources</h3>
+
+<p>Sources:</p>
+
+<ul class="article-list">
+  <li>SCOPE-Persona</li>
+  <li>Nemotron-Personas-USA</li>
+  <li>OASIS</li>
+</ul>
+
+<p>Rules:</p>
+
+<ul class="article-list">
+  <li>map SCOPE facets to the corresponding theoretical categories;</li>
+  <li>map Nemotron demographic/geographic fields to population grounding;</li>
+  <li>map Nemotron skills to capability;</li>
+  <li>map Nemotron hobbies/sports/arts/travel/culinary fields to behavioral preferences;</li>
+  <li>map OASIS MBTI to personality traits, profession to domain overlay, and interested topics to behavioral preferences.</li>
+</ul>
+
+<h3 id="deeppersona-auto-extractions">DeepPersona Auto-Extractions</h3>
+
+<p>Rules:</p>
+
+<ul class="article-list">
+  <li>use DeepPersona top-level categories as subcategory hints;</li>
+  <li>remap them into our 10-category schema;</li>
+  <li>flag all DeepPersona auto-extracted attributes for review;</li>
+  <li>do not treat them as high-quality final attributes without grounding.</li>
+</ul>
+
+<p>Examples:</p>
+
+<ul class="article-list">
+  <li><code>Media Preferences</code> -> <code>Behavioral Patterns & Preferences</code></li>
+  <li><code>Analytical Skills</code> -> <code>Cognitive & Capability Profile</code></li>
+  <li><code>Sensitivity</code> -> <code>Personality Traits</code></li>
+  <li><code>Guidance</code> -> <code>Social Identity, Relationships & Community</code></li>
+</ul>
+
+<h3 id="personahub-domain-labels">PersonaHub Domain Labels</h3>
+
+<p>Rules:</p>
+
+<ul class="article-list">
+  <li>map all sampled PersonaHub domain labels to <code>Domain-Specific Overlays</code>;</li>
+  <li>infer <code>domain_label</code>;</li>
+  <li>flag as <code>domain_label_not_standalone_attribute</code>;</li>
+  <li>do not treat domain labels as standalone persona attributes until they are converted into domain modules or expertise attributes.</li>
+</ul>
+
+<p>Example:</p>
+
+<ul class="article-list">
+  <li><code>Aerospace Engineering</code> is not itself a general persona attribute. It is a domain/expertise label that may support a future professional or domain-specific module.</li>
+</ul>
+
+<h2 id="review-philosophy">Review Philosophy</h2>
+
+<p>Normalization is conservative.</p>
+
+<p>It does not assume that similar words mean the same construct.</p>
+
+<p>For example:</p>
+
+<ul class="article-list">
+  <li><code>risk_aversion</code></li>
+  <li><code>risk_tolerance</code></li>
+  <li><code>sensation_seeking</code></li>
+</ul>
+
+<p>These should be related in the graph, but not automatically merged. They share a risk theme, but measure different mechanisms:</p>
+
+<ul class="article-list">
+  <li>avoidance of uncertainty;</li>
+  <li>capacity to tolerate loss or volatility;</li>
+  <li>desire for stimulation and novelty.</li>
+</ul>
+
+<p>Step 3 should create relations such as:</p>
+
+<ul class="article-list">
+  <li><code>negatively_correlates_with</code></li>
+  <li><code>related_to</code></li>
+  <li><code>domain_specific_to</code></li>
+</ul>
+
+<p>but should not collapse them into one generic <code>risk_preference</code> attribute.</p>
+
+<h2 id="step-2-qa-checks">Step 2 QA Checks</h2>
+
+<p>The normalization script checks:</p>
+
+<ul class="article-list">
+  <li>row count preservation;</li>
+  <li>duplicate candidate IDs;</li>
+  <li>empty canonical labels;</li>
+  <li>unknown normalized categories;</li>
+  <li>category changes from Step 1;</li>
+  <li>data type counts;</li>
+  <li>review flag counts.</li>
+</ul>
+
+<p>Current output:</p>
+
+<ul class="article-list">
+  <li>raw extended normalized rows: 28,463;</li>
+  <li>high-quality normalized rows: 9,935;</li>
+  <li>duplicate candidate IDs: 0;</li>
+  <li>empty canonical labels: 0;</li>
+  <li>unknown normalized categories: 0.</li>
+</ul>
+
+<h2 id="next-step">Next Step</h2>
+
+<p>Step 3 should use the normalized outputs to perform:</p>
+
+<ul class="article-list">
+  <li>exact duplicate detection;</li>
+  <li>loose duplicate clustering;</li>
+  <li>alias consolidation;</li>
+  <li>source priority selection;</li>
+  <li>relation graph construction;</li>
+  <li>final category/subcategory review.</li>
+</ul>
+
+<p>The main inputs for Step 3 are:</p>
+
+<ul class="article-list">
+  <li><code>dedup_key_strict</code></li>
+  <li><code>dedup_key_loose</code></li>
+  <li><code>canonical_name</code></li>
+  <li><code>normalized_primary_category</code></li>
+  <li><code>normalized_subcategory</code></li>
+  <li><code>source_family</code></li>
+  <li><code>quality_tier</code></li>
+  <li><code>review_flags_json</code></li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#canonical-label">`canonical_label`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#canonical-name">`canonical_name`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#normalized-primary-category">`normalized_primary_category`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#normalized-subcategory">`normalized_subcategory`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#normalized-definition">`normalized_definition`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#normalized-data-type">`normalized_data_type`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#measurement-level">`measurement_level`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#normalized-value-schema-json">`normalized_value_schema_json`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#source-family">`source_family`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#quality-tier">`quality_tier`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#license-risk">`license_risk`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#dedup-key-strict">`dedup_key_strict`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#dedup-key-loose">`dedup_key_loose`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#alias-candidates-json">`alias_candidates_json`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#review-flags-json">`review_flags_json`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#needs-review">`needs_review`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#boolean-helper-fields">Boolean Helper Fields</a></li>
+<li style="margin-left: 0.8rem;"><a href="#application-relevance">`application_relevance`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#psychometric-sources">Psychometric Sources</a></li>
+<li style="margin-left: 0.8rem;"><a href="#value-and-motivation-sources">Value and Motivation Sources</a></li>
+<li style="margin-left: 0.8rem;"><a href="#official-survey-sources">Official Survey Sources</a></li>
+<li style="margin-left: 0.8rem;"><a href="#research-datasets">Research Datasets</a></li>
+<li style="margin-left: 0.8rem;"><a href="#persona-dataset-sources">Persona Dataset Sources</a></li>
+<li style="margin-left: 0.8rem;"><a href="#deeppersona-auto-extractions">DeepPersona Auto-Extractions</a></li>
+<li style="margin-left: 0.8rem;"><a href="#personahub-domain-labels">PersonaHub Domain Labels</a></li>
+<li><a href="#purpose">Purpose</a></li>
+<li><a href="#input-files">Input Files</a></li>
+<li><a href="#output-principle">Output Principle</a></li>
+<li><a href="#why-normalize-before-deduplication">Why Normalize Before Deduplication</a></li>
+<li><a href="#normalized-fields">Normalized Fields</a></li>
+<li><a href="#source-specific-normalization-rules">Source-Specific Normalization Rules</a></li>
+<li><a href="#review-philosophy">Review Philosophy</a></li>
+<li><a href="#step-2-qa-checks">Step 2 QA Checks</a></li>
+<li><a href="#next-step">Next Step</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

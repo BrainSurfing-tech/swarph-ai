@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prospect Look-alike Communities — v1 (2026-05-18) | Technical Whitepaper</title>
+  <meta name="description" content="Prospect Look-alike Communities — v1 (2026-05-18) — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/prospect_lookalike_v1_2026-05-18.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Prospect Look-alike Communities — v1 (2026-05-18)</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Prospect Look-alike Communities — v1 (2026-05-18)</p>
+
+<p><strong>For:</strong> Daniel Shu + Tiago (WISE Lead Gen)
+<strong>From:</strong> Pierre + Lucas
+<strong>Companion file:</strong> <code>exports/prospect_lookalike_<date>.xlsx</code></p>
+
+<h2 id="what-you-asked-for">What you asked for</h2>
+
+<p>You have ~26,000 prospects from Eloqua campaign responders — none of them are
+Lyreco customers, so we have zero purchase history to predict what they'd buy.
+Pierre asked: "for prospects who don't exist in our database, can we predict
+their product-family appetite by finding similar Lyreco customers?"</p>
+
+<p>This is the v1 answer.</p>
+
+<h2 id="how-it-works-one-paragraph">How it works (one paragraph)</h2>
+
+<p>For every prospect we have <strong>public firmographic signals</strong>: postcode, SIC
+industry code, employees, modeled turnover, market sector, registered status
+from Companies House. We have the same signals (or close proxies) for our
+<strong>real customers</strong>. We group customers into ~60 <strong>communities</strong> based on
+similarity across all those signals at once — <em>not</em> exact-match buckets.
+Pierre's phrasing: "find common grounds across all variables." Then, for
+each prospect, we soft-match them to their 3 most-similar communities, blend
+those communities' actual buying mix, and emit that as the prospect's
+predicted product-world appetite. Worlds are the 9 cross-family categories
+Lucas defined: BUREAUTIQUE, IT, HYGIENE, CAFETERIA, MOBILIER, LOGISTIQUE,
+EHS, GOODIES, OTHER.</p>
+
+<h2 id="what-s-in-the-workbook">What's in the workbook</h2>
+
+<p>| Sheet | Purpose |
+|---|---|
+| README | Plain-English explainer for any new reader |
+| Top Prospects Action | Daily prospecting list — sorted by confidence × top-world fit |
+| Per-Prospect Detail | Drill-down: top-3 communities + full propensity per prospect |
+| Communities Catalogue | What each community looks like + its product mix |
+| World Rollup | Per product world, how many prospects match — for thematic campaigns |</p>
+
+<h2 id="confidence-labels">Confidence labels</h2>
+
+<p>Each predicted world inherits a confidence bucket:
+<ul class="article-list">
+  <li><strong>HIGH</strong> — top community similarity > 0.70 <em>and</em> community has ≥30 active members</li>
+  <li><strong>MEDIUM</strong> — top similarity > 0.40 <em>or</em> community ≥15 members</li>
+  <li><strong>LOW</strong> — neither — treat as directional only</li>
+</ul></p>
+
+<p>Use HIGH-confidence rows first. They're the ones where (a) the prospect looks
+strongly like a real customer cluster, and (b) that cluster has enough mass
+to give a stable product-mix signal.</p>
+
+<h2 id="known-v1-limits">Known v1 limits</h2>
+
+<p>1. <strong>Industry data on the customer side is sparse</strong> — we don't yet have
+   Companies House SIC enrichment for the 27k UK Lyreco customer accounts,
+   so the customer-side feature vector relies on geography + size +
+   Lyreco-internal business-line code, not full SIC. A v2 pass after running
+   <code>companies_house_enrich.py</code> for ecom_accounts will tighten industry-driven
+   matches.
+2. <strong>Customer spend window is 365 days</strong> — communities' product mix reflects
+   what they bought over the last year, not their whole history.
+3. <strong>No behavioral data from the prospect side</strong> — Eloqua opens/clicks aren't
+   in the matching feature vector. They could be (v3); for v1 we kept the
+   matching purely firmographic so the model stays explainable.</p>
+
+<h2 id="how-to-action-this">How to action this</h2>
+
+<p>1. Filter Sheet 1 to <code>Confidence = HIGH</code>. That's your tier-1 list.
+2. Sort by <code>Predicted %</code> descending within each <code>Predicted #1 World</code>. Group
+   prospects with the same predicted top world — those are natural campaign
+   cohorts (e.g. "all HIGH-confidence prospects predicted to want BUREAUTIQUE,
+   sorted by predicted strength").
+3. The <code>Common Ground</code> column tells you <em>why</em> the match landed — useful for
+   pitch language ("we work with similar SIC 47 retailers in your postcode
+   area").
+4. Cross-reference Sheet 3 (Communities Catalogue) for "what kind of company
+   is community 17?" when a rep asks.</p>
+
+<h2 id="model-version">Model version</h2>
+
+<p><code>soft_v1_2026-05-18</code> — sklearn KMeans k=60 on a 71-dimension one-hot + numeric
+feature vector. Cosine similarity for prospect→community matching. Top-3 soft
+membership with weight-normalised blending.</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#what-you-asked-for">What you asked for</a></li>
+<li><a href="#how-it-works-one-paragraph">How it works (one paragraph)</a></li>
+<li><a href="#what-s-in-the-workbook">What's in the workbook</a></li>
+<li><a href="#confidence-labels">Confidence labels</a></li>
+<li><a href="#known-v1-limits">Known v1 limits</a></li>
+<li><a href="#how-to-action-this">How to action this</a></li>
+<li><a href="#model-version">Model version</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

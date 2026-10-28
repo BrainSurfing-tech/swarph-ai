@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 380" width="100%" height="100%">
+  <rect width="600" height="380" fill="#0a0e1a" rx="12"/>
+  <text x="300" y="38" fill="#f9fafb" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="middle">Execution Timing Breakdown (Waterfall ms)</text>
+
+  <!-- Step 1 -->
+  <text x="50" y="95" fill="#f9fafb" font-family="sans-serif" font-size="13" font-weight="bold">1. Vector Ingestion</text>
+  <rect x="220" y="80" width="60" height="24" fill="#00e676" rx="4"/>
+  <text x="290" y="96" fill="#00e676" font-family="sans-serif" font-size="12" font-weight="bold">1.2 ms</text>
+
+  <!-- Step 2 -->
+  <text x="50" y="155" fill="#f9fafb" font-family="sans-serif" font-size="13" font-weight="bold">2. Hodge Curl Decomposition</text>
+  <rect x="280" y="140" width="110" height="24" fill="#fbbf24" rx="4"/>
+  <text x="400" y="156" fill="#fbbf24" font-family="sans-serif" font-size="12" font-weight="bold">3.4 ms</text>
+
+  <!-- Step 3 -->
+  <text x="50" y="215" fill="#f9fafb" font-family="sans-serif" font-size="13" font-weight="bold">3. Neural Inference Filter</text>
+  <rect x="390" y="200" width="80" height="24" fill="#00f2fe" rx="4"/>
+  <text x="480" y="216" fill="#00f2fe" font-family="sans-serif" font-size="12" font-weight="bold">2.1 ms</text>
+
+  <!-- Step 4 -->
+  <text x="50" y="275" fill="#f9fafb" font-family="sans-serif" font-size="13" font-weight="bold">4. HTTP/2 Response Dispatch</text>
+  <rect x="470" y="260" width="30" height="24" fill="#3b82f6" rx="4"/>
+  <text x="510" y="276" fill="#60a5fa" font-family="sans-serif" font-size="12" font-weight="bold">0.8 ms</text>
+
+  <!-- Summary Line -->
+  <line x1="50" y1="320" x2="550" y2="320" stroke="#00f2fe" stroke-width="1.5" stroke-dasharray="4,4"/>
+  <text x="300" y="350" fill="#00e676" font-family="sans-serif" font-size="14" font-weight="bold" text-anchor="middle">Total End-to-End P99 Latency: 7.5 ms</text>
+</svg>

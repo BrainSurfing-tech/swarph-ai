@@ -1,0 +1,657 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pluggable Liveness for `swarph watchdog` — Implementation Plan | Technical Whitepaper</title>
+  <meta name="description" content="Pluggable Liveness for `swarph watchdog` — Implementation Plan — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-07-04-watchdog-pluggable-liveness-plan.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Pluggable Liveness for `swarph watchdog` — Implementation Plan</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 12 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Pluggable Liveness for <code>swarph watchdog</code> — Implementation Plan</p>
+
+<p>> <strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+
+<p><strong>Goal:</strong> Un-couple the watchdog's A2 liveness gate from a hardcoded <code>pgrep "claude"</code> via two mutually-exclusive <code>--check</code> flags (<code>--process-name</code>, <code>--liveness-cmd</code>), so non-Claude cells can be recovered without being mis-read as dead — while every existing Claude cron stays byte-for-byte unchanged.</p>
+
+<p><strong>Architecture:</strong> Two functions carry the Claude assumption — <code>_process_alive</code> (the pgrep liveness gate) and <code>_resolve_send_target</code> (which pane the A1 wake lands on). Each takes a new <code>process_name</code> parameter (default <code>"claude"</code>). A new <code>--liveness-cmd</code> escape hatch runs an arbitrary probe (rc 0 = alive) via a small helper that fails toward "alive" on error. Both flags live in one argparse mutually-exclusive group. The <code>--check</code> handler branches on which was given. Nothing downstream of the liveness boolean changes.</p>
+
+<p><strong>Tech Stack:</strong> Python 3, argparse, <code>subprocess</code>; pytest with <code>unittest.mock.patch</code> (the existing <code>tests/test_watchdog.py</code> pattern).</p>
+
+<h2 id="global-constraints">Global Constraints</h2>
+
+<ul class="article-list">
+  <li><strong>Default <code>process_name="claude"</code></strong> everywhere — no flags → identical behavior to today. This is the load-bearing backward-compat invariant; a test locks the default <code>pgrep</code> arg as <code>"claude"</code>.</li>
+  <li><strong><code>--process-name</code> and <code>--liveness-cmd</code> are mutually exclusive</strong> — one argparse <code>add_mutually_exclusive_group()</code>; passing both is a usage error (<code>SystemExit</code>).</li>
+  <li><strong>Fail toward alive:</strong> the <code>--liveness-cmd</code> path returns <code>True</code> (alive) on timeout / <code>OSError</code>, mirroring <code>_process_alive</code>'s existing fail-safe — a broken/uncertain detector must never false-fire the destructive A2 respawn.</li>
+  <li><strong>Liveness stays a real probe</strong>, never a stale-cursor proxy, for the destructive gate.</li>
+  <li><strong>Public PyPI</strong> — synthetic test fixtures only, no cell-private data.</li>
+  <li><strong>Version bump <code>0.24.0 → 0.25.0</code></strong> in BOTH <code>pyproject.toml:7</code> and <code>src/swarph_cli/__init__.py:19</code>.</li>
+  <li><strong>TDD</strong> — every change is test-first; the plan ends at merged + green. Publish to PyPI and cron re-wire (<code>--process-name grok</code> / <code>node</code>) are commander-gated and OUT of this plan's execution scope.</li>
+  <li>Branch <code>feat/watchdog-pluggable-liveness</code> already exists and is checked out. Stage only the specific files each commit names — never <code>git add -A</code> (the tree has an untracked local-only <code>.codegraph/</code>).</li>
+</ul>
+
+<h2 id="file-structure">File Structure</h2>
+
+<ul class="article-list">
+  <li><code>src/swarph_cli/commands/watchdog.py</code> — all production changes:</li>
+  <li><code>_process_alive(tmux_session, process_name="claude")</code> (currently <code>:583</code>) — pgrep string.</li>
+  <li><code>_resolve_send_target(name, process_name="claude")</code> (currently <code>:641</code>) — preferred-pane match.</li>
+  <li><code>_tmux_send_keys(name, text, clear_input=False, process_name="claude")</code> (currently <code>:668</code>) — passes <code>process_name</code> to <code>_resolve_send_target</code>. Two call sites (<code>:1447</code>, <code>:1490</code>).</li>
+  <li>new <code>_liveness_via_cmd(cmd)</code> helper.</li>
+  <li><code>_build_parser()</code> (<code>:1687</code>) — the mutually-exclusive group.</li>
+  <li><code>--check</code> handler liveness call site (<code>:1272</code>).</li>
+  <li><code>tests/test_watchdog.py</code> — extend with the new cases (existing fixtures: <code>isolated_state</code>, <code>stale_cursor</code>, <code>fresh_cursor</code>; existing mock idiom: <code>patch("swarph_cli.commands.watchdog.<fn>", ...)</code>).</li>
+  <li><code>pyproject.toml</code>, <code>src/swarph_cli/__init__.py</code> — version bump.</li>
+</ul>
+
+<p>---</p>
+
+<h3 id="task-1-process-name-flag-threaded-into-the-liveness-gate">Task 1: <code>--process-name</code> flag threaded into the liveness gate</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>src/swarph_cli/commands/watchdog.py</code> (<code>_process_alive</code> <code>:583</code>; <code>_build_parser</code> <code>:1687</code>; handler call site <code>:1272</code>)</li>
+  <li>Test: <code>tests/test_watchdog.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Produces: <code>_process_alive(tmux_session: str, process_name: str = "claude") -> bool</code> — issues <code>pgrep -f <process_name></code>, unchanged pane-scoping via <code>_pid_under</code>.</li>
+  <li>Produces: argparse <code>--process-name</code> (default <code>"claude"</code>), added inside a new <code>add_mutually_exclusive_group()</code> named <code>liveness_group</code> (Task 2 adds <code>--liveness-cmd</code> to the same group).</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing tests</strong> — add to <code>tests/test_watchdog.py</code>:</li>
+</ul>
+
+<p><code></code>`python
+from types import SimpleNamespace</p>
+
+<p>def _fake_run_factory(calls, pgrep_rc=1):
+    """subprocess.run stub: records argv, answers the two calls _process_alive makes."""
+    def fake_run(cmd, <em></em>kwargs):
+        calls.append(list(cmd))
+        if cmd[:2] == ["tmux", "list-panes"]:
+            return SimpleNamespace(returncode=0, stdout="4242\n", stderr="")
+        if cmd and cmd[0] == "pgrep":
+            # rc != 0 → _process_alive returns False before _pid_under; we only
+            # assert the pgrep ARG here, not the liveness verdict.
+            return SimpleNamespace(returncode=pgrep_rc, stdout="", stderr="")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+    return fake_run</p>
+
+<p>def test_process_alive_default_greps_claude():
+    from swarph_cli.commands import watchdog
+    calls = []
+    with patch("swarph_cli.commands.watchdog.subprocess.run", _fake_run_factory(calls)):
+        watchdog._process_alive("some-session")
+    pgrep_calls = [c for c in calls if c and c[0] == "pgrep"]
+    assert pgrep_calls == [["pgrep", "-f", "claude"]]</p>
+
+<p>def test_process_alive_honors_process_name():
+    from swarph_cli.commands import watchdog
+    calls = []
+    with patch("swarph_cli.commands.watchdog.subprocess.run", _fake_run_factory(calls)):
+        watchdog._process_alive("some-session", process_name="grok")
+    pgrep_calls = [c for c in calls if c and c[0] == "pgrep"]
+    assert pgrep_calls == [["pgrep", "-f", "grok"]]
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run the tests to verify they fail</strong></li>
+</ul>
+
+<p>Run: <code>cd /home/ubuntu/swarph-cli && python -m pytest tests/test_watchdog.py::test_process_alive_honors_process_name -v</code>
+Expected: FAIL — <code>TypeError: _process_alive() got an unexpected keyword argument 'process_name'</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Add the <code>process_name</code> parameter to <code>_process_alive</code></strong></li>
+</ul>
+
+<p>In <code>src/swarph_cli/commands/watchdog.py</code>, change the signature and the pgrep line. Current (<code>:583</code>, <code>:617-618</code>):</p>
+
+<p><code></code>`python
+def _process_alive(tmux_session: str) -> bool:
+    """Detect if a claude process is running INSIDE the named tmux session.
+    ...
+    """
+<code></code>`
+<code></code>`python
+        pg = subprocess.run(
+            ["pgrep", "-f", "claude"],
+            capture_output=True, text=True, timeout=5,
+        )
+<code></code>`</p>
+
+<p>New:</p>
+
+<p><code></code>`python
+def _process_alive(tmux_session: str, process_name: str = "claude") -> bool:
+    """Detect if a <code>process_name</code> process is running INSIDE the named tmux session.</p>
+
+<p><code>process_name</code> (default "claude") is the command the cell's agent runs —
+    node/codex cells pass "node", grok cells pass "grok". Scopes to the
+    session's pane PIDs (and descendants) rather than a host-wide pgrep: on a
+    multi-session host, an unrelated cell's process would otherwise mask THIS
+    session's death and suppress the A2 alert. Best-effort; falls back to True
+    (assume alive) on detection error so a broken detector never false-fires A2.
+    """
+<code></code>`
+<code></code>`python
+        pg = subprocess.run(
+            ["pgrep", "-f", process_name],
+            capture_output=True, text=True, timeout=5,
+        )
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Add <code>--process-name</code> to the parser inside a mutually-exclusive group</strong></li>
+</ul>
+
+<p>In <code>_build_parser()</code>, immediately before <code>p.add_argument("--no-respawn", ...)</code> (<code>:1725</code>), insert:</p>
+
+<p><code></code>`python
+    liveness_group = p.add_mutually_exclusive_group()
+    liveness_group.add_argument(
+        "--process-name", default="claude",
+        help="Process the cell's agent runs, used by the liveness gate's "
+             "<code>pgrep -f</code> (scoped to the session's panes). Default 'claude'; "
+             "pass 'node' for a codex cell, 'grok' for a grok cell so a "
+             "non-Claude cell isn't mis-read as dead. Mutually exclusive with "
+             "--liveness-cmd.",
+    )
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Pass <code>args.process_name</code> at the handler call site</strong></li>
+</ul>
+
+<p>At <code>:1272</code>, change:</p>
+
+<p><code></code>`python
+    process_alive = _process_alive(tmux_session)
+<code></code>`
+to:
+<code></code>`python
+    process_alive = _process_alive(tmux_session, args.process_name)
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 6: Run the new tests + the full watchdog suite</strong></li>
+</ul>
+
+<p>Run: <code>cd /home/ubuntu/swarph-cli && python -m pytest tests/test_watchdog.py -v</code>
+Expected: PASS — the two new tests pass and every pre-existing watchdog test still passes (the compat lock proves the default is unchanged).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 7: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+cd /home/ubuntu/swarph-cli
+git add src/swarph_cli/commands/watchdog.py tests/test_watchdog.py
+git commit -m "feat(watchdog): --process-name threads the liveness gate's pgrep</p>
+
+<p>Default 'claude' → existing crons unchanged (compat-locked by test)."
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-2-liveness-cmd-escape-hatch-mutual-exclusion">Task 2: <code>--liveness-cmd</code> escape hatch + mutual exclusion</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>src/swarph_cli/commands/watchdog.py</code> (new <code>_liveness_via_cmd</code> helper; <code>_build_parser</code> group; handler branch at <code>:1272</code>)</li>
+  <li>Test: <code>tests/test_watchdog.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: <code>_process_alive(tmux_session, process_name)</code> (Task 1); <code>liveness_group</code> (Task 1).</li>
+  <li>Produces: <code>_liveness_via_cmd(cmd: str) -> bool</code> — runs <code>cmd</code> (shell), <code>rc == 0</code> → True, non-zero → False, timeout/<code>OSError</code> → True (fail toward alive).</li>
+  <li>Produces: argparse <code>--liveness-cmd</code> (default <code>None</code>) in <code>liveness_group</code> (so <code>--process-name</code> + <code>--liveness-cmd</code> together → <code>SystemExit</code>).</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing tests</strong> — add to <code>tests/test_watchdog.py</code>:</li>
+</ul>
+
+<p><code></code>`python
+def test_liveness_via_cmd_rc0_is_alive():
+    from swarph_cli.commands import watchdog
+    with patch("swarph_cli.commands.watchdog.subprocess.run",
+               return_value=SimpleNamespace(returncode=0, stdout="", stderr="")):
+        assert watchdog._liveness_via_cmd("true") is True</p>
+
+<p>def test_liveness_via_cmd_nonzero_is_dead():
+    from swarph_cli.commands import watchdog
+    with patch("swarph_cli.commands.watchdog.subprocess.run",
+               return_value=SimpleNamespace(returncode=1, stdout="", stderr="")):
+        assert watchdog._liveness_via_cmd("false") is False</p>
+
+<p>def test_liveness_via_cmd_timeout_assumes_alive():
+    from swarph_cli.commands import watchdog
+    import subprocess as _sp
+    with patch("swarph_cli.commands.watchdog.subprocess.run",
+               side_effect=_sp.TimeoutExpired(cmd="x", timeout=5)):
+        assert watchdog._liveness_via_cmd("sleep 99") is True</p>
+
+<p>def test_liveness_via_cmd_oserror_assumes_alive():
+    from swarph_cli.commands import watchdog
+    with patch("swarph_cli.commands.watchdog.subprocess.run",
+               side_effect=OSError("boom")):
+        assert watchdog._liveness_via_cmd("bad") is True</p>
+
+<p>def test_process_name_and_liveness_cmd_are_mutually_exclusive():
+    from swarph_cli.commands import watchdog
+    parser = watchdog._build_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--check", "--process-name", "grok",
+                           "--liveness-cmd", "pgrep -f grok"])
+<code></code>`</p>
+
+<p>(<code>pytest</code> is already imported at the top of <code>tests/test_watchdog.py</code>; <code>SimpleNamespace</code> is imported in Task 1.)</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run the tests to verify they fail</strong></li>
+</ul>
+
+<p>Run: <code>cd /home/ubuntu/swarph-cli && python -m pytest tests/test_watchdog.py -k "liveness_via_cmd or mutually_exclusive" -v</code>
+Expected: FAIL — <code>AttributeError: module ... has no attribute '_liveness_via_cmd'</code>, and the mutual-exclusion test does NOT raise (no <code>--liveness-cmd</code> yet).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Add the <code>_liveness_via_cmd</code> helper</strong></li>
+</ul>
+
+<p>In <code>src/swarph_cli/commands/watchdog.py</code>, immediately after <code>_process_alive</code> (after its closing line, before <code>def _tmux_session_exists</code>), add:</p>
+
+<p><code></code>`python
+def _liveness_via_cmd(cmd: str) -> bool:
+    """Escape-hatch liveness probe: run <code>cmd</code>; exit 0 = alive, non-zero = dead.</p>
+
+<p>For cells whose liveness a process name can't express. Bounded timeout;
+    on timeout / OSError assume ALIVE — a broken or slow probe must never
+    false-fire the destructive A2 respawn (same fail-safe as _process_alive).
+    """
+    try:
+        result = subprocess.run(
+            cmd, shell=True, capture_output=True, timeout=5,
+        )
+        return result.returncode == 0
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return True
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Add <code>--liveness-cmd</code> to the mutually-exclusive group</strong></li>
+</ul>
+
+<p>In <code>_build_parser()</code>, directly after the <code>liveness_group.add_argument("--process-name", ...)</code> block from Task 1, add:</p>
+
+<p><code></code>`python
+    liveness_group.add_argument(
+        "--liveness-cmd", default=None,
+        help="Escape hatch: shell command whose exit status is the liveness "
+             "verdict (0 = alive, non-zero = dead) instead of the pgrep gate. "
+             "On timeout/error the cell is assumed ALIVE (never false-fire the "
+             "destructive A2 respawn). Mutually exclusive with --process-name.",
+    )
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Branch the handler on <code>--liveness-cmd</code></strong></li>
+</ul>
+
+<p>At <code>:1272</code> (now <code>process_alive = _process_alive(tmux_session, args.process_name)</code> after Task 1), replace with:</p>
+
+<p><code></code>`python
+    if args.liveness_cmd:
+        process_alive = _liveness_via_cmd(args.liveness_cmd)
+    else:
+        process_alive = _process_alive(tmux_session, args.process_name)
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 6: Run the new tests + the full watchdog suite</strong></li>
+</ul>
+
+<p>Run: <code>cd /home/ubuntu/swarph-cli && python -m pytest tests/test_watchdog.py -v</code>
+Expected: PASS — all five new tests pass; the full suite stays green.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 7: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+cd /home/ubuntu/swarph-cli
+git add src/swarph_cli/commands/watchdog.py tests/test_watchdog.py
+git commit -m "feat(watchdog): --liveness-cmd escape hatch (fail-toward-alive), mutually exclusive with --process-name"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-3-thread-process-name-into-the-send-target">Task 3: thread <code>process_name</code> into the send-target</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>src/swarph_cli/commands/watchdog.py</code> (<code>_resolve_send_target</code> <code>:641</code>; <code>_tmux_send_keys</code> <code>:668</code>; call sites <code>:1447</code>, <code>:1490</code>)</li>
+  <li>Test: <code>tests/test_watchdog.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: <code>args.process_name</code> (Task 1).</li>
+  <li>Produces: <code>_resolve_send_target(name: str, process_name: str = "claude") -> str</code> — prefers a pane whose command == <code>process_name</code>, else the existing claude/node heuristic, else the session name.</li>
+  <li>Produces: <code>_tmux_send_keys(name, text, clear_input=False, process_name="claude") -> bool</code> — forwards <code>process_name</code> to <code>_resolve_send_target</code>.</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing tests</strong> — add to <code>tests/test_watchdog.py</code>:</li>
+</ul>
+
+<p><code></code>`python
+def _panes_run(stdout):
+    return SimpleNamespace(returncode=0, stdout=stdout, stderr="")</p>
+
+<p>def test_resolve_send_target_default_prefers_node_pane():
+    from swarph_cli.commands import watchdog
+    with patch("swarph_cli.commands.watchdog.subprocess.run",
+               return_value=_panes_run("%1 bash\n%2 node\n")):
+        assert watchdog._resolve_send_target("sess") == "%2"</p>
+
+<p>def test_resolve_send_target_honors_process_name():
+    from swarph_cli.commands import watchdog
+    with patch("swarph_cli.commands.watchdog.subprocess.run",
+               return_value=_panes_run("%1 bash\n%2 grok\n")):
+        assert watchdog._resolve_send_target("sess", process_name="grok") == "%2"</p>
+
+<p>def test_resolve_send_target_process_name_wins_over_fallback():
+    from swarph_cli.commands import watchdog
+    # both a node pane and a grok pane present; process_name='grok' must win.
+    with patch("swarph_cli.commands.watchdog.subprocess.run",
+               return_value=_panes_run("%1 node\n%2 grok\n")):
+        assert watchdog._resolve_send_target("sess", process_name="grok") == "%2"
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run the tests to verify they fail</strong></li>
+</ul>
+
+<p>Run: <code>cd /home/ubuntu/swarph-cli && python -m pytest tests/test_watchdog.py -k resolve_send_target -v</code>
+Expected: FAIL — <code>test_resolve_send_target_honors_process_name</code> errors (<code>unexpected keyword argument 'process_name'</code>); <code>test_resolve_send_target_process_name_wins_over_fallback</code> fails (returns <code>%1</code>, the node pane, under today's single-pass logic).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Rewrite <code>_resolve_send_target</code> as two-pass, process-name-first</strong></li>
+</ul>
+
+<p>Replace the function body (<code>:641-665</code>). Current match loop:</p>
+
+<p><code></code>`python
+        for line in result.stdout.splitlines():
+            parts = line.split()
+            if len(parts) >= 2 and parts[1] in ("claude", "node"):
+                return parts[0]
+<code></code>`</p>
+
+<p>New full function:</p>
+
+<p><code></code>`python
+def _resolve_send_target(name: str, process_name: str = "claude") -> str:
+    """Resolve a session name to the pane actually running the cell's agent.</p>
+
+<p><code>send-keys -t <session></code> lands on the session's ACTIVE pane — on a
+    multi-pane cell that can be a bash/log pane, where an injected wake would
+    execute as a SHELL command. Prefer the pane whose current command matches
+    the cell's <code>process_name</code>; then fall back to the claude-CLI heuristic
+    (claude runs under node); then to the session name unchanged when tmux is
+    unavailable, the listing fails, or no pane matches.
+    """
+    try:
+        result = subprocess.run(
+            ["tmux", "list-panes", "-t", name, "-F",
+             "#{pane_id} #{pane_current_command}"],
+            capture_output=True, timeout=5, text=True,
+        )
+        if result.returncode != 0:
+            return name
+        panes = [ln.split() for ln in result.stdout.splitlines()]
+        for parts in panes:                       # exact process_name match wins
+            if len(parts) >= 2 and parts[1] == process_name:
+                return parts[0]
+        for parts in panes:                       # claude-CLI fallback (node)
+            if len(parts) >= 2 and parts[1] in ("claude", "node"):
+                return parts[0]
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        pass
+    return name
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Forward <code>process_name</code> through <code>_tmux_send_keys</code></strong></li>
+</ul>
+
+<p>Change the signature (<code>:668</code>) and the <code>_resolve_send_target</code> call (<code>:680</code>). Current:</p>
+
+<p><code></code>`python
+def _tmux_send_keys(name: str, text: str, clear_input: bool = False) -> bool:
+    ...
+    target = _resolve_send_target(name)
+<code></code>`
+New:
+<code></code>`python
+def _tmux_send_keys(
+    name: str, text: str, clear_input: bool = False, process_name: str = "claude"
+) -> bool:
+    ...
+    target = _resolve_send_target(name, process_name)
+<code></code>`
+(Keep the existing docstring body; only the signature line and the <code>target =</code> line change.)</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Pass <code>args.process_name</code> at both <code>_tmux_send_keys</code> call sites</strong></li>
+</ul>
+
+<p>At <code>:1447</code>:
+<code></code>`python
+            sent = _tmux_send_keys(tmux_session, model_text, clear_input=True)
+<code></code>`
+→
+<code></code>`python
+            sent = _tmux_send_keys(tmux_session, model_text, clear_input=True,
+                                   process_name=args.process_name)
+<code></code>`
+At <code>:1490</code>:
+<code></code>`python
+    sent = _tmux_send_keys(tmux_session, wake_text)
+<code></code>`
+→
+<code></code>`python
+    sent = _tmux_send_keys(tmux_session, wake_text, process_name=args.process_name)
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 6: Run the new tests + the full watchdog suite</strong></li>
+</ul>
+
+<p>Run: <code>cd /home/ubuntu/swarph-cli && python -m pytest tests/test_watchdog.py -v</code>
+Expected: PASS — the three send-target tests pass; the existing A1 send tests (which patch <code>_tmux_send_keys</code> wholesale) are unaffected; full suite green.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 7: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+cd /home/ubuntu/swarph-cli
+git add src/swarph_cli/commands/watchdog.py tests/test_watchdog.py
+git commit -m "feat(watchdog): send-target honors --process-name so the wake lands on the agent pane"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-4-version-bump-0-24-0-0-25-0-full-suite-gate">Task 4: version bump <code>0.24.0 → 0.25.0</code> + full-suite gate</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>pyproject.toml:7</code>, <code>src/swarph_cli/__init__.py:19</code></li>
+  <li>Test: <code>tests/test_watchdog.py</code> (whole suite) + a version-consistency check</li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: nothing (release bookkeeping).</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong> — add to <code>tests/test_watchdog.py</code>:</li>
+</ul>
+
+<p><code></code>`python
+def test_version_is_0_25_0():
+    import swarph_cli
+    assert swarph_cli.__version__ == "0.25.0"
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>cd /home/ubuntu/swarph-cli && python -m pytest tests/test_watchdog.py::test_version_is_0_25_0 -v</code>
+Expected: FAIL — <code>assert '0.24.0' == '0.25.0'</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Bump both version pins</strong></li>
+</ul>
+
+<p><code>src/swarph_cli/__init__.py:19</code>:
+<code></code>`python
+__version__ = "0.24.0"
+<code></code>`
+→
+<code></code>`python
+__version__ = "0.25.0"
+<code></code>`
+<code>pyproject.toml:7</code>:
+<code></code>`toml
+version = "0.24.0"
+<code></code>`
+→
+<code></code>`toml
+version = "0.25.0"
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run the version test + the FULL package suite</strong></li>
+</ul>
+
+<p>Run: <code>cd /home/ubuntu/swarph-cli && python -m pytest tests/test_watchdog.py::test_version_is_0_25_0 -v && python -m pytest -q</code>
+Expected: PASS — the version test passes and the entire repo suite is green (no regression from the threading).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+cd /home/ubuntu/swarph-cli
+git add pyproject.toml src/swarph_cli/__init__.py tests/test_watchdog.py
+git commit -m "chore(release): bump swarph-cli 0.24.0 -> 0.25.0 (pluggable watchdog liveness)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="self-review">Self-Review</h2>
+
+<p><strong>1. Spec coverage:</strong>
+<ul class="article-list">
+  <li>Two flags, mutually exclusive → Tasks 1 (<code>--process-name</code>, group) + 2 (<code>--liveness-cmd</code>, group extension, exclusion test). ✓</li>
+  <li>Fail-toward-alive on cmd error → Task 2 Step 1 (timeout + OSError tests) / Step 3 (helper). ✓</li>
+  <li>Thread identity into BOTH coupling points → Task 1 (<code>_process_alive</code>) + Task 3 (<code>_resolve_send_target</code> + <code>_tmux_send_keys</code>). ✓</li>
+  <li>Default-<code>claude</code> backward-compat lock → Task 1 <code>test_process_alive_default_greps_claude</code> + Task 3 default send-target test; every task ends by running the full watchdog suite. ✓</li>
+  <li>Version bump both files → Task 4. ✓</li>
+  <li>Public-PyPI / synthetic fixtures → all tests use <code>SimpleNamespace</code> stubs + literal session names, no cell data. ✓</li>
+  <li>Out of scope (cell-yaml auto-resolution, A2 respawn mechanism, sidecar-wake-verify, PyPI publish, cron re-wire) → not present in any task. ✓</li>
+</ul></p>
+
+<p><strong>2. Placeholder scan:</strong> No TBD/TODO; every code step shows the full before/after. ✓</p>
+
+<p><strong>3. Type consistency:</strong> <code>process_name: str = "claude"</code> is identical across <code>_process_alive</code>, <code>_resolve_send_target</code>, <code>_tmux_send_keys</code>. <code>_liveness_via_cmd(cmd: str) -> bool</code>. Handler passes <code>args.process_name</code> / <code>args.liveness_cmd</code> (argparse dests: <code>--process-name</code>→<code>process_name</code>, <code>--liveness-cmd</code>→<code>liveness_cmd</code>). Group variable <code>liveness_group</code> created in Task 1, extended in Task 2. ✓</p>
+
+<p><strong>Note for the executor:</strong> the line numbers (<code>:583</code>, <code>:1272</code>, etc.) are anchors from the pre-change file; after Task 1's edits later anchors shift by a few lines — locate by the quoted code, not the raw number.</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#task-1-process-name-flag-threaded-into-the-liveness-gate">Task 1: `--process-name` flag threaded into the liveness gate</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-2-liveness-cmd-escape-hatch-mutual-exclusion">Task 2: `--liveness-cmd` escape hatch + mutual exclusion</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-3-thread-process-name-into-the-send-target">Task 3: thread `process_name` into the send-target</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-4-version-bump-0-24-0-0-25-0-full-suite-gate">Task 4: version bump `0.24.0 → 0.25.0` + full-suite gate</a></li>
+<li><a href="#global-constraints">Global Constraints</a></li>
+<li><a href="#file-structure">File Structure</a></li>
+<li><a href="#self-review">Self-Review</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

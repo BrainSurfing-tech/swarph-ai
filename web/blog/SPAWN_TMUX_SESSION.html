@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spawn → tmux session (Windows) — spec, plan & handoff | Technical Whitepaper</title>
+  <meta name="description" content="Spawn → tmux session (Windows) — spec, plan & handoff — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/SPAWN_TMUX_SESSION.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Spawn → tmux session (Windows) — spec, plan & handoff</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 5 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Spawn → tmux session (Windows) — spec, plan & handoff</p>
+
+<p><strong>Branch:</strong> <code>claude/lab/spawn-tmux-session</code> (off <code>v0.10.2</code>)
+<strong>Status:</strong> implemented + <strong>validated end-to-end on metal</strong> (workstation-lc, 2026-06-12). Ready for Lab review/integration.</p>
+
+<h2 id="problem">Problem</h2>
+
+<p>On Windows the cell is launched from an <strong>admin PowerShell console</strong>. Running
+<code>claude</code> directly there triggers the Ink-TUI input bug — the SGR <code>m</code> terminator
+leaks into stdin, so <strong>Enter inserts a literal <code>m</code></strong> and the app is unusable.</p>
+
+<p>The pre-existing rescue (<code>_relaunch_in_windows_terminal</code>) bounces into Windows
+Terminal, but on a box running a terminal multiplexer it pops a <em>detached</em>
+window that <strong>escapes the supervised session</strong>.</p>
+
+<h3 id="ground-truth-corrections-from-on-metal-testing-override-the-old-docstrings">Ground-truth corrections (from on-metal testing, override the old docstrings)</h3>
+
+<p>1. The bug is <strong>PowerShell-host-specific</strong>, not "conhost vs Windows Terminal."
+   Launching from <strong>cmd works</strong>; from <strong>PowerShell breaks</strong>. The old WT-relaunch
+   only "worked" because it escaped <em>into a fresh console</em>, not because it
+   reached WT.
+2. <strong>tmux fixes it.</strong> claude rendered inside a tmux pane works from <em>both</em>
+   PowerShell and cmd — tmux's own PTY answers the TUI's terminal queries, so the
+   leak never reaches the app. tmux is therefore both the <strong>rendering fix</strong> and
+   the <strong>supervision substrate</strong> (sidecar/watchdog <code>send-keys</code>).</p>
+
+<h2 id="design">Design</h2>
+
+<p>New <code>_launch_via_tmux(binary, argv, cwd, session_name)</code> in
+<code>commands/spawn.py</code>, called from <code>ClaudeMembrane.pre_launch</code> <strong>ahead of</strong> the
+WT-relaunch fallback. win32-only + requires <code>tmux</code> on PATH; otherwise returns
+False and the existing WT path (and <code>SWARPH_WIN_ACK</code>) is untouched. Linux/mac
+peers are entirely unaffected.</p>
+
+<ul class="article-list">
+  <li><strong>session name</strong> = the operator-typed <code>swarph spawn <name></code> positional</li>
+</ul>
+  (<code>effective_role or cell.role</code>), so spawn / attach / <code>send-keys</code> all key off
+  one string.
+<ul class="article-list">
+  <li><strong>create</strong>: `tmux new-session -d -s <name> -c <cwd> -e SWARPH_SPAWN=1 swarph</li>
+</ul>
+  spawn <name>` — the session command re-enters spawn so the membrane
+  env-scrub + starter-injection apply once inside the pane.
+<ul class="article-list">
+  <li><strong>attach (interactive)</strong>: <em></em>blocking `subprocess.run([tmux, "attach", "-t",</li>
+</ul>
+  <name>])`<em></em> in the launching console. The PowerShell window <em>becomes</em> the
+  cell's viewport. (PowerShell renders the TUI's UTF-8 better than cmd's cp1252.)
+<ul class="article-list">
+  <li><strong>headless</strong> (watchdog A2 respawn / CI / piped): create detached, <strong>no attach</strong></li>
+</ul>
+  — sidecar/watchdog reach it via <code>send-keys</code>.
+
+<h3 id="two-load-bearing-implementation-lessons">Two load-bearing implementation lessons</h3>
+
+<ul class="article-list">
+  <li><strong>Loop safety.</strong> The session command re-enters <code>swarph spawn <name></code>, but that</li>
+</ul>
+  inner process runs with <code>$TMUX</code> set, so it skips both the tmux decision <em>and</em>
+  (via a new <code>$TMUX</code> guard added to <code>_relaunch_in_windows_terminal</code>) the WT
+  relaunch — falling straight through to <code>launch()</code>'s in-place <code>execve</code>.
+  <code>SWARPH_SPAWN=1</code> in the session env is belt-and-suspenders. No recursion.
+<ul class="article-list">
+  <li><strong>Attach must be a blocking child, NOT <code>os.execv</code>.</strong> This path is win32-only,</li>
+</ul>
+  and on Windows <code>os.exec*</code> is emulated as spawn-and-exit, so the parent
+  PowerShell regains the console and fights the attaching tmux → claude renders
+  but input is garbled (observed). A blocking <code>subprocess.run</code> keeps ONE console
+  shared <code>PowerShell → swarph → tmux</code>, identical to a manual <code>tmux attach</code>.
+
+<h2 id="dependency-windows">Dependency (Windows)</h2>
+
+<p><strong>psmux</strong> — Windows-native tmux. <strong>Soft/optional</strong>: swarph calls <code>tmux</code>
+generically; absent → WT-relaunch fallback. Any tmux-compatible CLI on PATH
+satisfies it; psmux is the Windows-native one.</p>
+
+<ul class="article-list">
+  <li>Upstream: https://github.com/psmux/psmux</li>
+  <li>Install (friendly): <code>winget install psmux</code></li>
+  <li>Install (scripted, unambiguous — <code>psmux.TerminalMap</code> shares the prefix):</li>
+</ul>
+  <code>winget install -e --id marlocarlo.psmux</code>
+
+<p>> <strong>For Lab to decide:</strong> bless <code>marlocarlo.psmux</code> as the official Windows
+> multiplexer, or document "any <code>tmux</code> on PATH." Code is agnostic either way.</p>
+
+<h2 id="tests">Tests</h2>
+
+<p><code>tests/test_spawn_tmux_session.py</code> (decision matrix: skip-gates, create-vs-attach,
+interactive-vs-headless, failure→fallback) + <code>test_spawn_windows_relaunch.py</code>
+(<code>$TMUX</code> skips the WT relaunch). <strong>23/23 green</strong>; full <code>test_spawn_command.py</code>
+52/52 green.</p>
+
+<h2 id="recommended-next-step-generalize-beyond-windows-lab-to-own">Recommended next step — generalize beyond Windows (Lab to own)</h2>
+
+<p>The single-command UX (<code>swarph spawn <name></code> → create session + launch claude +
+attach) should be <strong>the behavior on every OS</strong>, not just Windows. The branch
+gates <code>_launch_via_tmux</code> to win32 <em></em>only to avoid changing the Linux peers
+(lab-ovh) without review<em></em> — the logic itself is OS-agnostic.</p>
+
+<p>To generalize (Lab's call, since it changes lab-ovh's own cells and needs a
+Linux box to validate):</p>
+
+<ul class="article-list">
+  <li>Drop / widen the <code>sys.platform != "win32"</code> guard in <code>_launch_via_tmux</code>.</li>
+  <li><strong>Attach per-OS</strong>: keep the blocking <code>subprocess.run</code> on Windows (os.exec* is</li>
+</ul>
+  broken there); on Linux/mac use <code>os.execv</code> for a true in-place replacement
+  (cleaner — no intermediate process). A small platform branch.
+<ul class="article-list">
+  <li>Confirm the create command (<code>-e</code>, <code>-c</code>) against the tmux build on each peer.</li>
+  <li>Decide the "already inside tmux" policy uniformly (current: in-place exec — the</li>
+</ul>
+  loop-breaker — which is correct for the <code>tmux new</code> → <code>swarph spawn</code> workflow).
+
+<h3 id="done-generalized-to-all-os-lab-2026-06-12">✅ DONE — generalized to all-OS (lab, 2026-06-12)</h3>
+
+<p>All four points above shipped. <code>_launch_via_tmux</code> is now the single-command UX on
+every OS:</p>
+
+<ul class="article-list">
+  <li><strong>win32 guard dropped.</strong> The <code>$TMUX</code> loop-breaker + <code>SWARPH_SPAWN</code> guard +</li>
+</ul>
+  tmux-on-PATH check stay (all OS-agnostic).
+<ul class="article-list">
+  <li><strong>Per-OS attach.</strong> POSIX (Linux/mac) → <code>os.execv</code> (true in-place replace);</li>
+</ul>
+  Windows → the blocking <code>subprocess.run</code> (lc's <code>c86beb5</code>, now the Windows branch
+  of a two-branch split).
+<ul class="article-list">
+  <li><strong>Create command confirmed on a Linux box.</strong> Live on lab-ovh (<strong>tmux 3.5a</strong>):</li>
+</ul>
+  the <code>new-session -d -s -c -e CMD</code> argv returns rc 0, has-session +
+  exact-match <code>=</code> prefix behave, and the <code>-e SWARPH_SPAWN</code> env <em></em>actually lands
+  in the pane<em></em> (the loop-breaker mechanism, verified on real tmux). Graceful
+  degradation if a peer's tmux predates <code>-e</code> (< 3.0): create fails → return
+  False → fall back to the standard launch, no half-state.
+<ul class="article-list">
+  <li><strong>In-tmux policy is uniform + composes with capture-at-birth.</strong> <code>$TMUX</code> set →</li>
+</ul>
+  exec in place (never re-create), so the <code>claude-tmux@.service</code> template's inner
+  <code>swarph spawn %i</code> falls straight through.
+
+<p><strong>Validation:</strong> 822 tests green (all-OS decision matrix incl. win32-vs-POSIX
+attach, the test harness now mocks <code>os.execv</code> with a sentinel so the POSIX path
+can never fire a real exec) + the live lab-ovh tmux smoke above. <em></em>Residual
+(named):<em></em> the interactive <code>os.execv</code> attach on POSIX is the one path not
+live-tested — it needs an interactive TTY (a non-interactive shell/CI can't
+provide one) — but it's unit-covered and a stdlib primitive; same "validate on
+metal" class lc closed for Windows.</p>
+
+<h2 id="open-items-not-blockers-for-this-branch">Open items (NOT blockers for this branch)</h2>
+
+<ul class="article-list">
+  <li><strong>Mouse-tracking leak</strong> — under psmux, claude's SGR-1006 mouse codes leak/mangle</li>
+</ul>
+  into stdin (host-independent: PowerShell/cmd/git-bash identical). This is a
+  <strong>separate psmux bug</strong>, not a spawn bug — the rendering + attach here are
+  correct. Track as its own psmux ticket.
+<ul class="article-list">
+  <li><strong>Runtime hint</strong> for missing psmux on Windows — docs-only for now; could add a</li>
+</ul>
+  one-line "<code>winget install psmux</code> for a supervised session" on the WT-fallback
+  path (gated to avoid noise).
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#ground-truth-corrections-from-on-metal-testing-override-the-old-docstrings">Ground-truth corrections (from on-metal testing, override the old docstrings)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#two-load-bearing-implementation-lessons">Two load-bearing implementation lessons</a></li>
+<li style="margin-left: 0.8rem;"><a href="#done-generalized-to-all-os-lab-2026-06-12">✅ DONE — generalized to all-OS (lab, 2026-06-12)</a></li>
+<li><a href="#problem">Problem</a></li>
+<li><a href="#design">Design</a></li>
+<li><a href="#dependency-windows">Dependency (Windows)</a></li>
+<li><a href="#tests">Tests</a></li>
+<li><a href="#recommended-next-step-generalize-beyond-windows-lab-to-own">Recommended next step — generalize beyond Windows (Lab to own)</a></li>
+<li><a href="#open-items-not-blockers-for-this-branch">Open items (NOT blockers for this branch)</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

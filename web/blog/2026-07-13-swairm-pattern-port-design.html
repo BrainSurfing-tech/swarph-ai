@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>swairm-Pattern Port: Agent Credential Isolation, Untrusted-Repo Preflight, Orphaned-Claim Recovery — Design | Technical Whitepaper</title>
+  <meta name="description" content="swairm-Pattern Port: Agent Credential Isolation, Untrusted-Repo Preflight, Orphaned-Claim Recovery — Design — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-07-13-swairm-pattern-port-design.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">swairm-Pattern Port: Agent Credential Isolation, Untrusted-Repo Preflight, Orphaned-Claim Recovery — Design</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 8 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># swairm-Pattern Port: Agent Credential Isolation, Untrusted-Repo Preflight, Orphaned-Claim Recovery — Design</p>
+
+<p><strong>Status:</strong> approved scope 2026-07-13 (commander, async — Sardinia). Build <strong>#2a</strong>; spec <strong>#2b, #3, #1</strong>.
+<strong>Goal:</strong> port three hardening patterns from swairm (github.com/morzu117/swairm) into swarph, each scoped to what swarph's <em>actual</em> code needs — not a mechanical copy.
+<strong>Source:</strong> [[reference_swairm_repo]]. swairm's implementations are ports-and-adapters, TDD, hardened through their own review rounds (R1/I1–I3).</p>
+
+<p>---</p>
+
+<h2 id="grounding-what-the-swarph-code-actually-is-verified-2026-07-13">Grounding — what the swarph code actually is (verified 2026-07-13)</h2>
+
+<p>An Explore pass mapped every landing zone. The headline facts that shape this design:</p>
+
+<p>1. <strong>Credential leak is real and proven.</strong> Every agent-spawn site <strong>except grok</strong> inherits the
+   operator's real <code>HOME</code>. The billing scrubbers (<code>scrub_env_for_subprocess</code> /
+   <code>scrub_billing_env</code> / <code>_scrubbed_env</code>) strip only <code><em>_API_KEY</code> / <code></em>_AUTH_TOKEN</code> / <code>*_BASE_URL</code>.
+   <strong>None scrub GitHub creds.</strong> With the inherited HOME, <code>~/.claude/.credentials.json</code>,
+   <code>~/.config/gh/hosts.yml</code>, <code>~/.git-credentials</code>, <code>~/.netrc</code>, <code>~/.ssh</code> are all readable by the
+   spawned agent. Proof: <code>gh auth token</code> returns a token from the env a spawned cell inherits.
+   Impact: a spawned coding cell can act as the operator on GitHub.
+2. <strong>grok already solves it in-repo</strong> — the reference prototype:
+<ul class="article-list">
+  <li><code>spawn.py:_grok_env</code> → disposable HOME under <code>cell.cwd/.grok-cell</code>, symlinks <strong>only</strong></li>
+</ul>
+     <code>~/.grok/auth.json</code> in, scrubs the whole <code>GROK_<em></code>/<code>XAI_</em></code> namespace to block HOME-bypass
+     redirects (<code>GROK_HOME</code>/<code>GROK_AUTH_PATH</code>).
+<ul class="article-list">
+  <li><code>grok-service</code> → bwrap default-deny jail + <code>CLEAN_HOME</code> allowlist built from scratch</li>
+</ul>
+     (<code>PATH HOME USER TERM LANG</code>).
+3. <strong>No automated reviewer exists.</strong> <code>--setting-sources</code> appears in <strong>zero</strong> swarph repos; no
+   <code>git config --list</code> poison probe anywhere. <code>security.py:llm_review</code> is scaffolded-not-wired and
+   reviews <em>content text</em>, not git diffs. So pattern #3 has <strong>no consumer today</strong>.
+4. <strong>Durable state is already solid; recovery is the gap.</strong> All control-plane state is one WAL
+   SQLite (<code>/home/ubuntu/research/claude_mesh.db</code>), atomic <code>BEGIN IMMEDIATE</code> claims, unique keys —
+   no volatile queue to lose. But: <code>claude_tasks</code> has <strong>no orphan reaper</strong>; <code>gpu_jobs</code> has a
+   <code>reclaim-stale</code> endpoint with <strong>no automated caller</strong>; both existing reclaim paths reclaim by
+   <code>claimed_at</code> <strong>age only</strong> → a still-alive worker's job can be reclaimed and <strong>run twice</strong>.</p>
+
+<p><strong>Consequence for #1:</strong> swarph does not need "GitHub as sole truth" — it already has a single
+durable source of truth. It needs the <em>other</em> half swairm has: <strong>orphaned-claim recovery</strong>. So #1
+is reframed from an architecture bet to a bounded crash-safety fix.</p>
+
+<p>---</p>
+
+<h2 id="pattern-2-disposable-home-credential-isolation">Pattern #2 — Disposable-HOME credential isolation</h2>
+
+<h3 id="problem">Problem</h3>
+A spawned agent should never receive credentials it does not need. Today only grok is isolated;
+claude/codex/agy and every headless <code>claude -p</code> inherit the operator HOME and thus every on-disk
+credential. The worst instance: <code>lab-orchestrator/orchestrator.py</code> itself runs <code>gh repo clone</code> /
+<code>gh pr create</code> (it <em>is</em> the credential holder) and spawns a <code>claude -p</code> child that inherits those
+creds — exactly swairm's "the drone must not hold the daemon's credential."
+
+<h3 id="split-why-two-deliverables">Split (why two deliverables)</h3>
+The interactive <strong>cell membrane</strong> (<code>spawn.py</code> claude/codex/agy) is <em>not</em> the same problem as a
+<strong>headless one-shot</strong>. An interactive claude cell reads the operator's <code>~/.claude/settings.json</code>
+(SessionStart hooks, the lab ritual, MCP config, the inbox-watcher) — a naive HOME swap would
+strip the very hooks the cell depends on, and it entangles with the shared-settings issue (#20).
+A headless <code>claude -p</code> needs only <em>auth + a prompt</em>. So:
+
+<ul class="article-list">
+  <li><strong>#2a (BUILD NOW):</strong> isolate the headless one-shot spawns.</li>
+  <li><strong>#2b (SPEC, later):</strong> isolate the interactive cell membrane, with settings/hooks curation.</li>
+</ul>
+
+<h3 id="2a-design-headless-spawn-isolation">#2a design — headless spawn isolation</h3>
+
+<p><strong>New shared helper</strong> in <code>swarph-shared</code> (consumed by swarph-cli and the *-service servers):</p>
+
+<p><code></code>`
+isolated_agent_home(provider: str, *, root: Path, link_auth: bool = True) -> Path
+<code></code>`
+<ul class="article-list">
+  <li>Creates a disposable HOME at <code>root/.<provider>-drone-home</code> (mirrors grok's <code>.grok-cell</code>).</li>
+  <li>Symlinks <strong>only the provider's own auth</strong> into it (best-effort, idempotent — generalises</li>
+</ul>
+  <code>_link_grok_auth</code>):
+<ul class="article-list">
+  <li><code>claude</code>  → <code>~/.claude/.credentials.json</code> → <code><HOME>/.claude/.credentials.json</code></li>
+  <li><code>codex</code>   → <code>~/.codex/auth.json</code> → <code><HOME>/.codex/auth.json</code></li>
+  <li><code>gemini</code>  → <code>~/.gemini/</code> auth (link the auth file, not the whole dir)</li>
+  <li>Writes a minimal git identity with <code>[credential]\n\thelper =</code> to <strong>reset</strong> the credential-helper</li>
+</ul>
+  list (swairm's lesson: a system credential helper — e.g. osxkeychain — lives outside the
+  blanched HOME and would otherwise leak).
+<ul class="article-list">
+  <li><strong>Excludes by construction:</strong> <code>~/.config/gh</code>, <code>~/.git-credentials</code>, <code>~/.netrc</code>, <code>~/.ssh</code> — never</li>
+</ul>
+  linked, so unreachable from the disposable HOME.</p>
+
+<p><code></code>`
+build_isolated_env(source: Mapping[str,str], home: Path, provider: str) -> dict[str,str]
+<code></code>`
+<ul class="article-list">
+  <li>Pure. Starts from the existing billing scrub, then <strong>forces</strong> <code>env["HOME"] = str(home)</code> (never</li>
+</ul>
+  from <code>source</code> — that is what cuts on-disk cred access), applies the provider namespace scrub
+  (generalises <code>_scrub_grok_namespace</code> so <code><em>_HOME</code>/<code></em>_AUTH_PATH</code> redirects can't bypass the HOME).
+<ul class="article-list">
+  <li><code>build_isolated_env</code> / the path builders are pure & unit-testable; the symlink + subprocess are</li>
+</ul>
+  injectable seams (same discipline as grok and swairm).</p>
+
+<p><strong>Wire-in sites (#2a):</strong> <code>providers.py:run_provider</code>, <code>claude-service</code> (3 sites),
+<code>gpt-service</code>, <code>orchestrator.py:452</code>, and the <code>exec_runners/*.sh</code> shells (which today inherit the
+full env + HOME with <strong>no scrub at all</strong> — highest-leverage, lowest-risk fix). grok is already
+done; leave it.</p>
+
+<h3 id="2a-testing-mandatory-this-is-critical-path">#2a testing (mandatory — this is critical path)</h3>
+<ul class="article-list">
+  <li>Unit: <code>build_isolated_env</code> forces HOME, drops gh/git keys, keeps only allowlisted env; path</li>
+</ul>
+  builders pure; symlink helper idempotent / replaces stale / never clobbers a real file.
+<ul class="article-list">
+  <li><strong>Real-spawn smoke test</strong> (the load-bearing one): spawn a real <code>claude -p "print ok"</code> under an</li>
+</ul>
+  isolated HOME and assert <strong>both</strong> (a) it still authenticates and returns output, <strong>and</strong>
+  (b) <code>gh auth token</code> / reading <code>~/.config/gh</code> <strong>fails</strong> from inside that env. Present ≠ isolated —
+  prove the negative.
+
+<h3 id="2a-caveat-blast-radius">#2a caveat — blast radius</h3>
+Spawns are the critical path. #2a is built on a branch, TDD, PR — <strong>not merged/deployed</strong> until the
+commander reviews. A disposable-HOME bug that breaks auth would break spawns; the real-spawn smoke
+test is the guard, human review is the gate.
+
+<h3 id="2b-design-spec-only-interactive-cell-membrane">#2b design (SPEC only) — interactive cell membrane</h3>
+Isolate <code>spawn.py</code> claude/codex/agy membranes. Requires the disposable HOME to <em>also</em> carry what
+an interactive cell needs: <code>settings.json</code> (hooks — SessionStart drain, inbox-watcher), MCP config,
+<code>CLAUDE.md</code>/memory. Options to decide at build time: (i) symlink the operator's <code>~/.claude/settings.json</code>
+read-only into the isolated HOME (keeps hooks, still drops gh); (ii) generate a per-cell settings
+from a template (also resolves #20 shared-settings contamination — a bonus). Open question:
+interaction with <code>~/.claude.json</code> (project history/config). Delicate → its own spec + plan.
+
+<p>---</p>
+
+<h2 id="pattern-3-untrusted-repo-preflight-spec-only-no-consumer-today">Pattern #3 — Untrusted-repo preflight (SPEC only; no consumer today)</h2>
+
+<h3 id="problem">Problem</h3>
+When an agent reads a repo/worktree it did <strong>not</strong> author, two hijack surfaces exist:
+1. A committed project <code>.claude/settings.json</code> can re-authorize tools for the reading agent.
+2. A poisoned <code>.git/config</code> (<code>diff.external</code>, <code>*.textconv</code>, <code>core.hookspath</code>, <code>core.fsmonitor</code>,
+   <code>filter.*.clean/smudge</code>, <code>alias.{diff,log,show,status}</code>) turns a plain <code>git diff</code> into code
+   execution.
+swairm's Queen defends both: run with <code>--setting-sources user</code>, and a <code>git config --list</code> probe
+(executes nothing) matched against a poison regex — poisoned ⇒ abstain, no verdict.
+
+<h3 id="swarph-reality">swarph reality</h3>
+No reviewer exists; <code>--setting-sources</code> is used nowhere. The only agent that reads an un-authored
+checkout today is a <strong>spawned cell itself</strong> (Pattern #2), which inherits the checkout's git config
+with no guard. So #3 has no reviewer to wrap — it is <strong>net-new infrastructure</strong>.
+
+<h3 id="design-reusable-consumer-agnostic">Design (reusable, consumer-agnostic)</h3>
+A pure module <code>untrusted_repo_preflight</code> in swarph-shared:
+<ul class="article-list">
+  <li><code>git_config_is_poisoned(config_list_output: str) -> str | None</code> — pure; returns the offending</li>
+</ul>
+  key or None. Regex ported verbatim from swairm's <code>_POISONED_GIT_RE</code> (battle-tested).
+<ul class="article-list">
+  <li><code>preflight(workdir, run_git) -> None</code> — runs <code>git config --list</code> (safe probe), raises on poison;</li>
+</ul>
+  optional non-empty-diff-vs-base check (swairm's I3 lesson: a rebuilt worktree at base has an
+  empty diff and would be "approved" unread).
+<ul class="article-list">
+  <li><code>safe_reader_flags() -> list[str]</code> — `["--setting-sources", "user", "--disallowedTools",</li>
+</ul>
+  "Edit,Write,MultiEdit,NotebookEdit,WebFetch,WebSearch"]<code> for any </code>claude -p` that reads an
+  untrusted repo.
+
+<h3 id="consumers-future">Consumers (future)</h3>
+(a) A <code>--untrusted</code> mode on the #2a helper — a spawn told it is reading an un-authored checkout runs
+the preflight + <code>safe_reader_flags</code>. (b) Any future swarph reviewer/verify flow. Ship the helper +
+tests now (spec), wire when a consumer lands. <strong>No silent no-op:</strong> the helper is inert until a
+caller opts in — documented as such.
+
+<p>---</p>
+
+<h2 id="pattern-1-orphaned-claim-recovery-spec-only-reframed">Pattern #1 — Orphaned-claim recovery (SPEC only; reframed)</h2>
+
+<h3 id="problem-the-true-gap">Problem (the true gap)</h3>
+Durable state is solid; <strong>recovery is missing</strong>:
+<ul class="article-list">
+  <li><code>claude_tasks</code>: a task left <code>in_progress</code> by a dead claimer has <strong>no reaper</strong> — stalls forever.</li>
+  <li><code>gpu_jobs</code>: <code>POST /gpu/jobs/reclaim-stale</code> exists but has <strong>no automated caller</strong> (unlike</li>
+</ul>
+  <code>council_jobs</code>, which a 5-min cron reclaims).
+<ul class="article-list">
+  <li><strong>Duplicate hazard:</strong> both reclaim paths reset by <code>claimed_at</code> age *without confirming the worker</li>
+</ul>
+  is dead* → reclaim-while-alive = double execution. (This is the same class as
+  [[feedback_broken_channel_cannot_carry_its_stop_signal]] — act on the true signal, not a proxy.)
+
+<h3 id="design-swarph-native-better-than-the-reference">Design — swarph-native, better than the reference</h3>
+swairm reclaims by age only (it has no liveness signal). swarph <strong>does</strong> have one: the watchdog
+activity-marker / <strong>peer-health <code>last_health</code> (#26)</strong>. So:
+<ul class="article-list">
+  <li><strong><code>claude_tasks</code> reaper:</strong> a <code>POST /tasks/reclaim-stale</code> endpoint (mirror the council reclaimer),</li>
+</ul>
+  called by a 5-min cron. Resets <code>in_progress</code> → <code>queued</code> past a staleness threshold, bumps
+  <code>attempts</code>, records <code>last_error="reclaimed: claimer presumed dead"</code>.
+<ul class="article-list">
+  <li><strong><code>gpu_jobs</code>:</strong> wire the existing <code>reclaim-stale</code> endpoint to the same cron cadence.</li>
+  <li><strong>Liveness-aware reclaim (the upgrade):</strong> before reclaiming a claim owned by a named cell, check</li>
+</ul>
+  that cell's <code>last_health</code>/<code>last_seen</code>. If the worker is <strong>provably alive</strong> (fresh health within
+  the window), <strong>do not reclaim</strong> — only age <em>plus</em> absent liveness reclaims. Closes the duplicate
+  hazard age-only can't.
+<ul class="article-list">
+  <li>Idempotency preserved: reclaim is <code>BEGIN IMMEDIATE</code> + guarded `UPDATE … WHERE status='in_progress'</li>
+</ul>
+  AND claimed_at < :cutoff RETURNING`, so two reclaimers can't double-reset.
+
+<h3 id="scope-note">Scope note</h3>
+mesh-gateway change (two repos: <code>mesh-gateway/server.py</code> deployed + the <code>swarph-cli/.../gateway</code>
+mirror — keep them in lockstep, per the divergence lesson [[project_two_gateways_diverged]]).
+Deploy is commander-gated. Spec now; build on the commander's go.
+
+<p>---</p>
+
+<h2 id="testing-strategy-all-patterns">Testing strategy (all patterns)</h2>
+TDD throughout (<code>venv/bin/python -m pytest</code>). Pure functions (env builders, poison regex, path
+builders, reclaim SQL predicate) unit-tested; subprocess/symlink/DB are injectable seams. The
+non-negotiable test is #2a's real-spawn smoke test — proving the credential negative, not just
+presence.
+
+<h2 id="build-order">Build order</h2>
+1. <strong>#2a</strong> — credential isolation for headless spawns (this branch: <code>feat/cell-credential-isolation</code>).
+2. <strong>#1</strong> — orphaned-claim reaper + liveness-aware reclaim (on the commander's go; touches gateway).
+3. <strong>#2b</strong> — interactive-cell HOME isolation (delicate; own spec/plan).
+4. <strong>#3</strong> — untrusted-repo preflight helper (ship inert; wire when a consumer lands).
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#problem">Problem</a></li>
+<li style="margin-left: 0.8rem;"><a href="#split-why-two-deliverables">Split (why two deliverables)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#2a-design-headless-spawn-isolation">#2a design — headless spawn isolation</a></li>
+<li style="margin-left: 0.8rem;"><a href="#2a-testing-mandatory-this-is-critical-path">#2a testing (mandatory — this is critical path)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#2a-caveat-blast-radius">#2a caveat — blast radius</a></li>
+<li style="margin-left: 0.8rem;"><a href="#2b-design-spec-only-interactive-cell-membrane">#2b design (SPEC only) — interactive cell membrane</a></li>
+<li style="margin-left: 0.8rem;"><a href="#problem">Problem</a></li>
+<li style="margin-left: 0.8rem;"><a href="#swarph-reality">swarph reality</a></li>
+<li style="margin-left: 0.8rem;"><a href="#design-reusable-consumer-agnostic">Design (reusable, consumer-agnostic)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#consumers-future">Consumers (future)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#problem-the-true-gap">Problem (the true gap)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#design-swarph-native-better-than-the-reference">Design — swarph-native, better than the reference</a></li>
+<li style="margin-left: 0.8rem;"><a href="#scope-note">Scope note</a></li>
+<li><a href="#grounding-what-the-swarph-code-actually-is-verified-2026-07-13">Grounding — what the swarph code actually is (verified 2026-07-13)</a></li>
+<li><a href="#pattern-2-disposable-home-credential-isolation">Pattern #2 — Disposable-HOME credential isolation</a></li>
+<li><a href="#pattern-3-untrusted-repo-preflight-spec-only-no-consumer-today">Pattern #3 — Untrusted-repo preflight (SPEC only; no consumer today)</a></li>
+<li><a href="#pattern-1-orphaned-claim-recovery-spec-only-reframed">Pattern #1 — Orphaned-claim recovery (SPEC only; reframed)</a></li>
+<li><a href="#testing-strategy-all-patterns">Testing strategy (all patterns)</a></li>
+<li><a href="#build-order">Build order</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

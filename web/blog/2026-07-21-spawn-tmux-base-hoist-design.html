@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spawn tmux base-hoist — design | Technical Whitepaper</title>
+  <meta name="description" content="Spawn tmux base-hoist — design — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-07-21-spawn-tmux-base-hoist-design.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Spawn tmux base-hoist — design</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Spawn tmux base-hoist — design</p>
+
+<p><strong>Date:</strong> 2026-07-21
+<strong>Status:</strong> approved, ready for planning
+<strong>Board:</strong> spawn-tmux project, card #2 "Hoist <code>_launch_via_tmux</code> to base membrane"</p>
+
+<h2 id="goal">Goal</h2>
+
+<p>Make the internal tmux-session launch on <code>swarph spawn</code> <strong>provider-non-discriminatory</strong>: every
+provider membrane gets a named tmux session by default (when a spawn name is given), instead of only
+the two membranes that happen to override <code>pre_launch</code>.</p>
+
+<h2 id="problem-current-0-34-0-behavior">Problem (current 0.34.0 behavior)</h2>
+
+<p>tmux-launch is opt-in <em>per membrane</em>, not in the base — so it discriminates by provider:</p>
+
+<ul class="article-list">
+  <li><code>ProviderMembrane.pre_launch</code> (base) → <code>return None</code> (no tmux).</li>
+  <li><code>ClaudeMembrane.pre_launch</code> → overrides: <code>if session_name and _launch_via_tmux(...): return 0</code>,</li>
+</ul>
+  then a Windows-Terminal-relaunch fallback + a legacy-conhost warning.
+<ul class="article-list">
+  <li><code>GrokMembrane.pre_launch</code> → overrides: the <em>same</em> <code>_launch_via_tmux</code> call — a duplicate of Claude's</li>
+</ul>
+  tmux branch (minus the WT parts).
+<ul class="article-list">
+  <li><code>CodexMembrane</code>, <code>AntigravityMembrane</code> → <strong>no <code>pre_launch</code> override</strong> → inherit the base</li>
+</ul>
+  <code>return None</code> → spawn <strong>bare</strong> (no tmux session, no <code>send-keys</code> supervision).
+
+<p>So <code>swarph spawn <codex|antigravity cell></code> runs without a session. In production these providers only
+get tmux because they're launched via the provider-agnostic external <code>claude-tmux@.service</code> template,
+which masks the gap — an operator spawning them interactively gets no session.</p>
+
+<p>The OS-generalization already landed independently: the tmux call site has no <code>win32</code> gate, and the
+per-OS mechanics (<code>os.execve</code> on POSIX, blocking <code>subprocess.run</code> on Windows) live inside
+<code>_launch_via_tmux</code> / <code>launch()</code>. This design changes <strong>only</strong> the provider dimension.</p>
+
+<h2 id="design">Design</h2>
+
+<p>A hoist plus a dedup — it generalizes the <em>existing</em> session-gated behavior, adds no new machinery.</p>
+
+<h3 id="1-base-providermembrane-pre-launch-do-the-session-gated-tmux-launch">1. Base <code>ProviderMembrane.pre_launch</code> — do the session-gated tmux launch</h3>
+
+<p>Replace the base's <code>return None</code> with the branch currently duplicated in Claude/Grok:</p>
+
+<p><code></code>`python
+def pre_launch(self, cell, binary, argv, *, no_banner, session_name=None):
+    # A named spawn runs the cell in a tmux session (durable + send-keys-supervisable).
+    # No-op when unnamed / already inside tmux / tmux absent (then fall through to None).
+    if session_name and _launch_via_tmux(binary, argv, cell.cwd, session_name):
+        return 0
+    return None
+<code></code>`</p>
+
+<p>All four membranes now get tmux-when-named by default. The <code>session_name</code> gate is the interim
+per-spawn opt-out (spawn unnamed → no session). A richer none/tmux/service onboarding tier is a
+<strong>separate later card</strong>, out of scope here.</p>
+
+<h3 id="2-claudemembrane-pre-launch-keep-only-the-claude-specific-extra">2. <code>ClaudeMembrane.pre_launch</code> — keep only the Claude-specific extra</h3>
+
+<p>Delegate the tmux part to the base, then add Claude's own fallback (the WT-relaunch + conhost warning
+exist only for Claude's Ink-TUI/PowerShell rendering bug):</p>
+
+<p><code></code>`python
+def pre_launch(self, cell, binary, argv, *, no_banner, session_name=None):
+    rc = super().pre_launch(cell, binary, argv, no_banner=no_banner, session_name=session_name)
+    if rc is not None:
+        return rc
+    # Claude-only: relaunch in Windows Terminal / warn on legacy conhost. (unchanged body)
+    ...
+<code></code>`</p>
+
+<h3 id="3-grokmembrane-pre-launch-delete">3. <code>GrokMembrane.pre_launch</code> — delete</h3>
+
+<p>Once the base carries the tmux branch, Grok's override is byte-identical to the base → remove it;
+Grok inherits the base. Closes the previously-flagged Claude/Grok duplication.</p>
+
+<h3 id="4-codexmembrane-antigravitymembrane-unchanged">4. <code>CodexMembrane</code>, <code>AntigravityMembrane</code> — unchanged</h3>
+
+<p>No override added; they inherit the new base tmux behavior automatically. Their <code>launch()</code> (execve)
+is untouched. No provider-specific extra is needed — every provider's TUI renders correctly under a
+plain tmux PTY (validated live: all mesh peers already run inside tmux).</p>
+
+<h2 id="safety-non-regression">Safety / non-regression</h2>
+
+<ul class="article-list">
+  <li><strong>No double-tmux via the external template:</strong> the <code>$TMUX</code> loop-breaker inside <code>_launch_via_tmux</code></li>
+</ul>
+  short-circuits to an in-place exec when already inside a tmux session. A cell launched by the
+  <code>claude-tmux@.service</code> template (which wraps it in tmux, then runs <code>swarph spawn</code> inside) re-enters
+  with <code>$TMUX</code> set → in-place exec, no second session. Adding internal tmux to codex/antigravity does
+  not double-wrap the template path.
+<ul class="article-list">
+  <li><strong>Claude behavior unchanged:</strong> the WT-relaunch + conhost warning still fire in the same</li>
+</ul>
+  circumstances (only when the base tmux branch returned <code>None</code>).
+<ul class="article-list">
+  <li><strong>Unnamed spawns unchanged:</strong> <code>session_name</code> unset → base returns <code>None</code> → current bare behavior.</li>
+</ul>
+
+<h2 id="testing">Testing</h2>
+
+<ul class="article-list">
+  <li>Base <code>pre_launch</code> calls <code>_launch_via_tmux(binary, argv, cwd, session_name)</code> and returns <code>0</code> when</li>
+</ul>
+  <code>session_name</code> is set and the launch succeeds; returns <code>None</code> when <code>session_name</code> is unset.
+<ul class="article-list">
+  <li><code>ClaudeMembrane.pre_launch</code> returns the base's <code>0</code> when the base took over (no WT-relaunch reached);</li>
+</ul>
+  and, when the base returns <code>None</code>, still reaches its WT-relaunch/conhost path.
+<ul class="article-list">
+  <li><code>GrokMembrane</code> has no own <code>pre_launch</code> (resolves to <code>ProviderMembrane.pre_launch</code>).</li>
+  <li><code>CodexMembrane</code> / <code>AntigravityMembrane</code> resolve <code>pre_launch</code> to the base and take the tmux path when</li>
+</ul>
+  named.
+<ul class="article-list">
+  <li><code>$TMUX</code> set → <code>_launch_via_tmux</code> does the in-place exec branch (no second session created).</li>
+  <li>Mock <code>_launch_via_tmux</code> (and the WT-relaunch helper) — assert call/return, not real process launch.</li>
+</ul>
+
+<h2 id="scope-constraints">Scope / constraints</h2>
+
+<ul class="article-list">
+  <li>Single repo (<code>swarph-cli</code>), single file (<code>src/swarph_cli/commands/spawn.py</code>) + its tests.</li>
+  <li>Stdlib only (no new deps).</li>
+  <li>Changes live spawn behavior → ships as a reviewed PR; <strong>merge is commander-gated</strong> (no auto-merge).</li>
+  <li>Onboarding-tier selector (none / tmux / tmux+service) is a separate later card, not this one.</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#1-base-providermembrane-pre-launch-do-the-session-gated-tmux-launch">1. Base `ProviderMembrane.pre_launch` — do the session-gated tmux launch</a></li>
+<li style="margin-left: 0.8rem;"><a href="#2-claudemembrane-pre-launch-keep-only-the-claude-specific-extra">2. `ClaudeMembrane.pre_launch` — keep only the Claude-specific extra</a></li>
+<li style="margin-left: 0.8rem;"><a href="#3-grokmembrane-pre-launch-delete">3. `GrokMembrane.pre_launch` — delete</a></li>
+<li style="margin-left: 0.8rem;"><a href="#4-codexmembrane-antigravitymembrane-unchanged">4. `CodexMembrane`, `AntigravityMembrane` — unchanged</a></li>
+<li><a href="#goal">Goal</a></li>
+<li><a href="#problem-current-0-34-0-behavior">Problem (current 0.34.0 behavior)</a></li>
+<li><a href="#design">Design</a></li>
+<li><a href="#safety-non-regression">Safety / non-regression</a></li>
+<li><a href="#testing">Testing</a></li>
+<li><a href="#scope-constraints">Scope / constraints</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gateway brain-proxy — design | Technical Whitepaper</title>
+  <meta name="description" content="Gateway brain-proxy — design — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-07-06-gateway-brain-proxy-design.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Gateway brain-proxy — design</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 5 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Gateway brain-proxy — design</p>
+
+<p><strong>Date:</strong> 2026-07-06
+<strong>Component:</strong> <code>swarph-cli</code> — <code>gateway/server.py</code> (new endpoint) + <code>commands/brain_ask.py</code> (client path)
+<strong>Status:</strong> design approved (commander 2026-07-06); plan + implementation to follow on branch <code>feat/gateway-brain-proxy</code>.</p>
+
+<h2 id="problem">Problem</h2>
+
+<p>Querying the mesh brain (gbrain, <code>:8792/mcp</code>) requires a <strong>separate per-cell <code>gbrain_</code> token</strong>, distinct from the mesh identity every cell already holds (its peer/SSO token). That is a <strong>double-auth smell</strong> (commander, 2026-07-06): "not to run double auths anywhere — having another token when we already mint them on the mesh is weird."</p>
+
+<p>The client already anticipates the fix. <code>brain_ask.py</code>'s token precedence is <code>GBRAIN_TOKEN → SWARPH_BRAIN_TOKEN → the mesh per-peer token</code>, with the comment <em>"Once gbrain accepts mesh peer tokens, the peer token IS [the token]."</em> The gap is server-side: gbrain accepts only its own <code>gbrain_</code> tokens (verified 2026-07-06 — a mesh peer token → <strong>401</strong> on <code>:8792/mcp</code>; a <code>gbrain_</code> token → <strong>200</strong>). The client is ready; the server side is unshipped.</p>
+
+<p>Concretely, onboarding a cell to the brain today needs a <code>gbrain_</code> token minted, delivered securely, and rotated — friction that just blocked <code>workstation-lc</code>. And the mesh's shared <code>gbrain_</code> read token is <strong>over-scoped</strong> (<code>read/write/admin</code>, the 71-char api-key kind).</p>
+
+<h2 id="goal">Goal</h2>
+
+<p>A cell queries the brain using its <strong>mesh peer/SSO token</strong> — the identity already minted on the mesh — so <strong>no per-cell <code>gbrain_</code> token exists</strong>. Retire the double-auth without modifying gbrain (upstream <code>garrytan/gbrain</code>, MIT — the gateway is ours).</p>
+
+<h2 id="design">Design</h2>
+
+<h3 id="1-new-gateway-endpoint-post-brain-query">1. New gateway endpoint — <code>POST /brain/query</code></h3>
+
+<p>Added to <code>gateway/server.py</code> alongside the existing routes (<code>/messages</code>, etc.), FastAPI <code>@app.post</code>.</p>
+
+<ul class="article-list">
+  <li><strong>Request:</strong> <code>Bearer: <caller's mesh token></code>, body <code>{"query": "<text>", "limit": <int, default 8>}</code>.</li>
+  <li><strong>Auth:</strong> reuse <code>_authorize(authorization)</code> <strong>verbatim</strong> (<code>server.py:764</code>) — it already validates all three mesh regimes (<code>meta_edge</code> SSO / <code>per_peer_token</code> / <code>shared_token</code>) and returns an <code>AuthContext(peer, regime, …)</code> NamedTuple, raising <code>HTTPException(401)</code> on a bad token. No new auth code.</li>
+  <li><strong>Proxy:</strong> the gateway <strong>constructs</strong> the gbrain MCP <code>query</code> call itself — <code>{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"query","arguments":{"query":<q>,"limit":<n>}}}</code> — and POSTs it to <code>GATEWAY_GBRAIN_URL</code> with <code>Authorization: Bearer <GATEWAY_GBRAIN_TOKEN></code> and <code>Accept: application/json, text/event-stream</code>. It parses gbrain's SSE (<code>result.content[0].text</code> = a JSON chunk array) and returns a <strong>clean JSON body</strong> to the caller.</li>
+  <li><strong>Response (200):</strong> <code>{"chunks": [ {slug, title, chunk_text, score, …}, … ]}</code> — the gbrain chunk array, unwrapped from the SSE envelope.</li>
+  <li><strong>Read-only by construction:</strong> the gateway only ever builds a <code>name=query</code> MCP call. There is <strong>no code path</strong> that emits <code>write</code>/<code>admin</code>/<code>add_tag</code>/etc. So even though <code>GATEWAY_GBRAIN_TOKEN</code> is over-scoped, a caller can only ever read. Read-only is a property of the code, not a filter over caller input.</li>
+  <li><strong>Attribution:</strong> log the querying peer (<code>auth.peer</code>) — per-peer brain-query observability, free.</li>
+</ul>
+
+<h3 id="2-gateway-configuration-server-side-only">2. Gateway configuration (server-side only)</h3>
+
+<p>Two env vars, read at module top like the existing config (<code>os.environ.get("MESH_GATEWAY_TOKEN", "")</code> pattern, <code>server.py:62</code>):</p>
+
+<ul class="article-list">
+  <li><code>GATEWAY_GBRAIN_URL</code> — default <code>http://100.107.222.72:8792/mcp</code>.</li>
+  <li><code>GATEWAY_GBRAIN_TOKEN</code> — the <strong>one</strong> gbrain read token the gateway holds. Never leaves the gateway host.</li>
+</ul>
+
+<p>If <code>GATEWAY_GBRAIN_TOKEN</code> is unset, <code>/brain/query</code> returns <code>503</code> ("brain proxy not configured") — the endpoint is inert until the operator wires the token, so shipping the code is safe before deployment.</p>
+
+<h3 id="3-client-path-brain-ask-py">3. Client path — <code>brain_ask.py</code></h3>
+
+<p>New precedence, additive:</p>
+
+<ul class="article-list">
+  <li>If <code>SWARPH_BRAIN_GATEWAY</code> is set, <code>brain-ask</code> POSTs <code><SWARPH_BRAIN_GATEWAY>/brain/query</code> with <code>{"query", "limit"}</code> and <code>Authorization: Bearer <the cell's peer token></code> (read from <code>~/.config/swarph/<self>.peer_token</code>, the path the code already computes in <code>_peer_token_path</code>). It reads <code>{"chunks": [...]}</code> back.</li>
+  <li>If <code>SWARPH_BRAIN_GATEWAY</code> is unset → <strong>today's direct <code>:8792</code> + <code>gbrain_</code> token path, unchanged</strong> (backward-compat).</li>
+</ul>
+
+<p>So the endpoint the operator configures decides the auth: gateway → peer token; direct <code>:8792</code> → <code>gbrain_</code> token. No mixing.</p>
+
+<h3 id="4-backward-compatibility-load-bearing">4. Backward compatibility (load-bearing)</h3>
+
+<ul class="article-list">
+  <li>Direct <code>:8792</code> querying keeps working exactly as today — the proxy and the client gateway-path are <strong>purely additive</strong>. A cell with no <code>SWARPH_BRAIN_GATEWAY</code> set behaves identically to before.</li>
+  <li>gbrain is <strong>not modified</strong>.</li>
+</ul>
+
+<h2 id="errors">Errors</h2>
+
+<p>| Condition | Response |
+|---|---|
+| Missing / bad mesh token | <code>401</code> (from <code>_authorize</code>, unchanged) |
+| Missing/empty <code>query</code> in body | <code>400</code> |
+| <code>GATEWAY_GBRAIN_TOKEN</code> unset | <code>503</code> "brain proxy not configured" |
+| gbrain unreachable / non-2xx / unparseable SSE | <code>502</code> "brain upstream error" — <strong>fail loud, never swallow</strong> |</p>
+
+<h2 id="testing-tdd">Testing (TDD)</h2>
+
+<p>Gateway (<code>tests/</code> — the gateway suite mocks <code>httpx</code>/<code>urllib</code> upstreams; follow that pattern):
+<ul class="article-list">
+  <li><strong>Auth:</strong> valid peer token → <code>200</code>; missing/<code>Bearer bad</code> → <code>401</code> (via <code>_authorize</code>).</li>
+  <li><strong>Read-only by construction:</strong> the MCP body the proxy sends upstream always has <code>params.name == "query"</code> — assert it; there is no input that makes it write/admin.</li>
+  <li><strong>Proxy round-trip:</strong> a mocked gbrain SSE reply → the endpoint returns <code>{"chunks": [...]}</code> matching the chunk array.</li>
+  <li><strong>Upstream failure:</strong> gbrain 500 / connection error → <code>502</code> (not a swallowed empty result).</li>
+  <li><strong>Unconfigured:</strong> <code>GATEWAY_GBRAIN_TOKEN</code> unset → <code>503</code>.</li>
+</ul></p>
+
+<p>Client (<code>tests/test_brain_ask*.py</code> pattern):
+<ul class="article-list">
+  <li><code>SWARPH_BRAIN_GATEWAY</code> set → POSTs <code>/brain/query</code> with the <strong>peer token</strong>, parses <code>{"chunks"}</code>.</li>
+  <li><code>SWARPH_BRAIN_GATEWAY</code> unset → the existing direct-<code>:8792</code> + <code>gbrain_</code> token path is unchanged (compat lock).</li>
+</ul></p>
+
+<h2 id="ship-rollout">Ship & rollout</h2>
+
+<ul class="article-list">
+  <li>Version bump <code>0.25.0 → 0.26.0</code>; document <code>/brain/query</code> + the two gateway env vars + <code>SWARPH_BRAIN_GATEWAY</code> in the relevant help/README.</li>
+  <li>swarph-cli is <strong>public PyPI</strong> — synthetic test fixtures only, no cell-private data, no real tokens.</li>
+  <li><strong>All rollout steps commander-gated</strong> and OUT of this plan's execution scope (plan ends at merged + green):</li>
+</ul>
+  1. Publish <code>0.26.0</code>.
+  2. Set <code>GATEWAY_GBRAIN_URL</code> + <code>GATEWAY_GBRAIN_TOKEN</code> on the gateway host (lab-ovh) + restart the gateway.
+  3. Set <code>SWARPH_BRAIN_GATEWAY</code> for <code>workstation-lc</code> (+ future cells) → her <strong>peer token</strong> now authenticates to the brain.
+  4. <strong>Revoke the stopgap <code>gbrain_</code> token</strong> placed on workstation-lc.
+
+<h2 id="security-properties">Security properties</h2>
+
+<ul class="article-list">
+  <li><strong>One identity:</strong> a cell's mesh token is its brain auth — no second credential to mint, deliver, or rotate.</li>
+  <li><strong>Held token stays server-side:</strong> <code>GATEWAY_GBRAIN_TOKEN</code> never reaches a cell.</li>
+  <li><strong>Over-scope contained:</strong> cells get <strong>read-only</strong> through the proxy even though the held token is <code>read/write/admin</code> — this partly closes the over-scope issue <em>without</em> waiting on the pending read-scoped re-mint.</li>
+  <li><strong>Attribution:</strong> every brain query carries the authenticated peer identity.</li>
+</ul>
+
+<h2 id="out-of-scope-yagni">Out of scope (YAGNI)</h2>
+
+<ul class="article-list">
+  <li>Per-peer rate / spend caps on <code>/brain/query</code> (a future gateway concern; note, don't build).</li>
+  <li>A <code>/brain/search</code> variant (the RRF <code>query</code> covers the need; add later if a keyword-only path is wanted).</li>
+  <li>Server-side synthesis (<code>brain-ask</code> already synthesizes client-side via the $0 facade).</li>
+  <li>Modifying gbrain to natively accept mesh tokens (the proxy makes this unnecessary; if ever wanted, it is a separate upstream discussion).</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#1-new-gateway-endpoint-post-brain-query">1. New gateway endpoint — `POST /brain/query`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#2-gateway-configuration-server-side-only">2. Gateway configuration (server-side only)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#3-client-path-brain-ask-py">3. Client path — `brain_ask.py`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#4-backward-compatibility-load-bearing">4. Backward compatibility (load-bearing)</a></li>
+<li><a href="#problem">Problem</a></li>
+<li><a href="#goal">Goal</a></li>
+<li><a href="#design">Design</a></li>
+<li><a href="#errors">Errors</a></li>
+<li><a href="#testing-tdd">Testing (TDD)</a></li>
+<li><a href="#ship-rollout">Ship & rollout</a></li>
+<li><a href="#security-properties">Security properties</a></li>
+<li><a href="#out-of-scope-yagni">Out of scope (YAGNI)</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

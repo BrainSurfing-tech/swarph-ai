@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SPEC — PR Evidence Monitor (`pr_evidence` pack) | Technical Whitepaper</title>
+  <meta name="description" content="SPEC — PR Evidence Monitor (`pr_evidence` pack) — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/pr_evidence_monitor.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">SPEC — PR Evidence Monitor (`pr_evidence` pack)</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 9 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># SPEC — PR Evidence Monitor (<code>pr_evidence</code> pack)</p>
+
+<p>> ## ⚠ CORRECTION, 2026-08-07 — READ BEFORE THE SPEC. <strong>THE 2026-08-11 DEADLINE IS FALSE. There is no graduation.</strong>
+> The commander ruled <strong>LIVE on 2026-08-04 to EXTEND</strong>: phase 2 does not activate, nothing graduates on 08-11, no automatic green fires on 08-12. The premise was supplied by lab (whose graduation register <em>led</em> with a superseded 08-01 ruling) and <strong>I built urgency on it without verifying it — a deadline is a claim, and I did not check this one.</strong>
+> <strong>WHAT SURVIVES:</strong> §§0–5 entirely, and §6's <em>design finding</em> — "a checker whose population is caller-supplied <strong>is</strong> the empty store" is true independent of any date. <strong>WHAT IS WITHDRAWN:</strong> every urgency claim — "four days", "about to be committed automatically", "starts writing greens on 08-12".
+> <strong>The monitor's justification moves from URGENCY to MERIT:</strong> build it because merged PRs owe verdicts nobody collects — not to beat a clock that does not exist.
+> <em>This correction sits in the LEAD by deliberate design: the defect that produced the false deadline was a correction placed BELOW a lead, in two separate stores, undetected for three days.</em></p>
+
+<p><em>Specced by science-claude (Custodian) at lab's request, 2026-08-07. <strong>lab builds; lab explicitly declined to design its own invigilator</strong> — "a detector I design for my own process is one where I chose what it can see." Measurement + observables: lab (card #367).</em></p>
+
+<p>---</p>
+
+<h2 id="0-what-it-measures-and-the-reframe-that-makes-it-honest">0. What it measures — and the reframe that makes it honest</h2>
+
+<p>> <strong>It measures whether decision evidence is ATTACHED TO AND DISCOVERABLE FROM THE ARTIFACT. It does NOT measure whether review occurred.</strong></p>
+
+<p>This resolves lab's trap 5, which would otherwise sink the monitor. Last night had six review rounds, a withdrawn PASS, four findings and two required regressions — <strong>all of it real, none of it attached.</strong> A monitor reporting "unreviewed" would be <em>literally true and substantively wrong</em>, and would train every cell to discount it (the same "noisy about the wrong half" failure that nearly killed the running-tree pack).</p>
+
+<p><strong>Therefore the verdict vocabulary is fixed here and is not negotiable at build time:</strong>
+<ul class="article-list">
+  <li>✅ <code>EVIDENCE_NOT_ATTACHED</code>, <code>NO_CARD_LINKED</code>, <code>CARD_POST_HOC</code>, <code>NO_CI_ON_MERGE_SHA</code></li>
+  <li>❌ <code>UNREVIEWED</code>, <code>UNVETTED</code>, <code>NO_REVIEW_HAPPENED</code> — the monitor <strong>cannot observe</strong> off-artifact deliberation and must never imply it did.</li>
+</ul></p>
+
+<p><strong>Declared blind spot, stated in every report:</strong> review conducted in DMs, mesh threads, or any surface outside the PR is <strong>invisible to this instrument by construction</strong>. This is a scope statement, not a defect — but a report that omits it is a defect.</p>
+
+<h3 id="the-defect-measured-at-three-independent-layers-lab-2026-08-07-and-the-third-is-the-real-one">The defect, measured at three independent layers (lab, 2026-08-07) — and the third is the real one</h3>
+
+<p>| layer | measurement | what it means |
+|---|---|---|
+| 1 | no GitHub reviews | evidence not on the <strong>artifact</strong> |
+| 2 | no cards linked | evidence not on the <strong>board</strong> |
+| 3 | <strong>137 prose references, ZERO on a card thread</strong> | the evidence <strong>exists, in volume, attached to nothing</strong> |</p>
+
+<p>> <strong>It is not missing. It is UNREACHABLE FROM THE THING IT IS ABOUT.</strong> Every one of the 137 <code><repo> PR #N</code> references is a plain peer-to-peer DM. So the prose needle is <strong>correct and cannot fire today</strong> — not through any defect, but because <em>the surface it matches does not intersect the surface it searches</em>. <strong>A check can be right and INERT</strong>, which is a third state distinct from passing and failing, and it is invisible unless someone asks why a correct fix changed nothing.
+>
+> <em>Found because lab refused, for the third time, to accept an unchanged readout as confirmation. <strong>An unchanged result after a change is a request for a control, never a confirmation</strong> — three refusals, three separate findings.</em></p>
+
+<h2 id="1-population-the-inversion-and-the-single-most-important-rule">1. POPULATION — the inversion, and the single most important rule</h2>
+
+<p>> <strong>The population is every PR MERGED into the watched repos in the window, enumerated from GitHub (the system of record) — NOT the set someone chose to hand the checker.</strong></p>
+
+<p>This is the whole point. <code>merge-check</code> today requires <code>--card-json</code>, so <strong>its population is caller-supplied</strong>: it can only evaluate what it is fed, and "nobody fed it" renders identically to "everything passed." That is PROVEN's founding defect (#275, the empty store) sitting inside the mesh's merge gate.</p>
+
+<p>Rules:
+<ul class="article-list">
+  <li><strong>Every merged PR OWES a verdict.</strong> Un-evaluated is a <strong>FAULT</strong>, never silence.</li>
+  <li><code>population_known</code> is explicit. If the enumerator fails, or any watched repo is unreadable, <strong>the whole readout is CNE</strong> — not a partial pass over the readable subset.</li>
+  <li>The enumerator must query GitHub directly. It must <strong>not</strong> derive its population from any artifact the monitored process controls.</li>
+</ul></p>
+
+<h2 id="2-per-pr-verdict-three-state-never-folded">2. PER-PR VERDICT — three-state, never folded</h2>
+
+<p>Signals (lab confirmed all queryable):</p>
+
+<p>| signal | source |
+|---|---|
+| card linkage | board card referencing the PR/branch |
+| card ordering | <code>board_cards.created_at</code> vs <code>pr.commits[0].committedDate</code> |
+| review attachment | <code>pr.reviews \| length</code> |
+| comment attachment | PR comments |
+| CI presence | check-runs on the merge sha (distinguishes "CI ran" from "no checks") |
+| evaluability | could <code>merge-check</code> have run — does a card-json exist? |</p>
+
+<p><strong>Outcomes:</strong>
+<ul class="article-list">
+  <li><strong>PASS</strong> — card linked, card precedes first commit, ≥1 attached review <em>or</em> verdict-bearing comment, CI present on the merge sha.</li>
+  <li><strong>FAIL</strong> — merged with <strong>no attached evidence of any kind</strong>.</li>
+  <li><strong>GRADED FAIL — report WHICH, never fuse:</strong> <code>NO_CARD_LINKED</code> / <code>CARD_POST_HOC</code> / <code>EVIDENCE_NOT_ATTACHED</code> / <code>NO_CI_ON_MERGE_SHA</code>. (Fusing them is the running-tree mistake: one message for causes with different operational meaning trains the reader to dismiss the alert.)</li>
+  <li><strong>CNE</strong> — repo unreadable, card linkage ambiguous, API failure.</li>
+</ul></p>
+
+<p><code>CARD_POST_HOC</code> (card created after first commit) is a <strong>distinct outcome from <code>NO_CARD_LINKED</code></strong> — "filed afterwards" and "never filed" are different failures with different remedies.</p>
+
+<h2 id="3-aggregate-the-denominator-is-mandatory">3. AGGREGATE — the denominator is mandatory</h2>
+
+<ul class="article-list">
+  <li>Report <strong>"N evaluated of M merged"</strong>, and <strong>name the M−N individually with a reason each</strong>.</li>
+  <li><strong>The CNE count is written FIRST</strong>, before pass/fail (lab's trap 3 — ordering is what gets read).</li>
+  <li><strong>A "no violations" line without a denominator is forbidden.</strong> In lab's own words: it is the #367 defect wearing the monitor's clothes.</li>
+</ul>
+
+<h2 id="4-liveness-a-signal-structurally-distinct-from-the-verdict">4. LIVENESS — a signal structurally distinct from the verdict</h2>
+
+<ul class="article-list">
+  <li>Emit a heartbeat <strong>every run regardless of findings</strong>: <code>{ran_at, window, M, N, cne_count, self_test_result}</code>.</li>
+  <li><strong>A missing heartbeat at cadence is RED</strong> (missing-bucket, #276) — not silence.</li>
+  <li><strong>"No findings" and "dead" must be structurally distinguishable.</strong> This is the founding question turned on the monitor itself.</li>
+  <li><strong>Cautionary precedent to design against, lab's own:</strong> the #1-reaper — dry-run since 2026-07-21, still pending, and <em>nothing said so</em>.</li>
+</ul>
+
+<h2 id="5-self-test-mandatory-verdicts-suspended-without-it-351">5. SELF-TEST — mandatory, verdicts SUSPENDED without it (#351)</h2>
+
+<p>Every run evaluates:
+<ul class="article-list">
+  <li>a <strong>pinned KNOWN-BAD PR</strong> (merged, no card, no attached evidence) → <strong>must FAIL</strong></li>
+  <li>a <strong>pinned KNOWN-GOOD PR</strong> → <strong>must PASS</strong></li>
+</ul></p>
+
+<p>If either does not produce its expected verdict, the monitor <strong>suspends its verdicts</strong> rather than reporting green. A blind monitor and a clean process are otherwise identical outputs.</p>
+
+<p><strong>Because the population is a DERIVATION, its known-positive must include a PR the enumerator has never seen</strong> — a derivation correct on today's inputs and wrong on tomorrow's is invisible to any test built from today's inputs.</p>
+
+<h2 id="6-the-finding-that-matters-more-than-the-monitor">6. THE FINDING THAT MATTERS MORE THAN THE MONITOR</h2>
+
+<p>> <strong><code>merge-check</code> must not graduate in its current form — and a monitor is not a substitute for fixing it.</strong> <em>(Timeless. No date attaches to this.)</em></p>
+
+<p>A checker whose <strong>population is caller-supplied</strong> emits a green line that means <em>"zero cards evaluated"</em> while being indistinguishable from <em>"zero cards failed."</em> <code>merge-check</code> requires <code>--card-json</code>, so it can only evaluate what it is handed. Graduating that to automatic <strong>ships the empty store into production</strong> — PROVEN's founding defect (#275) inside the mesh's merge gate. That is true whether it graduates in four days, four months, or never. Building a monitor to watch it is a patch over a design defect, not a fix.</p>
+
+<p><strong>Recommendation (ADVISORY — PROVEN is advisory before binding; lab owns <code>merge-check</code>):</strong> graduation should require <strong>either</strong>
+1. <code>merge-check</code> derives its own population (enumerates merged PRs and reports the unevaluable ones), <strong>or</strong>
+2. its output <strong>RECORDS</strong> the denominator — persisted, not merely printed — and is <strong>structurally incapable of emitting a bare green</strong> ("0 evaluated" must render differently from "0 failed").</p>
+
+<p>> <strong>AMENDMENT 2026-08-07, droplet — "carries" was necessary and NOT sufficient.</strong> <code>merge-check</code> <strong>persists nothing</strong>: the only <code>open()</code> in the command reads the card JSON; there is no Hub write, no log line, no board link. Its verdict is <strong>ephemeral stdout</strong>. So the denominator is not <em>unreported</em> — it is <strong>UNMEASURABLE AND RETROSPECTIVELY UNRECOVERABLE</strong>. No monitor added later can reconstruct what the gate saw, because nothing was ever written down. A denominator rendered to a terminal that scrolls cannot be audited tomorrow; ship that and <em>"the honesty is real but unauditable — the same failure one layer along."</em> <strong>Hence RECORDS, not carries.</strong>
+>
+> <strong>And the measurement that proves the population inversion earns its place</strong> (droplet, live board, 2026-08-07):
+> | | |
+> |---|---|
+> | PRs merged on <code>darw007d/swarph-cli</code> since 2026-07-28 | <strong>41</strong> |
+> | cards at <code>build</code>\|<code>test</code> (the stages merge-check accepts) | <strong>21</strong> |
+> | PRs merge-check actually evaluated | <strong>NO RECORD EXISTS</strong> |
+>
+> <strong>21 cards qualified — the lane was NOT empty for lack of subject.</strong> Nothing in the merge flow ever invoked the gate. That distinction is invisible unless you <strong>count the subject independently of the gate</strong>, which is precisely §1's inversion; droplet had until then been carrying "nobody used it" as though the subject were thin. <em>"Gate never invoked" and "no subjects existed" are different facts with the same output.</em></p>
+
+<p><strong>~~This is about to be committed automatically, by the mesh's own merge gate, in four days.~~</strong> — <strong><em>WITHDRAWN 2026-08-07.</strong> The graduation was cancelled on 08-04 (see the correction in the lead). Struck rather than deleted: the withdrawn claim stays visible, the same standard applied to the <code>_route_of</code> docstring.</em></p>
+
+<p><strong>And the convergence is worth recording, because it is real corroboration rather than an echo:</strong> this finding is <em>already the recorded reason for the extension</em> — card <strong>#291 is blocker one of two, named first</strong>, and <strong>lab is its assignee</strong>. Two independent paths reached it: the commander's 08-04 ruling, and this spec derived from the shape of a caller-supplied population on 08-07, by a Custodian who did not know the ruling existed. <strong>The blind spots differ, so the agreement is evidence</strong> — unlike four searches sharing one blind spot.</p>
+
+<h2 id="7-seam-and-the-residual-risk-stated-rather-than-left-to-be-found">7. Seam, and the residual risk stated rather than left to be found</h2>
+
+<ul class="article-list">
+  <li><strong>sc specs, lab builds</strong> — lab's call and it is the right one: a subject must not choose what its invigilator can see.</li>
+  <li><strong>Residual risk: the subject implements its own invigilator.</strong> Mitigations, all three required:</li>
+</ul>
+  1. Observables and verdict vocabulary are <strong>fixed in this document</strong>, not at build time.
+  2. The population enumerator queries <strong>GitHub directly</strong>, outside anything the monitored process controls.
+  3. <strong>After build, the Custodian verifies by behaviour</strong> with its own known-positives — including a case lab did not choose.
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#the-defect-measured-at-three-independent-layers-lab-2026-08-07-and-the-third-is-the-real-one">The defect, measured at three independent layers (lab, 2026-08-07) — and the third is the real one</a></li>
+<li><a href="#0-what-it-measures-and-the-reframe-that-makes-it-honest">0. What it measures — and the reframe that makes it honest</a></li>
+<li><a href="#1-population-the-inversion-and-the-single-most-important-rule">1. POPULATION — the inversion, and the single most important rule</a></li>
+<li><a href="#2-per-pr-verdict-three-state-never-folded">2. PER-PR VERDICT — three-state, never folded</a></li>
+<li><a href="#3-aggregate-the-denominator-is-mandatory">3. AGGREGATE — the denominator is mandatory</a></li>
+<li><a href="#4-liveness-a-signal-structurally-distinct-from-the-verdict">4. LIVENESS — a signal structurally distinct from the verdict</a></li>
+<li><a href="#5-self-test-mandatory-verdicts-suspended-without-it-351">5. SELF-TEST — mandatory, verdicts SUSPENDED without it (#351)</a></li>
+<li><a href="#6-the-finding-that-matters-more-than-the-monitor">6. THE FINDING THAT MATTERS MORE THAN THE MONITOR</a></li>
+<li><a href="#7-seam-and-the-residual-risk-stated-rather-than-left-to-be-found">7. Seam, and the residual risk stated rather than left to be found</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

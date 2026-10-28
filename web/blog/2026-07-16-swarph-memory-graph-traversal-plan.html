@@ -1,0 +1,844 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>swarph memory graph traversal — Implementation Plan | Technical Whitepaper</title>
+  <meta name="description" content="swarph memory graph traversal — Implementation Plan — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-07-16-swarph-memory-graph-traversal-plan.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">swarph memory graph traversal — Implementation Plan</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 18 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># swarph memory graph traversal — Implementation Plan</p>
+
+<p>> <strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+
+<p><strong>Goal:</strong> Give <code>swarph memory links</code> file-native backlinks and multi-hop directional graph traversal over the OKF knowledge corpus, deriving edges from page bodies via the shared <code>okf_links</code> parser.</p>
+
+<p><strong>Architecture:</strong> gbrain stays the page store (<code>get_page</code>/<code>list_pages</code> over the existing <code>_mcp_call</code> MCP transport); the graph is computed client-side from page bodies. Forward traversal BFS-walks only reachable pages; reverse (<code>backlinks</code>/<code>in</code>) builds a reverse index with one full-corpus scan. No gbrain change, no brain-data mutation.</p>
+
+<p><strong>Tech Stack:</strong> Python 3, stdlib only, <code>argparse</code>; tests via <code>venv/bin/python -m pytest</code>; <code>unittest</code>/pytest with <code>_mcp_call</code> stubbed (no network).</p>
+
+<h2 id="global-constraints">Global Constraints</h2>
+
+<ul class="article-list">
+  <li>stdlib-only; public PyPI package; <strong>no new dependencies</strong>.</li>
+  <li>Additive verb-flag change; <strong>no hook touch</strong>; inert-safe.</li>
+  <li>Default <code>swarph memory links <slug></code> (no new flags) output is <strong>byte-for-byte unchanged</strong> (depth=1, direction=out).</li>
+  <li>Fail-safe: CLI paths print to stderr + return non-zero, <strong>never traceback</strong>; MCP ops swallow everything to <code>[]</code>, <strong>never raise</strong>.</li>
+  <li><code>DEPTH_CAP = 10</code> (mirrors gbrain's <code>TRAVERSE_DEPTH_CAP</code>); <code>--depth</code> clamped to <code>[1, 10]</code>.</li>
+  <li><code>--backlinks</code> is sugar for <code>--direction in</code>; combining it with an explicit <code>--direction</code> → <strong>exit 2</strong>.</li>
+  <li><code>--json</code> emits OKF <strong>edge</strong> records (shape change from flat slug-array — approved).</li>
+  <li>Version bump <code>0.31.0 → 0.32.0</code> (pyproject.toml + <code>__init__.py</code> + both version-pin tests).</li>
+  <li>Publish to PyPI is <strong>commander-gated</strong>; plan ends at <strong>green + PR</strong> (new public surface → PR left for review, NOT auto-merged under standing green-auth).</li>
+  <li>Stage only the named files; <strong>never <code>git add -A</code></strong>; never stage <code>.codegraph/</code> or <code>docs/superpowers/plans/2026-06-12-*</code>.</li>
+</ul>
+
+<p>---</p>
+
+<h2 id="file-structure">File Structure</h2>
+
+<ul class="article-list">
+  <li><code>src/swarph_cli/commands/memory.py</code> — MODIFY. Retire the local <code>_WIKILINK</code>/<code>parse_links</code>; add the file-native traversal engine (<code>_all_page_slugs</code>, <code>_forward_targets</code>, <code>_reverse_index</code>, <code>traverse</code>, <code>backlinks</code>, <code>_as_okf_edge</code>, <code>DEPTH_CAP</code>, <code>_clamp_depth</code>); extend the <code>links</code> subcommand with flags + OKF <code>--json</code>.</li>
+  <li><code>src/swarph_cli/commands/mcp_server.py</code> — MODIFY. Extend <code>_memory_navigate</code> + the <code>swarph_memory_navigate</code> <code>@mcp.tool</code> wrapper with <code>backlinks</code>/<code>traverse</code> ops.</li>
+  <li><code>tests/test_memory_command.py</code> — MODIFY. New engine + CLI tests; update any existing <code>links --json</code> shape assertion.</li>
+  <li><code>tests/test_okf_links.py</code> — reference only (parser is already tested).</li>
+  <li><code>README.md</code> — MODIFY. §memory flags + O(N) corpus-scan note.</li>
+  <li><code>pyproject.toml</code>, <code>src/swarph_cli/__init__.py</code>, <code>tests/test_brain_ask_command.py</code>, <code>tests/test_watchdog.py</code> — MODIFY. Version bump.</li>
+</ul>
+
+<p>---</p>
+
+<h3 id="task-1-migrate-memory-link-parsing-to-the-shared-okf-links-parser">Task 1: Migrate memory link parsing to the shared okf_links parser</h3>
+
+<p>Retire memory.py's weaker wiki-only regex; route all link parsing through <code>okf_links.parse_okf_links</code>. Keep <code>parse_links</code> as a back-compat alias.</p>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>src/swarph_cli/commands/memory.py</code> (imports; delete <code>_WIKILINK</code> + <code>parse_links</code> body; add alias; <code>links()</code> uses shared parser)</li>
+  <li>Test: <code>tests/test_memory_command.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: <code>okf_links.parse_okf_links(text: str) -> list[str]</code> (already shipped in 0.31.0).</li>
+  <li>Produces: <code>memory.parse_links</code> remains a callable <code>(str) -> list[str]</code> (now <code>= parse_okf_links</code>); <code>memory.links(url, token, slug) -> list[str]</code> unchanged signature, now parses via the shared grammar (resolves <code>[[slug|alias]]</code>→<code>slug</code>, <code>[[slug#h]]</code>→<code>slug</code>, <code>![[embed]]</code>, <code>![text](path.md)</code>).</li>
+</ul>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p>Add to <code>tests/test_memory_command.py</code>:</p>
+
+<pre><code class="language-python">def test_parse_links_uses_shared_okf_grammar():
+    from swarph_cli.commands import memory, okf_links
+    # memory.parse_links must now BE the shared parser (single grammar, no drift)
+    assert memory.parse_links is okf_links.parse_okf_links
+    body = "see [[project_x|the X project]] and [[ref_y#section]] and ![[embed_z]] and [docs](guide.md)"
+    assert memory.parse_links(body) == ["project_x", "ref_y", "embed_z", "guide.md"]</code></pre>
+
+
+<p>def test_links_resolves_alias_and_heading_via_shared_parser(monkeypatch):
+    from swarph_cli.commands import memory
+    page = {"slug": "hub", "content": "[[a|alias]] [[b#h]] ![[c]]"}
+    inner = __import__("json").dumps({"result": {"content": [{"type": "text", "text": __import__("json").dumps(page)}]}})
+    monkeypatch.setattr(memory.brain_ask, "_http_post", lambda <em>a, </em>*k: inner)
+    assert memory.links("http://x/mcp", "tok", "hub") == ["a", "b", "c"]
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_memory_command.py::test_parse_links_uses_shared_okf_grammar tests/test_memory_command.py::test_links_resolves_alias_and_heading_via_shared_parser -v</code>
+Expected: FAIL — <code>test_parse_links_uses_shared_okf_grammar</code> fails on <code>is</code> identity (current <code>parse_links</code> is a distinct function); the alias/heading case fails because the old <code>_WIKILINK</code> regex does not strip <code>#heading</code> and does not match <code>![[embed]]</code> or markdown <code>.md</code> links.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p>In <code>src/swarph_cli/commands/memory.py</code>:</p>
+
+<p>Update the import block (near line 26) to add <code>okf_links</code>:</p>
+
+<p><code></code>`python
+from swarph_cli.commands import brain_ask, okf_links
+<code></code>`</p>
+
+<p>Delete the <code>_WIKILINK</code> compiled pattern (line ~80) and the whole <code>parse_links</code> function (lines ~83-89). Replace with a back-compat alias placed after the imports:</p>
+
+<p><code></code>`python
+# The one true OKF link grammar lives in okf_links (pinned, tested). memory
+# used to carry a weaker wiki-only copy; that duplication is retired — this
+# alias keeps <code>memory.parse_links</code> importable for any existing caller.
+parse_links = okf_links.parse_okf_links
+<code></code>`</p>
+
+<p>Update <code>links()</code> to use the shared parser (line ~92-95):</p>
+
+<p><code></code>`python
+def links(url: str, token: str, slug: str) -> list:
+    """Forward [[links]] out of a page (deterministic single-hop navigation),
+    via the shared OKF grammar (okf_links)."""
+    page = get_page(url, token, slug)
+    content = page.get("content", "") if isinstance(page, dict) else ""
+    return okf_links.parse_okf_links(content)
+<code></code>`</p>
+
+<p>Remove the now-unused <code>import re</code> at the top <strong>only if</strong> no other code in the file uses <code>re</code> (grep first: <code>grep -n "re\." src/swarph_cli/commands/memory.py</code>). If <code>re</code> is still used elsewhere, leave the import.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run tests to verify they pass</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_memory_command.py -v</code>
+Expected: PASS (new tests green; existing memory tests still green).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add src/swarph_cli/commands/memory.py tests/test_memory_command.py
+git commit -m "refactor: swarph memory parses links via shared okf_links grammar (#42)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-2-file-native-traversal-engine">Task 2: File-native traversal engine</h3>
+
+<p>Add the graph engine to <code>memory.py</code>: corpus enumeration, forward targets, reverse index, cycle-safe depth-bounded BFS, backlinks sugar, and the OKF edge record.</p>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>src/swarph_cli/commands/memory.py</code> (add engine functions after <code>links()</code>)</li>
+  <li>Test: <code>tests/test_memory_command.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: <code>get_page</code>, <code>list_pages</code>, <code>okf_links.parse_okf_links</code> (from Task 1).</li>
+  <li>Produces:</li>
+  <li><code>DEPTH_CAP = 10</code></li>
+  <li><code>_clamp_depth(depth) -> int</code> (into <code>[1, 10]</code>; non-int → <code>1</code>)</li>
+  <li><code>_all_page_slugs(url, token) -> list[str]</code></li>
+  <li><code>_forward_targets(url, token, slug) -> list[str]</code></li>
+  <li><code>_reverse_index(url, token) -> dict[str, list[str]]</code></li>
+  <li><code>traverse(url, token, slug, depth=1, direction="out") -> list[tuple[str, str, int, str]]</code> — ordered <code>(from, to, hop, edge_direction)</code>; <code>edge_direction ∈ {"out","in"}</code>; <code>"both"</code> = out-pass then in-pass; cycle-safe; depth-clamped.</li>
+  <li><code>backlinks(url, token, slug) -> list[str]</code> — single-hop incoming, order-preserving de-dupe.</li>
+  <li><code>_as_okf_edge(frm, to, direction, hop) -> dict</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing tests</strong></li>
+</ul>
+
+<p>Add to <code>tests/test_memory_command.py</code>. This helper stubs the corpus so no network is touched — <code>_mcp_call</code> is intercepted by faking <code>get_page</code>/<code>list_pages</code> directly:</p>
+
+<p><code></code>`python
+def _fake_corpus(monkeypatch, pages):
+    """pages: {slug: body_str}. Stub memory.get_page/list_pages so the engine
+    reads this in-memory graph instead of gbrain. No network."""
+    from swarph_cli.commands import memory</p>
+
+<p>def _get_page(url, token, slug):
+        if slug not in pages:
+            raise RuntimeError(f"no page {slug}")   # simulate a 404/unreadable page
+        return {"slug": slug, "content": pages[slug]}</p>
+
+<p>def _list_pages(url, token, type_=None, tag=None, limit=50):
+        return [{"slug": s, "type": "note"} for s in pages]</p>
+
+<p>monkeypatch.setattr(memory, "get_page", _get_page)
+    monkeypatch.setattr(memory, "list_pages", _list_pages)
+    return memory</p>
+
+<p>def test_traverse_out_depth1_equals_forward_links(monkeypatch):
+    m = _fake_corpus(monkeypatch, {"a": "[[b]] [[c]]", "b": "", "c": ""})
+    edges = m.traverse("u", "t", "a", depth=1, direction="out")
+    assert edges == [("a", "b", 1, "out"), ("a", "c", 1, "out")]</p>
+
+<p>def test_traverse_out_depth2_follows_frontier(monkeypatch):
+    m = _fake_corpus(monkeypatch, {"a": "[[b]]", "b": "[[c]]", "c": ""})
+    edges = m.traverse("u", "t", "a", depth=2, direction="out")
+    assert ("a", "b", 1, "out") in edges
+    assert ("b", "c", 2, "out") in edges</p>
+
+<p>def test_traverse_is_cycle_safe(monkeypatch):
+    m = _fake_corpus(monkeypatch, {"a": "[[b]]", "b": "[[a]]"})
+    # a<->b cycle must terminate; each node visited once as a frontier
+    edges = m.traverse("u", "t", "a", depth=10, direction="out")
+    assert ("a", "b", 1, "out") in edges
+    assert ("b", "a", 2, "out") in edges
+    # 'a' is not re-expanded after being visited, so no hop-3 edge out of 'a'
+    assert all(hop <= 2 for (_, _, hop, _) in edges)</p>
+
+<p>def test_traverse_depth_clamped_to_cap(monkeypatch):
+    m = _fake_corpus(monkeypatch, {"a": ""})
+    assert m.DEPTH_CAP == 10
+    # depth far over the cap must not raise; empty graph → no edges
+    assert m.traverse("u", "t", "a", depth=9999, direction="out") == []
+    assert m._clamp_depth(9999) == 10
+    assert m._clamp_depth(0) == 1
+    assert m._clamp_depth("x") == 1</p>
+
+<p>def test_reverse_index_and_backlinks_skip_unreadable(monkeypatch):
+    # 'x' and 'y' both link to 't'; 'z' is listed but unreadable (get_page raises)
+    m = _fake_corpus(monkeypatch, {"t": "", "x": "[[t]]", "y": "[[t]]"})
+    # inject a listed-but-missing page to prove the scan skips, not aborts
+    orig = m.list_pages
+    monkeypatch.setattr(m, "list_pages",
+                        lambda <em>a, <strong>k: orig(</em>a, </strong>k) + [{"slug": "z", "type": "note"}])
+    assert sorted(m.backlinks("u", "t", "t")) == ["x", "y"]</p>
+
+<p>def test_traverse_both_is_out_then_in(monkeypatch):
+    m = _fake_corpus(monkeypatch, {"hub": "[[out1]]", "out1": "", "src": "[[hub]]"})
+    edges = m.traverse("u", "t", "hub", depth=1, direction="both")
+    assert ("hub", "out1", 1, "out") in edges
+    assert ("hub", "src", 1, "in") in edges
+    # ordering: all out edges precede all in edges
+    dirs = [d for (_, _, _, d) in edges]
+    assert dirs == sorted(dirs, key=lambda d: 0 if d == "out" else 1)</p>
+
+<p>def test_as_okf_edge_schema():
+    from swarph_cli.commands import memory
+    assert memory._as_okf_edge("a", "b", "out", 2) == {
+        "type": "edge", "hemisphere": "knowledge", "from": "a", "to": "b",
+        "rel": "links", "direction": "out", "hop": 2,
+    }
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run tests to verify they fail</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_memory_command.py -k "traverse or reverse_index or backlinks or as_okf_edge or clamp" -v</code>
+Expected: FAIL with <code>AttributeError: module 'swarph_cli.commands.memory' has no attribute 'traverse'</code> (and siblings).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p>Append to <code>src/swarph_cli/commands/memory.py</code> (after <code>links()</code>):</p>
+
+<p><code></code>`python
+DEPTH_CAP = 10  # mirrors gbrain's TRAVERSE_DEPTH_CAP — bounds a pathological walk</p>
+
+<p>def _clamp_depth(depth) -> int:
+    """Coerce a requested depth into [1, DEPTH_CAP]; non-ints resolve to 1."""
+    try:
+        d = int(depth)
+    except (TypeError, ValueError):
+        return 1
+    return max(1, min(d, DEPTH_CAP))</p>
+
+<p>def _all_page_slugs(url: str, token: str) -> list:
+    """Every page slug in the brain (one list_pages call, high limit)."""
+    pages = list_pages(url, token, limit=10000)
+    return [p.get("slug") for p in pages
+            if isinstance(p, dict) and p.get("slug")]</p>
+
+<p>def _forward_targets(url: str, token: str, slug: str) -> list:
+    """The [[links]] out of one page's body (shared OKF grammar)."""
+    page = get_page(url, token, slug)
+    content = page.get("content", "") if isinstance(page, dict) else ""
+    return okf_links.parse_okf_links(content)</p>
+
+<p>def _reverse_index(url: str, token: str) -> dict:
+    """Map each target slug -> pages whose body links to it. One full-corpus
+    scan; a page that fails to fetch/parse is SKIPPED (never aborts the scan)."""
+    rev: dict = {}
+    for src in _all_page_slugs(url, token):
+        try:
+            targets = _forward_targets(url, token, src)
+        except Exception:
+            continue  # unreadable/missing page — skip, keep scanning
+        for tgt in targets:
+            bucket = rev.setdefault(tgt, [])
+            if src not in bucket:
+                bucket.append(src)
+    return rev</p>
+
+<p>def traverse(url: str, token: str, slug: str, depth: int = 1,
+             direction: str = "out") -> list:
+    """File-native BFS over the OKF link graph. Returns ordered
+    (from, to, hop, edge_direction) tuples. direction: 'out' follows forward
+    [[links]]; 'in' follows the reverse index; 'both' = out-pass then in-pass.
+    Cycle-safe (per-pass visited set); depth clamped to [1, DEPTH_CAP]."""
+    depth = _clamp_depth(depth)
+    if direction not in ("out", "in", "both"):
+        direction = "out"
+    passes = ["out", "in"] if direction == "both" else [direction]</p>
+
+<p>edges: list = []
+    rev = None
+    for edge_dir in passes:
+        if edge_dir == "in" and rev is None:
+            rev = _reverse_index(url, token)
+        visited = {slug}
+        frontier = [slug]
+        for hop in range(1, depth + 1):
+            nxt: list = []
+            for node in frontier:
+                if edge_dir == "out":
+                    if hop == 1:
+                        # ROOT node (frontier is just [slug] at hop 1): let a
+                        # transport error PROPAGATE so the CLI/MCP boundary can
+                        # report "gbrain unreachable" (rc 1 / []). Swallowing it
+                        # here would make a down brain look like an empty graph
+                        # — silent failure. Deeper nodes are skipped instead.
+                        neighbours = _forward_targets(url, token, node)
+                    else:
+                        try:
+                            neighbours = _forward_targets(url, token, node)
+                        except Exception:
+                            neighbours = []  # skip unreadable deep node, keep walking
+                else:
+                    neighbours = rev.get(node, []) if rev else []
+                for nbr in neighbours:
+                    edges.append((node, nbr, hop, edge_dir))
+                    if nbr not in visited:
+                        visited.add(nbr)
+                        nxt.append(nbr)
+            frontier = nxt
+            if not frontier:
+                break
+    return edges</p>
+
+<p>def backlinks(url: str, token: str, slug: str) -> list:
+    """Pages that link TO <code>slug</code> (single-hop incoming), order-preserving."""
+    rev = _reverse_index(url, token)
+    return list(dict.fromkeys(rev.get(slug, [])))</p>
+
+<p>def _as_okf_edge(frm: str, to: str, direction: str, hop: int) -> dict:
+    """OKF edge record — the knowledge-hemisphere edge shape the walker reads."""
+    return {"type": "edge", "hemisphere": "knowledge", "from": frm, "to": to,
+            "rel": "links", "direction": direction, "hop": hop}
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run tests to verify they pass</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_memory_command.py -v</code>
+Expected: PASS (all engine tests green, existing tests still green).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add src/swarph_cli/commands/memory.py tests/test_memory_command.py
+git commit -m "feat: file-native OKF graph traversal engine in swarph memory (#42)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-3-swarph-memory-links-flags-okf-json">Task 3: <code>swarph memory links</code> flags + OKF <code>--json</code></h3>
+
+<p>Wire <code>--backlinks</code>/<code>--depth</code>/<code>--direction</code> into the <code>links</code> subcommand with the mutual-exclusion guard and OKF edge output. Preserve default output exactly.</p>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>src/swarph_cli/commands/memory.py</code> (the <code>p_links</code> parser + the <code>if args.subcommand == "links"</code> handler, ~lines 119-121 and 169-180)</li>
+  <li>Test: <code>tests/test_memory_command.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: <code>traverse</code>, <code>_as_okf_edge</code> (Task 2); <code>links</code> (Task 1).</li>
+  <li>Produces: CLI behaviour for <code>swarph memory links <slug> [--backlinks] [--depth N] [--direction {out,in,both}] [--json]</code>.</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing tests</strong></li>
+</ul>
+
+<p>Add to <code>tests/test_memory_command.py</code> (reuses <code>_fake_corpus</code> from Task 2):</p>
+
+<p><code></code>`python
+def test_links_default_output_unchanged(monkeypatch, capsys):
+    m = _fake_corpus(monkeypatch, {"a": "[[b]] [[c]]", "b": "", "c": ""})
+    monkeypatch.setattr(m.brain_ask, "_resolve_endpoint", lambda: "http://x/mcp")
+    monkeypatch.setattr(m.brain_ask, "_resolve_token", lambda <em>a, </em>*k: "tok")
+    rc = m.run_memory(["links", "a"])
+    assert rc == 0
+    assert capsys.readouterr().out == "b\nc\n"</p>
+
+<p>def test_links_json_emits_okf_edges(monkeypatch, capsys):
+    m = _fake_corpus(monkeypatch, {"a": "[[b]]", "b": ""})
+    monkeypatch.setattr(m.brain_ask, "_resolve_endpoint", lambda: "http://x/mcp")
+    monkeypatch.setattr(m.brain_ask, "_resolve_token", lambda <em>a, </em>*k: "tok")
+    rc = m.run_memory(["links", "a", "--json"])
+    assert rc == 0
+    out = __import__("json").loads(capsys.readouterr().out)
+    assert out == [{"type": "edge", "hemisphere": "knowledge", "from": "a",
+                    "to": "b", "rel": "links", "direction": "out", "hop": 1}]</p>
+
+<p>def test_links_backlinks_flag(monkeypatch, capsys):
+    m = _fake_corpus(monkeypatch, {"t": "", "x": "[[t]]"})
+    monkeypatch.setattr(m.brain_ask, "_resolve_endpoint", lambda: "http://x/mcp")
+    monkeypatch.setattr(m.brain_ask, "_resolve_token", lambda <em>a, </em>*k: "tok")
+    rc = m.run_memory(["links", "t", "--backlinks"])
+    assert rc == 0
+    assert capsys.readouterr().out == "x\n"</p>
+
+<p>def test_links_backlinks_with_direction_is_exit_2(monkeypatch, capsys):
+    m = _fake_corpus(monkeypatch, {"t": ""})
+    monkeypatch.setattr(m.brain_ask, "_resolve_endpoint", lambda: "http://x/mcp")
+    monkeypatch.setattr(m.brain_ask, "_resolve_token", lambda <em>a, </em>*k: "tok")
+    rc = m.run_memory(["links", "t", "--backlinks", "--direction", "in"])
+    assert rc == 2
+    assert "mutually exclusive" in capsys.readouterr().err</p>
+
+<p>def test_links_depth_direction_both(monkeypatch, capsys):
+    m = _fake_corpus(monkeypatch, {"hub": "[[o]]", "o": "", "s": "[[hub]]"})
+    monkeypatch.setattr(m.brain_ask, "_resolve_endpoint", lambda: "http://x/mcp")
+    monkeypatch.setattr(m.brain_ask, "_resolve_token", lambda <em>a, </em>*k: "tok")
+    rc = m.run_memory(["links", "hub", "--direction", "both"])
+    assert rc == 0
+    assert capsys.readouterr().out == "o\ns\n"</p>
+
+<p>def test_links_root_unreachable_is_rc1_not_silent(monkeypatch, capsys):
+    """A transport error fetching the ROOT page must surface as rc 1 (like the
+    old <code>links</code>), NOT be swallowed into an empty rc-0 graph (silent failure)."""
+    from swarph_cli.commands import memory</p>
+
+<p>def _boom(url, token, slug):
+        raise ConnectionError("gbrain down")</p>
+
+<p>monkeypatch.setattr(memory, "get_page", _boom)
+    monkeypatch.setattr(memory.brain_ask, "_resolve_endpoint", lambda: "http://x/mcp")
+    monkeypatch.setattr(memory.brain_ask, "_resolve_token", lambda <em>a, </em>*k: "tok")
+    rc = memory.run_memory(["links", "a"])
+    assert rc == 1
+    assert "unreachable" in capsys.readouterr().err
+<code></code>`</p>
+
+<p>Also update any existing test that asserts the OLD <code>links --json</code> slug-array shape. Search first: <code>grep -n "links" tests/test_memory_command.py | grep -i json</code>. If one exists (e.g. asserts <code>["b","c"]</code>), replace its assertion with the OKF-edge shape above; the shape change is approved.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run tests to verify they fail</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_memory_command.py -k "links_default or links_json or backlinks_flag or backlinks_with_direction or depth_direction_both" -v</code>
+Expected: FAIL — <code>--backlinks</code>/<code>--depth</code>/<code>--direction</code> are unrecognised args (SystemExit 2 from argparse for the flags that don't exist yet, or wrong output for the json/default cases).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p>In <code>src/swarph_cli/commands/memory.py</code>, replace the <code>p_links</code> block (~line 119-121):</p>
+
+<p><code></code>`python
+    p_links = sub.add_parser("links", help="graph links out of / into a page (file-native OKF traversal)")
+    p_links.add_argument("slug")
+    p_links.add_argument("--backlinks", action="store_true",
+                         help="incoming links (who links to this page) — sugar for --direction in")
+    p_links.add_argument("--depth", type=int, default=1,
+                         help="traversal hops (clamped to 1-10; default 1)")
+    p_links.add_argument("--direction", choices=["out", "in", "both"], default=None,
+                         help="traversal direction (default out)")
+    p_links.add_argument("--json", action="store_true",
+                         help="emit OKF edge records instead of plain slugs")
+<code></code>`</p>
+
+<p>Replace the <code>if args.subcommand == "links":</code> handler (~line 169-180):</p>
+
+<p><code></code>`python
+    if args.subcommand == "links":
+        if args.backlinks and args.direction is not None:
+            print("swarph memory links: --backlinks and --direction are "
+                  "mutually exclusive", file=sys.stderr)
+            return 2
+        direction = "in" if args.backlinks else (args.direction or "out")
+        try:
+            edges = traverse(url, token, args.slug, args.depth, direction)
+        except Exception as e:  # fail-safe: never traceback at the CLI
+            print(f"swarph memory links: gbrain unreachable ({e})", file=sys.stderr)
+            return 1
+        if args.json:
+            print(json.dumps([_as_okf_edge(f, t, d, h)
+                              for (f, t, h, d) in edges], indent=2))
+        else:
+            seen: list = []
+            for (f, t, h, d) in edges:
+                if t not in seen:
+                    seen.append(t)
+                    print(t)
+        return 0
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run tests to verify they pass</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_memory_command.py -v</code>
+Expected: PASS (all green).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add src/swarph_cli/commands/memory.py tests/test_memory_command.py
+git commit -m "feat: swarph memory links --backlinks/--depth/--direction + OKF --json (#42)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-4-extend-the-swarph-memory-navigate-mcp-tool">Task 4: Extend the <code>swarph_memory_navigate</code> MCP tool</h3>
+
+<p>Add <code>backlinks</code> and <code>traverse</code> ops to the memory-navigate MCP surface, fail-safe and whitelisted.</p>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>src/swarph_cli/commands/mcp_server.py</code> (<code>_memory_navigate</code> ~lines 188-211; the <code>@mcp.tool swarph_memory_navigate</code> wrapper ~lines 269-277)</li>
+  <li>Test: <code>tests/test_memory_command.py</code> (or the existing mcp_server test module if one is used for <code>_memory_navigate</code> — put these beside the other <code>_memory_navigate</code> tests; grep <code>grep -rln "_memory_navigate" tests/</code>)</li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: <code>memory.backlinks</code>, <code>memory.traverse</code>, <code>memory._as_okf_edge</code> (Tasks 2).</li>
+  <li>Produces: <code>_memory_navigate(op, slug=None, type=None, tag=None, limit=20, depth=1, direction="out")</code> handling ops <code>get</code>/<code>list</code>/<code>links</code>/<code>backlinks</code>/<code>traverse</code>; unknown op or backend error → <code>[]</code>.</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing tests</strong></li>
+</ul>
+
+<p>Add beside the other <code>_memory_navigate</code> tests (grep to find the file; assume <code>tests/test_memory_command.py</code> if none dedicated):</p>
+
+<p><code></code>`python
+def test_memory_navigate_backlinks_op(monkeypatch):
+    from swarph_cli.commands import mcp_server, memory
+    monkeypatch.setattr(memory, "get_page",
+                        lambda u, t, s: {"slug": s, "content": {"x": "[[t]]", "t": ""}.get(s, "")})
+    monkeypatch.setattr(memory, "list_pages",
+                        lambda <em>a, </em>*k: [{"slug": "x"}, {"slug": "t"}])
+    monkeypatch.setattr(mcp_server.brain_ask, "_resolve_endpoint", lambda: "http://x/mcp")
+    monkeypatch.setattr(mcp_server.brain_ask, "_resolve_token", lambda <em>a, </em>*k: "tok")
+    assert mcp_server._memory_navigate("backlinks", slug="t") == ["x"]</p>
+
+<p>def test_memory_navigate_traverse_op_returns_okf_edges(monkeypatch):
+    from swarph_cli.commands import mcp_server, memory
+    monkeypatch.setattr(memory, "get_page",
+                        lambda u, t, s: {"slug": s, "content": {"a": "[[b]]"}.get(s, "")})
+    monkeypatch.setattr(memory, "list_pages", lambda <em>a, </em>*k: [{"slug": "a"}, {"slug": "b"}])
+    monkeypatch.setattr(mcp_server.brain_ask, "_resolve_endpoint", lambda: "http://x/mcp")
+    monkeypatch.setattr(mcp_server.brain_ask, "_resolve_token", lambda <em>a, </em>*k: "tok")
+    out = mcp_server._memory_navigate("traverse", slug="a", depth=1, direction="out")
+    assert out == [{"type": "edge", "hemisphere": "knowledge", "from": "a",
+                    "to": "b", "rel": "links", "direction": "out", "hop": 1}]</p>
+
+<p>def test_memory_navigate_unknown_op_is_empty(monkeypatch):
+    from swarph_cli.commands import mcp_server
+    monkeypatch.setattr(mcp_server.brain_ask, "_resolve_endpoint", lambda: "http://x/mcp")
+    monkeypatch.setattr(mcp_server.brain_ask, "_resolve_token", lambda <em>a, </em>*k: "tok")
+    assert mcp_server._memory_navigate("bogus", slug="a") == []
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run tests to verify they fail</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_memory_command.py -k "memory_navigate_backlinks or memory_navigate_traverse or memory_navigate_unknown" -v</code>
+Expected: FAIL — <code>_memory_navigate</code> returns <code>[]</code> for <code>backlinks</code>/<code>traverse</code> (ops not handled yet) so the backlinks/traverse assertions fail.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p>In <code>src/swarph_cli/commands/mcp_server.py</code>, update <code>_memory_navigate</code> signature + body (~line 188):</p>
+
+<p><code></code>`python
+def _memory_navigate(op: str, slug: str | None = None, type: str | None = None,
+                     tag: str | None = None, limit: int = 20,
+                     depth: int = 1, direction: str = "out"):
+    """Deterministic OKF memory navigation — the knowledge-hemisphere twin of
+    swarph_codegraph_query. Ops: 'get', 'list', 'links', 'backlinks' (incoming),
+    'traverse' (multi-hop OKF edges via depth/direction). File-native graph.</p>
+
+<p>Fail-safe: any backend/parse error, or an unrecognised op, resolves to [] or
+    {} — never raises."""
+    try:
+        url = brain_ask._resolve_endpoint()
+        token = brain_ask._resolve_token(None, brain_ask._self_name())
+        if op == "get" and slug:
+            return memory.get_page(url, token, slug)
+        if op == "list":
+            return memory.list_pages(url, token, type, tag, limit)
+        if op == "links" and slug:
+            return memory.links(url, token, slug)
+        if op == "backlinks" and slug:
+            return memory.backlinks(url, token, slug)
+        if op == "traverse" and slug:
+            return [memory._as_okf_edge(f, t, d, h)
+                    for (f, t, h, d) in memory.traverse(url, token, slug, depth, direction)]
+        return []
+    except Exception:
+        return []
+<code></code>`</p>
+
+<p>Update the <code>@mcp.tool swarph_memory_navigate</code> wrapper (~line 269):</p>
+
+<p><code></code>`python
+    @mcp.tool()
+    def swarph_memory_navigate(op: str, slug: str = "", tag: str = "",
+                               type: str = "", limit: int = 20,
+                               depth: int = 1, direction: str = "out"):
+        """Deterministic OKF memory navigation over gbrain: op='get'|'list'|'links'|'backlinks'|'traverse'.
+        Exact canonical recall + file-native graph traversal (backlinks, multi-hop
+        --depth/--direction) — the knowledge-hemisphere counterpart to
+        swarph_codegraph_query. For fuzzy recall use semantic search instead."""
+        return _memory_navigate(op, slug=slug or None, type=type or None,
+                                tag=tag or None, limit=limit,
+                                depth=depth, direction=direction)
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run tests to verify they pass</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_memory_command.py -k "memory_navigate" -v</code>
+Expected: PASS.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add src/swarph_cli/commands/mcp_server.py tests/test_memory_command.py
+git commit -m "feat: swarph_memory_navigate MCP gains backlinks/traverse ops (#42)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-5-readme-version-bump-to-0-32-0">Task 5: README + version bump to 0.32.0</h3>
+
+<p>Document the new flags (with the honest O(N) scan note) and bump the version across all pinned locations.</p>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>README.md</code> (§memory / <code>swarph memory</code> section)</li>
+  <li>Modify: <code>pyproject.toml</code> (<code>version = "0.31.0"</code> → <code>"0.32.0"</code>)</li>
+  <li>Modify: <code>src/swarph_cli/__init__.py</code> (<code>__version__ = "0.31.0"</code> → <code>"0.32.0"</code>)</li>
+  <li>Modify: <code>tests/test_brain_ask_command.py</code> (rename <code>test_version_is_0_31_0</code> → <code>test_version_is_0_32_0</code>, assert <code>"0.32.0"</code>)</li>
+  <li>Modify: <code>tests/test_watchdog.py</code> (same rename/assert at line ~1044)</li>
+</ul></p>
+
+<p><strong>Interfaces:</strong> none (docs + metadata).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Update the version-pin tests (write the failing assertion first)</strong></li>
+</ul>
+
+<p>In <code>tests/test_brain_ask_command.py</code> (line ~18) and <code>tests/test_watchdog.py</code> (line ~1044), rename both functions and bump the asserted string:</p>
+
+<p><code></code>`python
+def test_version_is_0_32_0():
+    import swarph_cli
+    assert swarph_cli.__version__ == "0.32.0"
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run to verify they fail</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_brain_ask_command.py::test_version_is_0_32_0 tests/test_watchdog.py::test_version_is_0_32_0 -v</code>
+Expected: FAIL — <code>__version__</code> is still <code>"0.31.0"</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Bump the version</strong></li>
+</ul>
+
+<p>In <code>pyproject.toml</code>:</p>
+
+<p><code></code>`toml
+version = "0.32.0"
+<code></code>`</p>
+
+<p>In <code>src/swarph_cli/__init__.py</code>:</p>
+
+<p><code></code>`python
+__version__ = "0.32.0"
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run to verify they pass</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_brain_ask_command.py::test_version_is_0_32_0 tests/test_watchdog.py::test_version_is_0_32_0 -v</code>
+Expected: PASS.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Update the README</strong></li>
+</ul>
+
+<p>In <code>README.md</code>, find the <code>swarph memory</code> section (search <code>swarph memory links</code>). Update the <code>links</code> line and add the flags + note. Insert:</p>
+
+<p><code></code>`markdown
+<ul class="article-list">
+  <li><code>swarph memory links <slug></code> — links <strong>out of</strong> a page (forward <code>[[links]]</code>).</li>
+  <li><code>--backlinks</code> — links <strong>into</strong> the page (who links to it).</li>
+  <li><code>--depth N</code> — multi-hop traversal (1–10; default 1).</li>
+  <li><code>--direction out|in|both</code> — traversal direction (default <code>out</code>; <code>--backlinks</code> is sugar for <code>in</code>).</li>
+  <li><code>--json</code> — OKF edge records (<code>{type, hemisphere, from, to, rel, direction, hop}</code>).</li>
+</ul></p>
+
+<p>The graph is <strong>file-native</strong>: edges are read from page bodies via the shared
+  OKF link grammar, so it works against any brain regardless of whether its edge
+  index is populated. Note: <code>--backlinks</code> / <code>--direction in|both</code> scan the whole
+  corpus (one <code>get_page</code> per page) — O(N), fine for today's brain; a future
+  gbrain edge-index will provide an O(1) indexed fast-path.
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 6: Run the full suite</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest -q</code>
+Expected: PASS (all green; no regressions).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 7: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add README.md pyproject.toml src/swarph_cli/__init__.py tests/test_brain_ask_command.py tests/test_watchdog.py
+git commit -m "docs: swarph memory graph flags + bump to 0.32.0 (#42)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="definition-of-done">Definition of Done</h2>
+
+<ul class="article-list">
+  <li><code>venv/bin/python -m pytest -q</code> fully green.</li>
+  <li><code>swarph memory links <slug></code> default output byte-for-byte unchanged; <code>--backlinks</code>/<code>--depth</code>/<code>--direction</code>/<code>--json</code> behave per spec; <code>--backlinks --direction</code> → exit 2.</li>
+  <li><code>memory.parse_links is okf_links.parse_okf_links</code> (duplication retired).</li>
+  <li><code>swarph_memory_navigate</code> MCP tool exposes <code>backlinks</code>/<code>traverse</code>, fail-safe to <code>[]</code>.</li>
+  <li>Version is <code>0.32.0</code> in all four pinned locations.</li>
+  <li>Branch <code>feat/memory-graph-traversal</code> pushed; <strong>PR opened, left for review</strong> (new public surface — not auto-merged). PyPI publish deferred (commander-gated).</li>
+  <li>Edge-index backfill remains a <strong>separate</strong> card (untouched here).</li>
+</ul>
+<code></code>`
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#task-1-migrate-memory-link-parsing-to-the-shared-okf-links-parser">Task 1: Migrate memory link parsing to the shared okf_links parser</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-2-file-native-traversal-engine">Task 2: File-native traversal engine</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-3-swarph-memory-links-flags-okf-json">Task 3: `swarph memory links` flags + OKF `--json`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-4-extend-the-swarph-memory-navigate-mcp-tool">Task 4: Extend the `swarph_memory_navigate` MCP tool</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-5-readme-version-bump-to-0-32-0">Task 5: README + version bump to 0.32.0</a></li>
+<li><a href="#global-constraints">Global Constraints</a></li>
+<li><a href="#file-structure">File Structure</a></li>
+<li><a href="#definition-of-done">Definition of Done</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

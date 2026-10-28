@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nemotron Domain Test User Selection Summary | Technical Whitepaper</title>
+  <meta name="description" content="Nemotron Domain Test User Selection Summary — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/nemotron_domain_selection_summary.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Nemotron Domain Test User Selection Summary</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Nemotron Domain Test User Selection Summary</p>
+
+<p>This folder contains a proposed Nemotron-only persona pool for testing six application domains:</p>
+
+<ul class="article-list">
+  <li>Movie / film</li>
+  <li>Beauty</li>
+  <li>Game</li>
+  <li>Finance</li>
+  <li>Medical / healthcare</li>
+  <li>Ecommerce / retail</li>
+</ul>
+
+<p>Amazon review personas and Amazon-derived outputs are not used in this selection.</p>
+
+<h2 id="files">Files</h2>
+
+<ul class="article-list">
+  <li><code>nemotron_test_users_50_per_domain.md</code>: detailed 50-user list for each domain, with links to the full Nemotron persona YAML files.</li>
+  <li><code>nemotron_domain_selection_summary.md</code>: this short presentation summary.</li>
+  <li><code>nemotron_domain_diversity_visualization.md</code>: overall-diversity summary and 2D projection of the selected users.</li>
+  <li><code>nemotron_overall_diversity_projection.svg</code>: SVG plot used by the diversity visualization.</li>
+  <li><code>nemotron_within_domain_diversity_visualization.md</code>: within-domain diversity summary with one projection panel per application domain.</li>
+  <li><code>nemotron_within_domain_diversity_projection.svg</code>: SVG plot used by the within-domain diversity visualization.</li>
+  <li><code>nemotron_within_domain_cluster_visualization.md</code>: cluster-based within-domain visualization and cluster summaries.</li>
+  <li><code>nemotron_within_domain_cluster_projection.svg</code>: SVG plot showing clusters within each application domain.</li>
+  <li><code>nemotron_within_domain_cluster_projection_matplotlib.png</code>: Matplotlib-rendered within-domain cluster figure.</li>
+  <li><code>nemotron_within_domain_cluster_projection_matplotlib.pdf</code>: PDF export of the Matplotlib-rendered cluster figure.</li>
+  <li><code>nemotron_domain_user_characteristics.md</code>: qualitative summary of key user characteristics in each domain.</li>
+</ul>
+
+<h2 id="selection-goal">Selection Goal</h2>
+
+<p>The goal is to pick domain-relevant test users while preserving profile diversity inside each domain. Each domain has 50 selected users, so the full set contains 300 domain-persona assignments.</p>
+
+<h2 id="selection-method">Selection Method</h2>
+
+<p>Personas were selected from
+<code>persona/curation/existing_data/raw/nemotron_personas_usa/curated_personas/Nemotron_*.yaml</code>.</p>
+
+<p>The scoring pass looked for domain evidence across:</p>
+
+<ul class="article-list">
+  <li>occupation</li>
+  <li>professional profile</li>
+  <li>skills</li>
+  <li>hobbies</li>
+  <li>career goals</li>
+  <li>core persona text</li>
+  <li>related persona sections</li>
+</ul>
+
+<p>The final selection then applied diversity pressure so that the 50 users in each domain are not all the same type of profile. The diversity pass considered:</p>
+
+<ul class="article-list">
+  <li>occupation</li>
+  <li>role type, such as practitioner, creator, hobbyist, or learner</li>
+  <li>age band</li>
+  <li>gender</li>
+  <li>location</li>
+</ul>
+
+<h2 id="candidate-counts">Candidate Counts</h2>
+
+<p>| Domain | Scored candidates | Selected users |
+|---|---:|---:|
+| Movie / film | 12,263 | 50 |
+| Beauty | 8,532 | 50 |
+| Game | 14,304 | 50 |
+| Finance | 23,028 | 50 |
+| Medical / healthcare | 9,697 | 50 |
+| Ecommerce / retail | 16,774 | 50 |</p>
+
+<h2 id="how-to-use">How To Use</h2>
+
+<p>Use the detailed markdown file as the review surface. Each selected user row includes:</p>
+
+<ul class="article-list">
+  <li>the linked Nemotron persona file</li>
+  <li>a compact profile summary</li>
+  <li>the rationale for selecting that user for the domain</li>
+  <li>the diversity role represented by that user</li>
+</ul>
+
+<p>The linked YAML file is the source of truth for the full persona.</p>
+
+<p>Use the diversity visualization file as a quick QA view for whether each domain's selected users cover different overall persona profiles in text-feature space.</p>
+
+<p>Use the within-domain diversity visualization to inspect whether the 50 selected users inside each application domain cover multiple overall profile regions.</p>
+
+<p>Use the cluster visualization to inspect the main persona groups inside each domain and the representative users for each group.</p>
+
+<p>Use the Matplotlib cluster figure for paper or slide drafts, and use the domain characteristics summary to describe the main types of users represented in each application domain.</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#files">Files</a></li>
+<li><a href="#selection-goal">Selection Goal</a></li>
+<li><a href="#selection-method">Selection Method</a></li>
+<li><a href="#candidate-counts">Candidate Counts</a></li>
+<li><a href="#how-to-use">How To Use</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

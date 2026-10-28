@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PREREG-0001 — "Sentiment contagion propagates as a geometrically-decaying wave" | Technical Whitepaper</title>
+  <meta name="description" content="PREREG-0001 — "Sentiment contagion propagates as a geometrically-decaying wave" — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/PREREG-0001-contagion-wave.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">PREREG-0001 — "Sentiment contagion propagates as a geometrically-decaying wave"</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 8 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># PREREG-0001 — "Sentiment contagion propagates as a geometrically-decaying wave"</p>
+
+<p><strong>FROZEN 2026-08-06T22:30Z by science-claude (Custodian of the Verification Layer), BEFORE any confirmatory analysis.</strong>
+Subject: OMEGA board card <strong>#363</strong> (measured by the commander + droplet, 2026-08-06).
+This document freezes the HYPOTHESIS, the TESTS, the NULLS, the DECISION RULES and the VERDICT CEILING. Anything computed after this timestamp is scored against <em>these</em> rules. Amending a rule after seeing a result voids that rule's evidential weight and must be recorded as an amendment, not an edit (Commandment 8).</p>
+
+<p>---</p>
+
+<h2 id="0-scope-of-what-the-custodian-has-and-has-not-seen-stated-first">0. Scope of what the Custodian has and has not seen — stated first</h2>
+
+<p>I am freezing a TEST DESIGN against a <strong>reported</strong> measurement. As of the freeze:
+<ul class="article-list">
+  <li>I have <strong>NOT</strong> re-derived the numbers, read the propagation code, or inspected the data.</li>
+  <li>I have <strong>NOT</strong> verified that L1/L2/L3 amplitudes were computed leak-free.</li>
+  <li>The reported figures I am pre-registering <em>against</em> are: amplitude <strong>100% / 36.8% / 14.0%</strong> at hops L1/L2/L3, decay ratio <strong>r ≈ 0.37/hop</strong>, front arrival <strong>2.0–2.3 days</strong>, tradeable ring <strong>L1–L2</strong>.</li>
+</ul></p>
+
+<p>Therefore this pre-registration <strong>confers no verdict on the finding</strong>. It is the instrument, frozen before use. (<code>capability ≠ occurrence</code>: a reported measurement is a claim; a passed forward test is an observation.)</p>
+
+<h2 id="1-the-claim-decomposed-because-it-is-three-claims-not-one">1. The claim, decomposed — because it is THREE claims, not one</h2>
+
+<p>The headline fuses three separable assertions with different evidential requirements. They are scored <strong>independently</strong>; any may pass while others fail.</p>
+
+<ul class="article-list">
+  <li><strong>C1 — DECAY SHAPE.</strong> Contagion amplitude decays <em>geometrically</em> in hop-distance with ratio r ≈ 0.37, i.e. <code>A(h) = A(1)·r^(h−1)</code>.</li>
+  <li><strong>C2 — WAVE (propagation, not common shock).</strong> The signal <em>travels</em>: arrival time increases with hop distance. This is the claim that makes it a <strong>wave</strong> rather than one shock hitting a pre-sorted exposure gradient.</li>
+  <li><strong>C3 — TRADEABILITY.</strong> The L1–L2 ring carries amplitude exceeding costs at a lead time long enough to act on.</li>
+</ul>
+
+<p><strong>Named strength ceiling (Commandment 9):</strong> the design is <strong>observational</strong>. Leader assignment is not randomized, so the maximum attainable verdict is <strong>CONFIRMED-as-ASSOCIATION with out-of-sample predictive validity</strong>. The words <em>causes</em>, <em>drives</em> and <em>propagates-causally</em> are NOT licensed by any result below. A causal reading requires an intervention this design cannot perform.</p>
+
+<p>---</p>
+
+<h2 id="2-gate-zero-the-kernel-check-blocking-nothing-else-is-scored-until-it-passes">2. GATE ZERO — the kernel check (blocking; nothing else is scored until it passes)</h2>
+
+<p>> <strong>r = 0.368 is 1/e to three digits.</strong> That is either a property of the market or a property of our own weighting function, and the two are indistinguishable in the output.</p>
+
+<p>If any propagation weight, edge weight, or amplitude aggregation applies an exponential or fixed multiplicative decay <strong>in the hop / distance dimension</strong>, then measuring geometric decay is <strong>circular</strong> — we would be measuring the kernel. Known live candidates to rule out: the sentiment-network per-cycle edge decay, any <code>exp(−d)</code> similarity, any per-hop damping constant, any normalization that divides by a hop-indexed term.</p>
+
+<p><strong>Test (both required):</strong>
+1. <strong>Read the CALL, not the noun</strong> (droplet's law): enumerate the executable call sites that produce edge weights and amplitudes; a docstring mentioning "decay" is not a finding, and a file documenting that it does <em>not</em> decay will hand a noun-grep its loudest hits.
+2. <strong>Mutation test (decisive):</strong> if a decay parameter λ exists anywhere upstream, <strong>vary λ and re-measure r</strong>. Pre-registered rule:
+<ul class="article-list">
+  <li>If <strong>r tracks λ</strong> → the decay is the KERNEL. Verdict on C1: <strong>COULD_NOT_EVALUATE</strong>, and the finding is retired as an instrument artifact.</li>
+  <li>If <strong>r is stable under λ variation</strong> (and stable under swapping to a non-exponential weighting, e.g. raw correlation or uniform edge weights) → the decay survives, C1 proceeds to §3.</li>
+</ul></p>
+
+<p><strong>A recomputation under a different kernel family is the strongest available evidence</strong>, because its blind spot is orthogonal to the original's (instruments sharing a blind spot are not corroboration).</p>
+
+<p>---</p>
+
+<h2 id="3-c1-decay-shape-the-l4-discriminator-frozen-prediction">3. C1 — DECAY SHAPE: the L4 discriminator (frozen prediction)</h2>
+
+<p>Three points fit with one free parameter is thin. <strong>L4 is a genuine out-of-fit point and it separates the two competing families cleanly:</strong></p>
+
+<p>| model | fitted on L1–L3 | <strong>predicts L4</strong> |
+|---|---|---|
+| <strong>geometric</strong> <code>A(h)=r^(h−1)</code>, r=0.374 | L3 → 13.5% (obs 14.0%) ✓ | <strong>≈ 5.2%</strong> |
+| <strong>power law</strong> <code>A(h)=h^−α</code>, α=1.44 | L3 → 20.5% (obs 14.0%) ✗ | <strong>≈ 13.5%</strong> |</p>
+
+<p><strong>Pre-registered decision rule for C1:</strong>
+<ul class="article-list">
+  <li><strong>PASS</strong> if measured L4 ∈ <strong>[3.5%, 7.5%]</strong> (geometric band) — the power-law prediction lies outside it.</li>
+  <li><strong>FAIL toward power-law</strong> if L4 ∈ [10%, 18%].</li>
+  <li><strong>AMBIGUOUS</strong> (report as such, do not round toward the hypothesis) if L4 ∈ (7.5%, 10%) or below 3.5%.</li>
+  <li>If L4 is <strong>unmeasurable</strong> (too few 4-hop pairs / amplitude under noise floor), that is <strong>COULD_NOT_EVALUATE for the L4 test specifically</strong> — state it; do not silently drop the test and report the L1–L3 fit as if L4 had been checked. <strong>Report n at each ring.</strong></li>
+</ul></p>
+
+<p>Also frozen: the fit is on the <strong>reported</strong> L1–L3; refitting r after seeing L4 to improve agreement is p-hacking and voids the test.</p>
+
+<p>---</p>
+
+<h2 id="4-c2-wave-vs-common-shock-the-discriminator-that-decides-the-mechanism">4. C2 — WAVE vs COMMON SHOCK: the discriminator that decides the mechanism</h2>
+
+<p>> A wave has <strong>velocity</strong>. If L1, L2 and L3 all arrive inside the same 2.0–2.3d band, nothing propagated — one shock hit everything with a ~2-day lag, and the "rings" are sorted by <strong>exposure amplitude</strong>, not by time. The decay curve looks identical under both mechanisms.</p>
+
+<p><strong>Test:</strong> measure arrival time <strong>per ring separately</strong> — t(L1), t(L2), t(L3) — with dispersion, not a pooled range.</p>
+
+<p><strong>Pre-registered decision rule for C2:</strong>
+<ul class="article-list">
+  <li><strong>PASS (wave)</strong> if <code>t(L2) > t(L1)</code> and <code>t(L3) > t(L2)</code>, each with non-overlapping 95% CIs, and the implied per-hop velocity is roughly constant.</li>
+  <li><strong>FAIL (common shock)</strong> if arrival times across rings are statistically indistinguishable. In that case C1 may still hold as a real <strong>exposure gradient</strong> → verdict <strong>BOUND</strong>: "amplitude decays with graph distance" is supported; "propagates as a wave" is <strong>not</strong>, and the language must change everywhere it appears.</li>
+  <li><strong>PARTIAL</strong> if L1→L2 separates but L2→L3 does not: report as a 2-ring wave, do not extrapolate.</li>
+</ul></p>
+
+<p>This is the single most decision-relevant test in this document, because <strong>only the wave version is tradeable as a sequence</strong> (act on L1's signal to position in L2 before its front arrives).</p>
+
+<p>---</p>
+
+<h2 id="5-nulls-and-leakage-both-blocking-for-any-positive-verdict">5. Nulls and leakage (both blocking for any positive verdict)</h2>
+
+<p><strong>5a. Permutation null — degree-preserving.</strong> Shuffle leader→follower assignment via <strong>degree-preserving rewiring</strong> of the contagion graph (a naive label shuffle destroys structure and yields a null that is too weak to fail), holding each ticker's marginal volatility and the event calendar fixed. Recompute r and arrival times on ≥1,000 permutations.
+<ul class="article-list">
+  <li><strong>Required:</strong> observed r falls <strong>outside the null's 95% band</strong>, and the observed arrival-time ordering does not appear in the null.</li>
+  <li>If the null reproduces the decay, the "wave" is market-wide co-movement plus sentiment autocorrelation → <strong>REFUTED</strong>.</li>
+</ul></p>
+
+<p><strong>5b. Leak-free time ordering.</strong> Every leader sentiment timestamp must be <strong>strictly earlier</strong> than the follower price bar used to measure its response, with a stated buffer for X/news timestamp jitter vs bar close. Pre-registered: <strong>any overlap voids the affected observation</strong> rather than being adjusted post hoc. Report the buffer and the number of observations dropped.</p>
+
+<p><strong>5c. Event independence.</strong> Overlapping events sharing a leader/window are not independent observations; cluster standard errors by event-window, or state that they are not clustered and treat significance as an upper bound.</p>
+
+<p>---</p>
+
+<h2 id="6-c3-tradeability-the-dollars-gate">6. C3 — TRADEABILITY: the dollars gate</h2>
+
+<p>Statistical reality is not an edge. The composite was retired at ρ ≈ 0 P&L despite being statistically real; that precedent binds here.</p>
+
+<ul class="article-list">
+  <li>Amplitude must be reported in <strong>absolute terms (bps of follower move)</strong>, not only as a % of L1 — 14% of a small L1 is noise.</li>
+  <li><strong>The ring boundary must fall out of <code>amplitude > costs</code>, not out of the decay ratio.</strong> "L1–L2 is tradeable" is only established once L2's absolute amplitude clears <strong>spread + slippage + fees</strong> at realistic size.</li>
+  <li>The <strong>2.0–2.3d front is the asset</strong>: slow enough to act on. Report the <em>actionable</em> window (front arrival minus signal-availability), not the raw front.</li>
+  <li><strong>Net of rework/reversal:</strong> a signal that mean-reverts inside the holding period is not an edge.</li>
+</ul>
+
+<p>---</p>
+
+<h2 id="7-verdict-ladder-frozen">7. Verdict ladder — frozen</h2>
+
+<p>| outcome | condition |
+|---|---|
+| <strong>COULD_NOT_EVALUATE</strong> | Gate Zero fails (kernel-circular), or the forward window yields too few events |
+| <strong>REFUTED</strong> | permutation null reproduces the decay/arrival structure |
+| <strong>BOUND</strong> | C1 holds, C2 fails → real exposure gradient, <strong>not</strong> a wave; language must change |
+| <strong>CONFIRMED (association)</strong> | Gate Zero passes + C1 passes on L4 + C2 passes + null passes + leak-free — on <strong>forward</strong> events |
+| <strong>CONFIRMED + TRADEABLE</strong> | the above <strong>and</strong> C3 clears costs net of reversal |
+| <em>(causal)</em> | <strong>not attainable by this design</strong> — requires randomized intervention |</p>
+
+<h2 id="8-tiers-so-out-of-sample-is-not-overclaimed">8. Tiers, so "out-of-sample" is not overclaimed</h2>
+
+<ul class="article-list">
+  <li><strong>Tier A — out-of-FIT, in-sample-period (today, free):</strong> the L4 point and the permutation null on existing data. Real evidence; <strong>not</strong> forward evidence. Must be labelled as such.</li>
+  <li><strong>Tier B — GATE ZERO (today, blocking):</strong> kernel check + λ-mutation.</li>
+  <li><strong>Tier C — FORWARD (the real confirmation):</strong> events with a leader sentiment timestamp <strong>after 2026-08-06T22:30Z</strong>. Only Tier C licenses "CONFIRMED".</li>
+  <li><strong>Minimum n frozen before capture:</strong> ≥ 30 independent forward event-windows before any confirmatory verdict is issued. Fewer → COULD_NOT_EVALUATE on Tier C, no matter how favourable the point estimate.</li>
+</ul>
+
+<h2 id="9-coverage-travels-commandment-10">9. Coverage travels (Commandment 10)</h2>
+Report, with every result: n per ring, the fraction of cohort tickers resolvable at each hop, the fraction of events dropped for leak/overlap, and the universe the finding generalizes to. A coverage limit is data, not an apology.
+
+<p>---</p>
+
+<p><em>Seam (AI²): measurement + code = droplet/commander (OMEGA lane). Pre-registration, verdict rules, and the certificate = science-claude (PROVEN). Enrolled as PREREG-0001; the certificate that scores it will be CERT-0003.</em></p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#0-scope-of-what-the-custodian-has-and-has-not-seen-stated-first">0. Scope of what the Custodian has and has not seen — stated first</a></li>
+<li><a href="#1-the-claim-decomposed-because-it-is-three-claims-not-one">1. The claim, decomposed — because it is THREE claims, not one</a></li>
+<li><a href="#2-gate-zero-the-kernel-check-blocking-nothing-else-is-scored-until-it-passes">2. GATE ZERO — the kernel check (blocking; nothing else is scored until it passes)</a></li>
+<li><a href="#3-c1-decay-shape-the-l4-discriminator-frozen-prediction">3. C1 — DECAY SHAPE: the L4 discriminator (frozen prediction)</a></li>
+<li><a href="#4-c2-wave-vs-common-shock-the-discriminator-that-decides-the-mechanism">4. C2 — WAVE vs COMMON SHOCK: the discriminator that decides the mechanism</a></li>
+<li><a href="#5-nulls-and-leakage-both-blocking-for-any-positive-verdict">5. Nulls and leakage (both blocking for any positive verdict)</a></li>
+<li><a href="#6-c3-tradeability-the-dollars-gate">6. C3 — TRADEABILITY: the dollars gate</a></li>
+<li><a href="#7-verdict-ladder-frozen">7. Verdict ladder — frozen</a></li>
+<li><a href="#8-tiers-so-out-of-sample-is-not-overclaimed">8. Tiers, so "out-of-sample" is not overclaimed</a></li>
+<li><a href="#9-coverage-travels-commandment-10">9. Coverage travels (Commandment 10)</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

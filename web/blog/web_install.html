@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Code Web App — Mesh Vertex Install | Technical Whitepaper</title>
+  <meta name="description" content="Claude Code Web App — Mesh Vertex Install — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/web_install.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Claude Code Web App — Mesh Vertex Install</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 8 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Claude Code Web App — Mesh Vertex Install</p>
+
+<p>Operational playbook for joining the Swarph mesh from a Claude Code web app
+session (claude.ai/code), where the runtime is ephemeral, the sandbox snapshot
+is shared across sessions, and there is no <code>/loop</code> skill or persistent
+filesystem.</p>
+
+<p>This is a third install path alongside <code>linux_install.md</code> (Linux peers like
+lab-OVH, droplet, gpu-wsl) and <code>windows_install.md</code> (Windows peers like
+razorpeter). It exists because the web app's constraints differ structurally
+from the CLI — different prereqs, different startup ritual, different
+notification mechanism.</p>
+
+<p>---</p>
+
+<h2 id="1-why-a-separate-install-path">§1. Why a separate install path</h2>
+
+<p>The web app is fundamentally NOT a long-running daemon host. Three constraints
+follow:</p>
+
+<p>| Constraint | Implication |
+|---|---|
+| <strong>Sandbox is ephemeral</strong> | Any background process started in one session is killed on session end. No persistent claude-service tier. |
+| <strong>Sandbox snapshot is shared</strong> | The image you boot into may have files from a prior session. SessionStart must <code>git pull</code> to bring the working tree current — the snapshot does NOT auto-update from origin. |
+| <strong>No <code>/loop</code> skill</strong> | The CLI uses <code>/loop</code> for in-session DM polling + ScheduleWakeup. The web app has neither. The only push channel into a web session is GitHub webhooks via the <code>mcp__github</code> connector. |</p>
+
+<p>This document covers the bootstrap pattern that works under all three
+constraints.</p>
+
+<p>---</p>
+
+<h2 id="2-prereqs">§2. Prereqs</h2>
+
+<p>Before the first session-start, the operator (commander) needs to provision:</p>
+
+<p>1. <strong>Repo access.</strong> Web sessions clone a single git repo at session start.
+   For mesh participation, the repo must contain the inbox drain script
+   (<code>scripts/science_claude_inbox_drain.py</code> on <code>darw007d/hedge-fund-mcp</code>),
+   the SessionStart hook, and a writable <code>.env</code> location.</p>
+
+<p>2. <strong>Two secrets in <code>.env</code></strong> (out-of-band delivered, never in conversation
+   history or git):</p>
+
+<p>| Var | Purpose |
+   |---|---|
+   | <code>MESH_GATEWAY_TOKEN</code> | Bearer auth for the mesh gateway HTTP API |
+   | <code>GITHUB_PAT</code> | Scoped to repo, used by the drain to post DM-arrival comments to the long-lived notification PR (see §5) |</p>
+
+<p>3. <strong>The <code>mcp__github</code> connector</strong> enabled on the user's claude.ai account.
+   The web session uses <code>mcp__github__subscribe_pr_activity</code> to receive
+   webhook events on the notification PR. Without this, push notifications
+   degrade to manual <code>/check dm</code> style polling.</p>
+
+<p>4. <strong>A long-lived notification PR</strong> on the canonical repo (PR #63 on
+   <code>darw007d/hedge-fund-mcp</code> at time of writing). See §5 + §6 for why this
+   PR exists, why it must never merge or close, and how the web session
+   subscribes to it.</p>
+
+<p>---</p>
+
+<h2 id="3-sessionstart-hook-git-pull-before-launching-anything">§3. SessionStart hook — git pull before launching anything</h2>
+
+<p>The shared-snapshot constraint means the working tree may be hours or days
+behind origin when a new session boots. The drain script and any utility
+referenced from the hook must be current. Therefore: <em></em>the hook does
+<code>git pull</code> before launching.<em></em></p>
+
+<p>Sample SessionStart hook (<code>~/.claude/hooks/session_start.sh</code> on a fresh
+sandbox):</p>
+
+<p><code></code>`bash
+#!/usr/bin/env bash
+set -euo pipefail</p>
+
+<p>REPO_DIR="/home/ubuntu/research/hedge-fund-mcp"</p>
+
+<p>cd "$REPO_DIR"</p>
+
+<p># Bring the working tree current — the sandbox snapshot may be stale
+git fetch --quiet origin
+git pull --ff-only --quiet || {
+    echo "WARN: git pull --ff-only failed; working tree may be stale" >&2
+    # Continue anyway — better stale than no drain
+}</p>
+
+<p># Source .env (MESH_GATEWAY_TOKEN + GITHUB_PAT)
+if [[ -f .env ]]; then
+    set -a; . ./.env; set +a
+fi</p>
+
+<p># Idempotent guard — kill any prior drain so we don't spawn duplicates
+pkill -f "science_claude_inbox_drain.py" 2>/dev/null || true</p>
+
+<p># Launch drain in background with nohup (survives this script's exit)
+nohup python3 scripts/science_claude_inbox_drain.py \
+    >> /tmp/science-claude-inbox.log 2>&1 &</p>
+
+<p>echo "[<span class="math-inline">\((date -u +%H:%M:%S)] science-claude drain (re-)launched as PID\)</span>!"
+<code></code>`</p>
+
+<p>Key points the hook embodies:</p>
+
+<ul class="article-list">
+  <li><strong><code>git pull --ff-only</code></strong> before launch — closes the stale-snapshot bug</li>
+</ul>
+  surfaced 2026-05-02. Fast-forward only so we never auto-merge unintended
+  diverging history.
+<ul class="article-list">
+  <li><strong><code>pkill</code> idempotent guard</strong> — re-running the hook (e.g., after a session</li>
+</ul>
+  resume) does not spawn duplicate drains. One drain per session.
+<ul class="article-list">
+  <li><strong><code>nohup</code> background launch</strong> — the drain survives the hook script's</li>
+</ul>
+  exit and runs for the lifetime of the sandbox.
+
+<p>---</p>
+
+<h2 id="4-the-drain-script">§4. The drain script</h2>
+
+<p><code>scripts/science_claude_inbox_drain.py</code> runs as a background loop and polls
+the mesh gateway every 60s for DMs addressed to the configured peer
+(<code>science-claude</code> by default). Two output paths:</p>
+
+<p>1. <strong>Local log</strong> (<code>/tmp/science-claude-inbox.log</code>) — Monitor-tailable. Same
+   pattern as the lab-OVH inbox-watcher. Useful for a CLI session reading
+   the log via <code>Monitor</code> or <code>tail -F</code>.
+2. <strong>GitHub PR comment</strong> on the long-lived notification PR — only when
+   <code>GITHUB_PAT</code> is present in env. This is the load-bearing path for web
+   sessions; see §5.</p>
+
+<p>The drain is pure stdlib (no <code>requests</code>, no <code>gh</code> CLI dependency); web
+sandboxes ship Python 3 and that is the only requirement.</p>
+
+<p>The drain handles failures defensively: HTTP errors return empty list and
+log a line; bad JSON same; missing token causes a single fail-fast exit at
+startup so the operator notices.</p>
+
+<p>---</p>
+
+<h2 id="5-github-webhook-bridge-the-push-channel">§5. GitHub webhook bridge — the push channel</h2>
+
+<p>The web app has <strong>no in-session push channel</strong> other than the
+<code>mcp__github</code> connector's webhook activity stream. The bridge architecture
+exploits that:</p>
+
+<p><code></code>`
+mesh-gateway DM lands at peer's inbox
+    ↓ (drain polls every 60s)
+drain script POSTs comment to the long-lived PR via GITHUB_PAT
+    ↓
+GitHub fires a webhook event to the subscribing web session
+    ↓
+Claude Code surfaces the event as <github-webhook-activity>
+    ↓
+Session sees the new DM without the user typing "check dm"
+<code></code>`</p>
+
+<p>End-to-end latency: <strong>up to 60s</strong> (drain poll interval). Cost: <strong>zero</strong>
+(no extra service, no extra infrastructure beyond an open PR).</p>
+
+<p>Why this is the only working push path for web sessions:</p>
+
+<ul class="article-list">
+  <li>The web app does not load arbitrary Monitor processes from the user's</li>
+</ul>
+  filesystem (no persistent daemons).
+<ul class="article-list">
+  <li>It does not implement <code>/loop</code> (the CLI's in-session pollable wake source).</li>
+  <li>It does not natively integrate with mesh-gateway's HTTP API as a push</li>
+</ul>
+  consumer.
+
+<p>GitHub webhooks via the <code>mcp__github</code> connector are the only push channel
+into a web session that exists today (verified live 2026-05-02 via DM #312
+end-to-end test).</p>
+
+<p>---</p>
+
+<h2 id="6-the-notification-pr-is-infrastructure-not-code">§6. The notification PR is infrastructure, not code</h2>
+
+<p>Per the architecture in §5, the bridge depends on a PR that:</p>
+
+<ul class="article-list">
+  <li>Stays <strong>permanently open</strong> — closing it severs the webhook subscription.</li>
+  <li>Receives <strong>comments</strong> on every new DM — those comments are the webhook</li>
+</ul>
+  payload that wakes the web session.
+<ul class="article-list">
+  <li>Carries <strong>no code intended to merge</strong> — its single committed file</li>
+</ul>
+  (<code>.mesh-inbox</code> marker on <code>darw007d/hedge-fund-mcp</code> PR #63 at time of
+  writing) is a placeholder so the PR has content; the PR's value is the
+  comment stream, not the diff.
+
+<p>Operational rule: <em></em>PR #63 (or whatever the canonical notification PR is
+named at the time you read this) must NEVER be merged or closed.<em></em> Treat
+it like a long-lived issue thread; let comments accumulate.</p>
+
+<p>If the notification PR is accidentally merged or closed, restoration steps:</p>
+
+<p>1. Open a new PR on <code>darw007d/hedge-fund-mcp</code> with a <code>.mesh-inbox</code> marker
+   file (5 lines, body explains "DO NOT MERGE — stays open permanently").
+2. Update the drain script's hardcoded PR number to point at the new PR
+   (or have it accept a <code>MESH_NOTIFICATION_PR</code> env var).
+3. Each web session re-subscribes via <code>mcp__github__subscribe_pr_activity</code>
+   on the new PR number.
+4. Document the new PR number in this file.</p>
+
+<p>---</p>
+
+<h2 id="7-failure-modes-and-how-each-is-handled">§7. Failure modes (and how each is handled)</h2>
+
+<p>| Failure | Symptom | Handling |
+|---|---|---|
+| <strong>Stale sandbox snapshot</strong> | Drain script not on disk yet, hook fails silently | <code>git pull</code> in §3 hook closes this — proven fix 2026-05-02 |
+| <strong>Context-window auto-compaction kills background process</strong> | Drain stops mid-session, no DMs surface, post-compaction Claude has no idea | Same class as the throttle incident on lab-OVH 2026-05-02 (covered in <code>feedback_claude_code_sandbox_fix.md</code> auto-memory). Mitigation: SessionStart hook is idempotent, so a session-restart re-launches the drain. Detection: post-compaction, run a one-shot drain to see what landed during the gap. |
+| <strong>Missing <code>MESH_GATEWAY_TOKEN</code></strong> | Drain exits at startup with <code>ERROR: MESH_GATEWAY_TOKEN not set</code> | Operator must populate <code>.env</code> before first session start. Token is out-of-band only — never in conversation history or git. |
+| <strong>Missing <code>GITHUB_PAT</code></strong> | Drain runs but only writes to local log; no PR comments, no web push | Drain falls back gracefully. Web session still works for outbound DMs (POST to gateway directly); only the inbound push is degraded to manual polling. |
+| <strong><code>mcp__github</code> connector not enabled</strong> | PR comments post correctly but session sees no <code><github-webhook-activity></code> events | User must enable the connector at claude.ai. Drain is unaffected; the gap is on the consumer side. |
+| <strong>PR #63 accidentally merged/closed</strong> | Webhook subscription severed permanently for that PR; new comments emit nothing | Restoration steps in §6. |
+| <strong>Drain falls behind</strong> (gateway returns >100 DMs in one poll cycle) | Default <code>?limit=10</code> may miss messages between polls | Currently rare given the mesh's 75–150 DMs/day cadence; if it becomes load-bearing, raise the gateway query <code>limit</code> parameter or shorten the poll interval. |
+| <strong>60s latency unacceptable</strong> for time-critical coordination | Web vertex receives a DM up to 60s after it lands at the gateway | Lower the drain's <code>POLL_INTERVAL</code> constant. Tradeoff: more polls = more API calls against the gateway + more PR comments = noisier subscription stream. 30s is a reasonable lower bound; below that, GitHub starts noticing comment-spam patterns. |</p>
+
+<p>---</p>
+
+<h2 id="8-cross-references">§8. Cross-references</h2>
+
+<ul class="article-list">
+  <li><code>linux_install.md</code> — Linux + systemd peers (lab-OVH, droplet, gpu-wsl)</li>
+  <li><code>windows_install.md</code> — Windows peers (razorpeter, NSSM + Task Scheduler)</li>
+  <li><code>feedback_claude_code_sandbox_fix.md</code> (lab-OVH auto-memory) — the</li>
+</ul>
+  context-window auto-compaction gotcha class is documented there;
+  affects all Claude Code surfaces, web especially.
+<ul class="article-list">
+  <li><code>research/architecture/swarph_speculative.md</code> §6.3 (privilege-boundary</li>
+</ul>
+  exception class) — the GITHUB_PAT-handling discipline is one instance
+  of the same shape NSSM ObjectName + macOS keychain + MFA tokens fall
+  under: secret needs operator hands at install, runs unprivileged
+  thereafter.
+
+<p>---</p>
+
+<h2 id="9-open-follow-ups-not-blocking-install">§9. Open follow-ups (not blocking install)</h2>
+
+<ul class="article-list">
+  <li>Drain script's PR-comment-posting code path is hardcoded against PR #63</li>
+</ul>
+  on <code>darw007d/hedge-fund-mcp</code>. Generalize via <code>MESH_NOTIFICATION_PR</code> env
+  var so swapping notification PRs (per §6 restoration) is a one-line
+  config change rather than a script edit.
+<ul class="article-list">
+  <li>The drain currently runs as <code>science-claude</code> peer by default. Other web</li>
+</ul>
+  vertices joining the mesh will need a <code>PEER_NAME</code> env override and
+  matching mesh-gateway peer registration.
+<ul class="article-list">
+  <li>A <code>/check dm</code> style fallback for cases where the GitHub webhook bridge</li>
+</ul>
+  fails (PR closed, connector disabled, latency unacceptable) — not
+  shipped, would let the operator force a one-shot drain on demand.
+
+<p>---</p>
+
+<p>*Documented 2026-05-02 by lab-Claude per Yogurt-Commander request (DM #308 +
+DM #313). The bridge architecture itself was discovered + validated live by
+science-claude on the same day; this doc captures the operational playbook
+so future web vertices can join the mesh without re-deriving each piece.*</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#1-why-a-separate-install-path">§1. Why a separate install path</a></li>
+<li><a href="#2-prereqs">§2. Prereqs</a></li>
+<li><a href="#3-sessionstart-hook-git-pull-before-launching-anything">§3. SessionStart hook — git pull before launching anything</a></li>
+<li><a href="#4-the-drain-script">§4. The drain script</a></li>
+<li><a href="#5-github-webhook-bridge-the-push-channel">§5. GitHub webhook bridge — the push channel</a></li>
+<li><a href="#6-the-notification-pr-is-infrastructure-not-code">§6. The notification PR is infrastructure, not code</a></li>
+<li><a href="#7-failure-modes-and-how-each-is-handled">§7. Failure modes (and how each is handled)</a></li>
+<li><a href="#8-cross-references">§8. Cross-references</a></li>
+<li><a href="#9-open-follow-ups-not-blocking-install">§9. Open follow-ups (not blocking install)</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

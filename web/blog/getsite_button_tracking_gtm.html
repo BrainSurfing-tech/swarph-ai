@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GetSite per-button tracking via GTM + GA4 | Technical Whitepaper</title>
+  <meta name="description" content="GetSite per-button tracking via GTM + GA4 — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/getsite_button_tracking_gtm.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">GetSite per-button tracking via GTM + GA4</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 5 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># GetSite per-button tracking via GTM + GA4</p>
+
+<p><strong>Backlog reference:</strong> #10 "GetSite widge tagging — Currently multiple buttons on GetSite pop-ups are not trackable individually, need to find out a way to track"</p>
+
+<p><strong>Owner:</strong> Darshan (GTM-side) + whoever edits the GetSite widget HTML</p>
+
+<p><strong>Status:</strong> Spec — no API needed (the API path is dormant because Lyreco doesn't have GetSiteControl API access). This is the <strong>path that doesn't need any vendor cooperation</strong>.</p>
+
+<p>---</p>
+
+<h2 id="the-shape-of-the-fix">The shape of the fix</h2>
+
+<p>GetSite renders a popup as plain HTML inside the page. Each button is a clickable element. We attach a <code>data-*</code> attribute to each button identifying what it is, and a small JavaScript handler that pushes a structured event onto the GTM <code>dataLayer</code>. GTM then has a Custom Event trigger that catches those pushes and forwards them to GA4 as a custom event. The event lands in our <code>ga4_action_events</code> table the same way every other tracked action does.</p>
+
+<p><code></code>`
+   GetSite widget HTML        →   dataLayer.push   →   GTM Custom Event   →   GA4 event
+   (data-attrs on buttons)        (in browser)          trigger                (→ ga4_action_events)
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="step-1-getsite-widget-html-the-snippet">Step 1 — GetSite widget HTML (the snippet)</h2>
+
+<p>Inside each GetSite widget's HTML editor, tag every button with <code>data-gsc-button-id</code> + <code>data-gsc-button-label</code>, and add one global <code><script></code> block at the bottom that wires the click handler. <strong>Once per widget</strong>, not per button.</p>
+
+<p><code></code>`html
+<!-- Example buttons. data-gsc-button-id is the unique tracking key -->
+<button data-gsc-button-id="cta_primary"   data-gsc-button-label="Try free for 30 days">
+  Try free for 30 days
+</button>
+<button data-gsc-button-id="cta_secondary" data-gsc-button-label="No thanks">
+  No thanks
+</button>
+<a href="/contact" data-gsc-button-id="contact_link" data-gsc-button-label="Talk to us">
+  Talk to us
+</a></p>
+
+<p><!-- One handler — wires every button with data-gsc-button-id on this widget -->
+<script>
+  (function () {
+    window.dataLayer = window.dataLayer || [];
+    var widgetId = "WIDGET_NAME_HERE";  // ← replace per widget, e.g. "homepage_smb_signup"
+    document.querySelectorAll("[data-gsc-button-id]").forEach(function (el) {
+      el.addEventListener("click", function (e) {
+        window.dataLayer.push({
+          event: "getsite_button_click",
+          widget_id: widgetId,
+          button_id: el.getAttribute("data-gsc-button-id"),
+          button_label: el.getAttribute("data-gsc-button-label") || el.textContent.trim().slice(0, 60),
+          page_path: window.location.pathname,
+        });
+      });
+    });
+  })();
+</script>
+<code></code>`</p>
+
+<p><strong>Convention for <code>data-gsc-button-id</code>:</strong> lowercase, underscores, stable across widget edits. Examples: <code>cta_primary</code>, <code>dismiss</code>, <code>learn_more</code>, <code>submit_form</code>, <code>option_a</code>, <code>option_b</code>. Keep them ≤ 32 chars. Don't change them once data starts flowing or you'll fragment the analytics.</p>
+
+<p>---</p>
+
+<h2 id="step-2-gtm-trigger-tag-darshan-in-the-lyreco-gtm-container">Step 2 — GTM trigger + tag (Darshan in the Lyreco GTM container)</h2>
+
+<h3 id="custom-event-trigger">Custom Event trigger</h3>
+
+<p>| Field | Value |
+|---|---|
+| Trigger type | <strong>Custom Event</strong> |
+| Event name | <code>getsite_button_click</code> |
+| This trigger fires on | All Custom Events |</p>
+
+<h3 id="data-layer-variables-one-per-field-we-want-in-ga4">Data Layer Variables (one per field we want in GA4)</h3>
+
+<p>| Variable name (GTM) | Data Layer Variable Name |
+|---|---|
+| <code>DLV - widget_id</code> | <code>widget_id</code> |
+| <code>DLV - button_id</code> | <code>button_id</code> |
+| <code>DLV - button_label</code> | <code>button_label</code> |
+| <code>DLV - page_path</code> | <code>page_path</code> |</p>
+
+<h3 id="ga4-event-tag">GA4 Event Tag</h3>
+
+<p>| Field | Value |
+|---|---|
+| Tag type | <strong>Google Analytics: GA4 Event</strong> |
+| Configuration tag | (existing Lyreco GA4 config tag) |
+| Event Name | <code>getsite_button_click</code> |
+| Event Parameters | <code>widget_id</code> → <code>{{DLV - widget_id}}</code> <br> <code>button_id</code> → <code>{{DLV - button_id}}</code> <br> <code>button_label</code> → <code>{{DLV - button_label}}</code> <br> <code>page_path</code> → <code>{{DLV - page_path}}</code> |
+| Trigger | the Custom Event trigger above |</p>
+
+<p>---</p>
+
+<h2 id="step-3-register-custom-dimensions-in-ga4-one-time">Step 3 — Register custom dimensions in GA4 (one-time)</h2>
+
+<p>In GA4 → Admin → Custom Definitions → Custom Dimensions, create:</p>
+
+<p>| Dimension name | Scope | Event parameter | Description |
+|---|---|---|---|
+| <code>widget_id</code> | Event | <code>widget_id</code> | GetSite widget where the click happened |
+| <code>button_id</code> | Event | <code>button_id</code> | Specific button tracked |
+| <code>button_label</code> | Event | <code>button_label</code> | Human-readable label at click time |</p>
+
+<p>After ~24h GA4 starts surfacing these in Explore reports.</p>
+
+<p>---</p>
+
+<h2 id="step-4-how-it-lands-in-our-database">Step 4 — How it lands in our database</h2>
+
+<p>The event flows through our existing GA4 → Oracle → TimescaleDB pipeline (<code>workers/oracle_ga4_action_pull.py</code>). The <code>getsite_button_click</code> event will land in <code>ga4_action_events</code> with the event-parameter JSON columns containing <code>widget_id</code>, <code>button_id</code>, <code>button_label</code>. To query per-button click counts:</p>
+
+<p><code></code>`sql
+SELECT
+  event_params->>'widget_id'   AS widget,
+  event_params->>'button_id'   AS button,
+  event_params->>'button_label' AS label,
+  source_country,
+  COUNT(*) AS clicks,
+  COUNT(DISTINCT user_pseudo_id) AS distinct_visitors
+FROM ga4_action_events
+WHERE event_name = 'getsite_button_click'
+  AND event_date >= CURRENT_DATE - INTERVAL '30 days'
+GROUP BY 1, 2, 3, 4
+ORDER BY clicks DESC;
+<code></code>`</p>
+
+<p>(Adjust <code>event_params</code> column name to the actual JSONB-or-flattened column shape in our table — check the schema before shipping the dashboard query.)</p>
+
+<p>---</p>
+
+<h2 id="implementation-order">Implementation order</h2>
+
+<p>1. <strong>Darshan</strong> sets up the GTM trigger + tag + data layer variables (Step 2) and the GA4 custom dimensions (Step 3). Publishes a draft container to GTM Preview mode.
+2. <strong>Widget HTML edits go through Lyreco's batch-deployment flow</strong> — the snippet from Step 1 cannot be pasted directly into the GetSite admin in this org (per Pierre, deploys are batch-file driven). Provide the snippet as a deployable artifact for whichever build/deploy chain manages the widget assets.
+3. Pilot ONE widget end-to-end first: confirm the <code>getsite_button_click</code> event fires in GTM Preview before scaling out.
+4. After 24h verify the event shows up in GA4 → Reports → Engagement → Events. Custom dimensions populate.
+5. After 48h verify the event shows up in our <code>ga4_action_events</code> table (it'll arrive via the existing <code>workers/oracle_ga4_action_pull.py</code> pipeline — no new worker needed, no scheduling change).
+6. Roll out the snippet to every other GetSite widget. Use a consistent naming convention so cross-widget comparisons work.</p>
+
+<p>---</p>
+
+<h2 id="why-this-beats-the-api-path">Why this beats the API path</h2>
+
+<p>| Aspect | GTM/dataLayer (this) | GetSite API |
+|---|---|---|
+| Vendor dep | None | Needs API tier + key + docs |
+| Setup | GTM config + widget HTML edits | Same widget edits + API client + sync worker + schema |
+| Data freshness | Same as GA4 (~hourly via our Oracle pipeline) | Whenever the sync worker runs |
+| Lives where | <code>ga4_action_events</code> (existing infra) | New <code>getsite_events</code> table (new infra) |
+| Joins with GA4 sessions | Native (same user_pseudo_id) | Needs visitor_id bridge |
+| Cost to maintain | One snippet per widget, GTM config | Worker + watermark + endpoint changes when GetSite updates API |</p>
+
+<p><strong>This is also forward-compatible</strong>: if Lyreco later gets GetSite API access, the API integration becomes additive (engagement aggregates from GetSite-side) — it doesn't replace this granular per-button tracking. The two layers coexist cleanly.</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#custom-event-trigger">Custom Event trigger</a></li>
+<li style="margin-left: 0.8rem;"><a href="#data-layer-variables-one-per-field-we-want-in-ga4">Data Layer Variables (one per field we want in GA4)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#ga4-event-tag">GA4 Event Tag</a></li>
+<li><a href="#the-shape-of-the-fix">The shape of the fix</a></li>
+<li><a href="#step-1-getsite-widget-html-the-snippet">Step 1 — GetSite widget HTML (the snippet)</a></li>
+<li><a href="#step-2-gtm-trigger-tag-darshan-in-the-lyreco-gtm-container">Step 2 — GTM trigger + tag (Darshan in the Lyreco GTM container)</a></li>
+<li><a href="#step-3-register-custom-dimensions-in-ga4-one-time">Step 3 — Register custom dimensions in GA4 (one-time)</a></li>
+<li><a href="#step-4-how-it-lands-in-our-database">Step 4 — How it lands in our database</a></li>
+<li><a href="#implementation-order">Implementation order</a></li>
+<li><a href="#why-this-beats-the-api-path">Why this beats the API path</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

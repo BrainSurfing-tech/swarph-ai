@@ -1,0 +1,1081 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Produits complémentaires v2 (ancrage taxonomie famille) — Implementation Plan | Technical Whitepaper</title>
+  <meta name="description" content="Produits complémentaires v2 (ancrage taxonomie famille) — Implementation Plan — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-06-08-product-complements-v2.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Produits complémentaires v2 (ancrage taxonomie famille) — Implementation Plan</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 24 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Produits complémentaires v2 (ancrage taxonomie famille) — Implementation Plan</p>
+
+<p>> <strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+
+<p><strong>Goal:</strong> Refondre la brique « Compléments IA » rejetée en v1. On <strong>n'infère plus</strong> la catégorie d'un produit depuis son titre SAP abrégé : on la <strong>lit</strong> dans <code>ecom_products</code> (postgres :5433). L'IA raisonne sur la <strong>famille réelle</strong> (206 familles, taxonomie warehouse) et propose, pour chaque ancre, des <strong>familles complémentaires</strong> classées <strong>A</strong> (consommable/nécessaire) ou <strong>B</strong> (complément d'usage), puis on déplie en SKU concrets actifs triés par ventes. Livrable : XLSX 4 onglets (README · A · B · Mix) au format large du fichier baseline, validé sur les <strong>20 premières ancres</strong> (CAFETERIA : cafés + biscuits).</p>
+
+<p><strong>Architecture:</strong> Une couche pure et testable (<code>core/complement_families.py</code>) fait tout le calcul non-IA : échantillonnage de profil famille, tri/filtre des SKU candidats, classement A/B des arêtes, expansion famille→SKU avec <code>display_sequence</code>, assemblage du format large. La couche IA isolée et injectable (<code>core/ai_typing.py</code>, déjà existante) est étendue de deux fonctions — <code>profile_family</code> (libellé + résumé d'une famille) et <code>propose_family_complements</code> (graphe famille→familles A/B) — sur le pattern <code>llm_call</code> injectable déjà en place (<code>get_llm_backend</code>, cache, modèle Sonnet/Haiku). Un script d'orchestration (<code>scripts/refresh_product_complements_v2.py</code>) câble le tout : lecture des 20 ancres → enrichissement postgres → profils familles (IA, caché) → graphe A/B (IA) → ventes (timescale) → 3 vues → XLSX + JSON.</p>
+
+<p><strong>Tech Stack:</strong> Python 3.12 (<code>venv\Scripts\python.exe</code>, c'est celui qui a <code>psycopg2</code>/<code>openpyxl</code> ; <code>.venv</code> est en 3.14 sans psycopg2), pytest, backend LLM via <code>core.ai_typing.get_llm_backend</code> (CLI <code>claude -p</code> abonnement par défaut, SDK seulement si <code>--allow-api-billing</code>), openpyxl, psycopg2 (via <code>database.crm_db</code> / <code>database.timeseries_db</code>).</p>
+
+<p><strong>Référence spec :</strong> <code>docs/superpowers/specs/2026-06-08-product-complements-v2-design.md</code></p>
+
+<p>---</p>
+
+<h2 id="faits-warehouse-v-rifi-s-introspection-2026-06-08-ne-pas-re-deviner">Faits warehouse vérifiés (introspection 2026-06-08, ne pas re-deviner)</h2>
+
+<ul class="article-list">
+  <li><strong><code>ecom_products</code> (postgres :5433)</strong> possède bien toutes les colonnes de la spec :</li>
+</ul>
+  `product_reference, source_country, product_description, product_group_description,
+  section_code, family_code, category_code, subcategory_code, product_type_code,
+  supplier_product_reference, lyreco_brand, manufacturer, brand, status_code,
+  not_salable_flag, not_visible_flag, web_title, web_description,
+  key_selling_point1/2/3, key_words`.
+<ul class="article-list">
+  <li><strong><code>section_taxonomy</code></strong> fournit <code>world</code> + <code>label_fr/label_en</code> par <code>section_code</code> (pas de libellé de famille → à dériver par IA).</li>
+  <li><strong>Famille = <code>family_code</code> seul, globalement unique</strong> (FR : 206 familles, et <code>count(distinct (section_code,family_code)) = 206</code> aussi). 21 sections, 840 (sec,fam,cat).</li>
+  <li><strong><code>status_code</code> est numérique</strong> (<code>98</code> ≈ 282k actifs, <code>' '</code> 160k, <code>94</code>/<code>99</code>/<code>95</code> mineurs) — <strong>PAS</strong> le vocabulaire <code>Continued/New/Delisted</code> (celui-ci n'existe que dans le fichier baseline). Le filtre « actif » fiable sur <code>ecom_products</code> est donc <strong><code>not_salable_flag IS NOT TRUE AND not_visible_flag IS NOT TRUE</code></strong> (444 404 produits FR passent ; 4 320 sont not_salable et/ou not_visible). On dérive un libellé d'affichage simple (<code>Active</code>/<code>Inactive</code>) — on ne fabrique pas de faux <code>Continued</code>.</li>
+  <li><strong>20 premières ancres du fichier</strong> <code>imports/lucas/20260608_094900_Produits_comple_mentaires_20260526_1.xlsx</code> : <strong>100 % jointes</strong> à <code>ecom_products</code>, réparties sur 2 familles — <code>001002</code> (cafés, 8..20) et <code>001001</code> (biscuits/snacks, 1..8), <strong>world <code>CAFETERIA</code></strong>.</li>
+  <li><strong>World <code>CAFETERIA</code> = 7 familles</strong> seulement (<code>001001</code> snacks, <code>001002</code> cafés/boissons chaudes/capsules, <code>001003</code> boissons froides/jus/eau, <code>001004</code> électro hygiène, <code>001005</code> gobelets/serviettes/service, <code>001006</code> bacs de recyclage, <code>001000</code> item spécial à ignorer). ⇒ univers candidat même-world petit et pertinent (gobelets <code>001005</code> = complément A/B évident du café).</li>
+  <li><strong>Ventes</strong> : <code>ecom_order_lines</code> est sur <strong>timescale :5434</strong> (URI <code>TIMESCALE_URI</code>, défaut <code>postgresql://leadcontagion:lc_ts_2026@localhost:5434/lc_timeseries</code>), clé <code>product_reference</code>, <code>quantity</code>/<code>sales_amount</code>, <code>order_date</code>, FR du 2025-04-30 au 2026-06-04 (16,5 M lignes). <strong>Cross-DB interdit</strong> : tirer les ventes sur timescale, enrichir sur postgres, joindre en Python.</li>
+  <li><strong><code>product_complements</code> (postgres :5433)</strong> = baseline en lecture seule (10 665 paires · 5 458 ancres), colonnes <code>anchor_reference, complement_reference, complement_status, display_sequence, ...</code>. Ne pas la modifier.</li>
+</ul>
+
+<p>---</p>
+
+<h2 id="file-structure">File Structure</h2>
+
+<p>| Fichier | Responsabilité |
+|---|---|
+| <code>core/complement_families.py</code> (créer) | Fonctions pures : <code>rank_family_skus</code>, <code>build_family_profile_sample</code>, <code>order_complement_families</code>, <code>assemble_anchor_blocks</code>, <code>build_wide_rows</code>. Aucun I/O réseau/DB. |
+| <code>core/ai_typing.py</code> (modifier) | +<code>profile_family</code>, +<code>propose_family_complements</code> (réutilisent <code>_norm_type</code>, <code>_parse_json_obj</code>, <code>_parse_json_obj_list</code>, <code>get_llm_backend</code>). |
+| <code>scripts/refresh_product_complements_v2.py</code> (créer) | Orchestration offline : 20 ancres → enrichissement postgres → profils familles (IA, caché) → graphe A/B (IA) → ventes timescale → 3 vues → XLSX (README+A+B+Mix+Baseline) + JSON. CLI <code>--n-anchors 20 --model sonnet --llm-backend cli|api --max-complements 20</code>. |
+| <code>tests/test_complement_families.py</code> (créer) | TDD des 5 fonctions pures (valeurs exactes). |
+| <code>tests/test_ai_typing.py</code> (modifier) | +2 tests des nouvelles fonctions IA, <code>llm_call</code> stubbé (zéro réseau). |</p>
+
+<p><strong>Conventions verrouillées (utilisées par toutes les tasks) :</strong>
+<ul class="article-list">
+  <li>Une <strong>famille</strong> = son <code>family_code</code> (chaîne, ex. <code>"001002"</code>). C'est l'identifiant.</li>
+  <li>Une <strong>arête famille</strong> (classée par l'IA) = dict <code>{"comp_family": str, "klass": "A"|"B", "relation": str, "force": float, "justification": str}</code>. <code>force</code> ∈ [0,1].</li>
+  <li>Un <strong>SKU candidat</strong> = dict <code>{"reference": str(18 digits), "description": str, "sales": int|float, "not_salable": bool, "not_visible": bool, "status_code": str}</code>.</li>
+  <li>Un <strong>bloc complément</strong> (sortie) = dict <code>{"reference", "description", "status", "display_sequence", "klass", "comp_family"}</code>.</li>
+  <li><code>family_skus: dict[str, list[dict]]</code> = <code>{family_code: [SKU candidat déjà trié]}</code>.</li>
+  <li>Le <strong>format large</strong> = <code>[anchor_ref, anchor_desc] + 20 blocs de 4 [code complément, description, statut, display_sequence]</code> (cellules vides si < 20).</li>
+</ul></p>
+
+<p>---</p>
+
+<h2 id="task-1-rank-family-skus-sku-actifs-d-une-famille-tri-s-par-ventes">Task 1: <code>rank_family_skus</code> — SKU actifs d'une famille triés par ventes</h2>
+
+<p><strong>Files:</strong> Create <code>core/complement_families.py</code> · Test <code>tests/test_complement_families.py</code></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_complement_families.py
+from core.complement_families import rank_family_skus</p>
+
+<p>def _sku(ref, sales, salable=False, visible=False, status="98", desc=None):
+    # salable/visible here mean the <em>flag</em> values (not_salable / not_visible)
+    return {"reference": ref, "description": desc or f"P{ref}", "sales": sales,
+            "not_salable": salable, "not_visible": visible, "status_code": status}</p>
+
+<p>def test_rank_family_skus_active_only_and_sales_order():
+    cands = [
+        _sku("a", 100),
+        _sku("b", 250),
+        _sku("c", 999, salable=True),    # not_salable -> dropped
+        _sku("d", 999, visible=True),    # not_visible -> dropped
+        _sku("e", 10),
+    ]
+    out = rank_family_skus(cands, top_n=2)
+    assert [s["reference"] for s in out] == ["b", "a"]   # active, top-2 by sales
+    # status label derived, sales preserved
+    assert out[0]["status"] == "Active"
+    # ties broken by reference asc for determinism
+    tied = rank_family_skus([_sku("z", 5), _sku("a", 5), _sku("m", 5)], top_n=3)
+    assert [s["reference"] for s in tied] == ["a", "m", "z"]
+    # active_only=False keeps inactive but still ranks by sales
+    keep = rank_family_skus(cands, top_n=5, active_only=False)
+    assert [s["reference"] for s in keep] == ["c", "d", "b", "a", "e"]
+    assert keep[0]["status"] == "Inactive"
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong> — <code>venv\Scripts\python.exe -m pytest tests/test_complement_families.py::test_rank_family_skus_active_only_and_sales_order -v</code> → FAIL (<code>ImportError</code>).</li>
+</ul>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# core/complement_families.py
+"""Produits complémentaires v2 — fonctions pures (ancrage taxonomie famille).</p>
+
+<p>Aucun I/O réseau ni DB. Méthode :
+docs/superpowers/specs/2026-06-08-product-complements-v2-design.md
+"""
+from __future__ import annotations</p>
+
+<p>def _is_active(sku: dict) -> bool:
+    """Actif = ni not_salable ni not_visible (les codes status_code numériques
+    ne portent pas le vocabulaire Continued/New/Delisted — cf. plan §Faits)."""
+    return not sku.get("not_salable") and not sku.get("not_visible")</p>
+
+<p>def rank_family_skus(candidates, top_n: int, active_only: bool = True) -> list:
+    """SKU d'une famille triés par ventes décroissantes, <code>top_n</code> retenus.</p>
+
+<p><code>active_only</code> filtre sur not_salable/not_visible. Tri stable : ventes desc
+    puis <code>reference</code> asc (déterministe). Ajoute un libellé <code>status</code>
+    Active/Inactive lisible pour l'affichage."""
+    pool = [s for s in candidates if (not active_only or _is_active(s))]
+    pool.sort(key=lambda s: (-(s.get("sales") or 0), s["reference"]))
+    out = []
+    for s in pool[:top_n]:
+        out.append({<em></em>s, "status": "Active" if _is_active(s) else "Inactive"})
+    return out
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test</strong> → PASS.</li>
+  <li>[ ] <strong>Step 5: Commit</strong> — <code>git add core/complement_families.py tests/test_complement_families.py && git commit -m "feat(complements-v2): rank_family_skus (active filter + sales order)"</code></li>
+</ul>
+
+<p>---</p>
+
+<h2 id="task-2-build-family-profile-sample-chantillon-d-terministe-pour-profilage-ia">Task 2: <code>build_family_profile_sample</code> — échantillon déterministe pour profilage IA</h2>
+
+<p><strong>Files:</strong> Modify <code>core/complement_families.py</code> · Test <code>tests/test_complement_families.py</code></p>
+
+<p>Le profil famille (Phase 2 spec) a besoin d'un échantillon de ~12 produits texte. Fonction pure et <strong>déterministe</strong> (tri par <code>reference</code>) pour que le cache IA soit stable.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_complement_families.py  (append)
+from core.complement_families import build_family_profile_sample</p>
+
+<p>def test_build_family_profile_sample_deterministic_and_capped():
+    prods = [
+        {"reference": "002", "web_title": "Café moulu Miko",
+         "product_description": "PAQ 250G CAFE"},
+        {"reference": "001", "web_title": "Café grains Lavazza",
+         "product_description": "1KG GRAINS"},
+        {"reference": "003", "web_title": "", "product_description": "CAPS TASSIMO"},
+    ]
+    out = build_family_profile_sample(prods, sample_size=2)
+    # sorted by reference asc, capped at sample_size, web_title preferred over desc
+    assert out == ["Café grains Lavazza — 1KG GRAINS",
+                   "Café moulu Miko — PAQ 250G CAFE"]
+    # falls back to product_description when web_title is empty
+    out3 = build_family_profile_sample(prods, sample_size=3)
+    assert out3[2] == "CAPS TASSIMO"
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test</strong> → FAIL (<code>ImportError</code>).</li>
+</ul>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# core/complement_families.py  (append)
+def build_family_profile_sample(products, sample_size: int = 12) -> list:
+    """Échantillon texte déterministe d'une famille pour le profilage IA.</p>
+
+<p>Trie par <code>reference</code> asc, prend <code>sample_size</code> produits, formate
+    'web_title — product_description' (web_title prioritaire ; si vide, on ne
+    garde que la description). Pur, sans I/O."""
+    ordered = sorted(products, key=lambda p: p.get("reference", ""))
+    lines = []
+    for p in ordered[:sample_size]:
+        title = (p.get("web_title") or "").strip()
+        desc = (p.get("product_description") or "").strip()
+        if title and desc:
+            lines.append(f"{title} — {desc}")
+        else:
+            lines.append(title or desc)
+    return lines
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test</strong> → PASS.</li>
+  <li>[ ] <strong>Step 5: Commit</strong> — <code>git commit -am "feat(complements-v2): build_family_profile_sample (deterministic, capped)"</code></li>
+</ul>
+
+<p>---</p>
+
+<h2 id="task-3-order-complement-families-filtre-ordre-a-avant-b-des-ar-tes">Task 3: <code>order_complement_families</code> — filtre + ordre A-avant-B des arêtes</h2>
+
+<p><strong>Files:</strong> Modify <code>core/complement_families.py</code> · Test <code>tests/test_complement_families.py</code></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_complement_families.py  (append)
+from core.complement_families import order_complement_families</p>
+
+<p>def _edge(fam, klass, force):
+    return {"comp_family": fam, "klass": klass, "force": force,
+            "relation": "x", "justification": "j"}</p>
+
+<p>def test_order_complement_families_klass_then_force():
+    edges = [_edge("001005", "A", 0.6), _edge("001001", "B", 0.7),
+             _edge("001003", "A", 0.9)]
+    # default: A block first (force desc), then B block (force desc)
+    allo = order_complement_families(edges)
+    assert [e["comp_family"] for e in allo] == ["001003", "001005", "001001"]
+    # klass filter
+    assert [e["comp_family"] for e in order_complement_families(edges, klass="A")] \
+        == ["001003", "001005"]
+    assert [e["comp_family"] for e in order_complement_families(edges, klass="B")] \
+        == ["001001"]
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test</strong> → FAIL.</li>
+</ul>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# core/complement_families.py  (append)
+_KLASS_RANK = {"A": 0, "B": 1}</p>
+
+<p>def order_complement_families(edges, klass: str | None = None) -> list:
+    """Ordonne les arêtes famille d'une ancre : A avant B, puis <code>force</code> desc.</p>
+
+<p><code>klass</code> (si fourni) restreint à 'A' ou 'B'. Pur."""
+    sel = [e for e in edges if klass is None or e.get("klass") == klass]
+    sel.sort(key=lambda e: (_KLASS_RANK.get(e.get("klass"), 9),
+                            -(e.get("force") or 0.0)))
+    return sel
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test</strong> → PASS.</li>
+  <li>[ ] <strong>Step 5: Commit</strong> — <code>git commit -am "feat(complements-v2): order_complement_families (A-before-B, force desc)"</code></li>
+</ul>
+
+<p>---</p>
+
+<h2 id="task-4-assemble-anchor-blocks-expansion-famille-sku-display-sequence-cap-20">Task 4: <code>assemble_anchor_blocks</code> — expansion famille→SKU + display_sequence (cap 20)</h2>
+
+<p><strong>Files:</strong> Modify <code>core/complement_families.py</code> · Test <code>tests/test_complement_families.py</code></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_complement_families.py  (append)
+from core.complement_families import assemble_anchor_blocks</p>
+
+<p>def test_assemble_anchor_blocks_sequence_dedup_cap():
+    ordered = [
+        {"comp_family": "001005", "klass": "A", "force": 0.9},
+        {"comp_family": "001003", "klass": "B", "force": 0.7},
+    ]
+    family_skus = {
+        "001005": [{"reference": "g1", "description": "Gobelet", "status": "Active"},
+                   {"reference": "g2", "description": "Serviette", "status": "Active"}],
+        "001003": [{"reference": "g1", "description": "Gobelet", "status": "Active"},
+                   {"reference": "j1", "description": "Jus", "status": "Active"}],
+    }
+    blocks = assemble_anchor_blocks(ordered, family_skus, max_total=20)
+    # walk families in order, assign 1.. ; g1 dedup across families
+    assert [(b["reference"], b["display_sequence"], b["klass"]) for b in blocks] == [
+        ("g1", 1, "A"), ("g2", 2, "A"), ("j1", 3, "B")]
+    assert blocks[0]["comp_family"] == "001005"
+    # cap respected
+    capped = assemble_anchor_blocks(ordered, family_skus, max_total=2)
+    assert len(capped) == 2 and [b["reference"] for b in capped] == ["g1", "g2"]
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test</strong> → FAIL.</li>
+</ul>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# core/complement_families.py  (append)
+def assemble_anchor_blocks(ordered_families, family_skus: dict,
+                           max_total: int = 20) -> list:
+    """Déplie les familles ordonnées d'une ancre en blocs SKU concrets.</p>
+
+<p>Parcourt <code>ordered_families</code> (sortie de order_complement_families), tire les
+    SKU déjà classés de <code>family_skus[comp_family]</code>, déduplique les <code>reference</code>
+    déjà retenues, attribue <code>display_sequence</code> 1.., plafonne à <code>max_total</code>. Pur."""
+    blocks = []
+    seen = set()
+    for edge in ordered_families:
+        fam = edge["comp_family"]
+        for sku in family_skus.get(fam, []):
+            ref = sku["reference"]
+            if ref in seen:
+                continue
+            seen.add(ref)
+            blocks.append({
+                "reference": ref,
+                "description": sku.get("description") or "",
+                "status": sku.get("status") or "",
+                "display_sequence": len(blocks) + 1,
+                "klass": edge.get("klass"),
+                "comp_family": fam,
+            })
+            if len(blocks) >= max_total:
+                return blocks
+    return blocks
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test</strong> → PASS.</li>
+  <li>[ ] <strong>Step 5: Commit</strong> — <code>git commit -am "feat(complements-v2): assemble_anchor_blocks (family->SKU, seq, dedup, cap)"</code></li>
+</ul>
+
+<p>---</p>
+
+<h2 id="task-5-build-wide-rows-matrice-format-large-shape-du-fichier-baseline">Task 5: <code>build_wide_rows</code> — matrice format large (= shape du fichier baseline)</h2>
+
+<p><strong>Files:</strong> Modify <code>core/complement_families.py</code> · Test <code>tests/test_complement_families.py</code></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_complement_families.py  (append)
+from core.complement_families import build_wide_rows, WIDE_HEADER</p>
+
+<p>def test_build_wide_rows_layout():
+    anchors = [{"reference": "0000000000000471006", "description": "Biscuits"}]
+    blocks_by_anchor = {"0000000000000471006": [
+        {"reference": "c1", "description": "Café", "status": "Active",
+         "display_sequence": 1},
+    ]}
+    rows = build_wide_rows(anchors, blocks_by_anchor, n_blocks=2)
+    # col0 anchor ref, col1 anchor desc, then 2 blocks of 4 cells (2nd empty)
+    assert rows[0] == ["0000000000000471006", "Biscuits",
+                       "c1", "Café", "Active", 1,
+                       "", "", "", ""]
+    # header matches: 2 fixed cols + n_blocks*4
+    hdr = WIDE_HEADER(2)
+    assert hdr[:2] == ["Anchor SAP", "Anchor Description"]
+    assert hdr[2:6] == ["Consumable Web 1", "Local SAP Description 1",
+                        "Local Status Current Year 1", "Display Sequence 1"]
+    assert len(hdr) == 2 + 2 * 4
+    # anchor with no complements -> just the 2 fixed cells + empty blocks
+    empty = build_wide_rows([{"reference": "x", "description": "d"}], {}, n_blocks=1)
+    assert empty[0] == ["x", "d", "", "", "", ""]
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test</strong> → FAIL.</li>
+</ul>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# core/complement_families.py  (append)
+def WIDE_HEADER(n_blocks: int) -> list:
+    """En-tête du format large : 2 colonnes ancre + n_blocks×4."""
+    head = ["Anchor SAP", "Anchor Description"]
+    for i in range(1, n_blocks + 1):
+        head += [f"Consumable Web {i}", f"Local SAP Description {i}",
+                 f"Local Status Current Year {i}", f"Display Sequence {i}"]
+    return head</p>
+
+<p>def build_wide_rows(anchors, blocks_by_anchor: dict, n_blocks: int = 20) -> list:
+    """Matrice format large : 1 ligne / ancre, jusqu'à <code>n_blocks</code> blocs de 4
+    [code complément, description, statut, display_sequence], cellules vides
+    au-delà des compléments disponibles. Pur."""
+    rows = []
+    for a in anchors:
+        ref = a["reference"]
+        row = [ref, a.get("description") or ""]
+        blocks = blocks_by_anchor.get(ref, [])[:n_blocks]
+        for b in blocks:
+            row += [b["reference"], b.get("description") or "",
+                    b.get("status") or "", b.get("display_sequence")]
+        # pad to n_blocks*4
+        row += [""] <em> ((n_blocks - len(blocks)) </em> 4)
+        rows.append(row)
+    return rows
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run full pure suite</strong> — <code>venv\Scripts\python.exe -m pytest tests/test_complement_families.py -v</code> → PASS (5 tests).</li>
+  <li>[ ] <strong>Step 5: Commit</strong> — <code>git commit -am "feat(complements-v2): build_wide_rows + WIDE_HEADER (baseline layout)"</code></li>
+</ul>
+
+<p>---</p>
+
+<h2 id="task-6-ai-typing-profile-family-libell-r-sum-d-une-famille-ia-stubb">Task 6: <code>ai_typing.profile_family</code> — libellé + résumé d'une famille (IA, stubbé)</h2>
+
+<p><strong>Files:</strong> Modify <code>core/ai_typing.py</code> · Test <code>tests/test_ai_typing.py</code></p>
+
+<p>Réutilise <code>llm_call</code> injectable + <code>_parse_json_obj</code>. En test on injecte un faux ; en prod l'orchestrateur passe <code>get_llm_backend(...)</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_ai_typing.py  (append)
+import json
+from core.ai_typing import profile_family</p>
+
+<p>def test_profile_family_parses_label_and_summary():
+    captured = {}</p>
+
+<p>def fake_llm(prompt: str) -> str:
+        captured["prompt"] = prompt
+        return json.dumps({"label": "  Cafés  ",
+                           "summary": "Cafés moulus et en grains pour la pause."})</p>
+
+<p>out = profile_family("001002",
+                         ["Café grains Lavazza — 1KG", "Café moulu Miko — 250G"],
+                         llm_call=fake_llm)
+    assert out == {"family_code": "001002", "label": "Cafés",
+                   "summary": "Cafés moulus et en grains pour la pause."}
+    # sample lines were passed into the prompt
+    assert "Lavazza" in captured["prompt"]
+    # malformed JSON -> graceful empty-ish profile (never raises)
+    bad = profile_family("009", ["x"], llm_call=lambda p: "not json")
+    assert bad["family_code"] == "009" and bad["label"] == ""
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test</strong> → FAIL (<code>ImportError</code>).</li>
+</ul>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# core/ai_typing.py  (append)
+FAMILY_PROFILE_PROMPT = """Tu décris une FAMILLE de produits B2B (catalogue \
+Lyreco) à partir d'un échantillon de produits réels. Donne un libellé court et \
+une phrase de contenu — base-toi UNIQUEMENT sur l'échantillon, n'invente rien.</p>
+
+<p>Échantillon de la famille :
+{sample}</p>
+
+<p>Réponds UNIQUEMENT par un objet JSON \
+{{"label": "<2-4 mots>", "summary": "<une phrase: ce que contient la famille>"}}, \
+sans texte autour."""</p>
+
+<p>def profile_family(family_code: str, sample_lines, llm_call) -> dict:
+    """Profil IA d'une famille : {family_code, label, summary}.</p>
+
+<p><code>sample_lines</code> = sortie de complement_families.build_family_profile_sample.
+    Tolérant : une réponse inexploitable renvoie label/summary vides plutôt que
+    de lever (l'orchestrateur garde la famille avec un profil pauvre)."""
+    prompt = FAMILY_PROFILE_PROMPT.format(
+        sample="\n".join(f"- {l}" for l in sample_lines))
+    try:
+        parsed = _parse_json_obj(llm_call(prompt))
+    except Exception:
+        parsed = {}
+    return {
+        "family_code": family_code,
+        "label": (parsed.get("label") or "").strip(),
+        "summary": (parsed.get("summary") or "").strip(),
+    }
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test</strong> → PASS.</li>
+  <li>[ ] <strong>Step 5: Commit</strong> — <code>git add core/ai_typing.py tests/test_ai_typing.py && git commit -m "feat(complements-v2): ai_typing.profile_family (label+summary)"</code></li>
+</ul>
+
+<p>---</p>
+
+<h2 id="task-7-ai-typing-propose-family-complements-graphe-famille-familles-a-b-ia-stubb">Task 7: <code>ai_typing.propose_family_complements</code> — graphe famille→familles A/B (IA, stubbé)</h2>
+
+<p><strong>Files:</strong> Modify <code>core/ai_typing.py</code> · Test <code>tests/test_ai_typing.py</code></p>
+
+<p>Pour une <strong>famille ancre</strong> (profil) + une liste de <strong>familles candidates</strong> (profils), l'IA renvoie les familles complémentaires classées <strong>A</strong>/<strong>B</strong> avec <code>force</code>+<code>justification</code>, choisies UNIQUEMENT dans les candidates. On filtre tout <code>comp_family</code> hors-liste et l'auto-référence.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_ai_typing.py  (append)
+import json
+from core.ai_typing import propose_family_complements</p>
+
+<p>def test_propose_family_complements_filters_and_normalises():
+    anchor = {"family_code": "001002", "label": "Cafés", "summary": "Cafés."}
+    candidates = [
+        {"family_code": "001005", "label": "Gobelets", "summary": "Gobelets, serviettes."},
+        {"family_code": "001001", "label": "Biscuits", "summary": "Biscuits."},
+    ]</p>
+
+<p>def fake_llm(prompt: str) -> str:
+        return json.dumps([
+            {"comp_family": "001005", "klass": "a", "relation": "accessoire-de",
+             "force": 0.9, "justification": "le café se sert dans des gobelets"},
+            {"comp_family": "001001", "klass": "B", "relation": "complément-usage",
+             "force": 0.6, "justification": "biscuits avec le café"},
+            {"comp_family": "001002", "klass": "A", "force": 1.0,
+             "justification": "auto-référence -> ignorée"},
+            {"comp_family": "999999", "klass": "A", "force": 1.0,
+             "justification": "hors candidats -> ignorée"},
+        ])</p>
+
+<p>edges = propose_family_complements(anchor, candidates, llm_call=fake_llm)
+    by_fam = {e["comp_family"]: e for e in edges}
+    assert set(by_fam) == {"001005", "001001"}        # self + unknown dropped
+    assert by_fam["001005"]["klass"] == "A"           # upper-cased
+    assert by_fam["001005"]["force"] == 0.9
+    assert by_fam["001001"]["klass"] == "B"
+    # bad klass defaults to "B" (conservative: not a hard A claim)
+    bad = propose_family_complements(
+        anchor, candidates,
+        llm_call=lambda p: json.dumps([{"comp_family": "001005", "klass": "Z",
+                                        "force": 0.5}]))
+    assert bad[0]["klass"] == "B"
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test</strong> → FAIL.</li>
+</ul>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# core/ai_typing.py  (append)
+FAMILY_COMPLEMENT_PROMPT = """Tu raisonnes sur la COMPLÉMENTARITÉ entre FAMILLES \
+de produits B2B. NE te base PAS sur des ventes : seulement sur l'usage réel.</p>
+
+<p>FAMILLE ANCRE :
+{anchor_label} ({anchor_code}) — {anchor_summary}</p>
+
+<p>Parmi les familles candidates ci-dessous UNIQUEMENT, lesquelles sont \
+complémentaires de l'ancre, et de quelle nature ?
+<ul class="article-list">
+  <li>klass "A" = CONSOMMABLE / nécessaire pour utiliser/consommer l'ancre \</li>
+</ul>
+(ex. café → gobelets, filtres) ;
+<ul class="article-list">
+  <li>klass "B" = complément d'usage, acheté dans le même contexte sans être \</li>
+</ul>
+nécessaire (ex. café → biscuits).</p>
+
+<p>Familles candidates :
+{candidates}</p>
+
+<p>Réponds UNIQUEMENT par un tableau JSON \
+[{{"comp_family": "<un code de la liste>", "klass": "A|B", \
+"relation": "<consommable-de|accessoire-de|recharge-de|complément-usage|même-contexte>", \
+"force": <0..1>, "justification": "<une phrase>"}}], vide [] si aucune. \
+N'invente aucun code de famille."""</p>
+
+<p>def propose_family_complements(anchor_profile: dict, candidate_profiles,
+                               llm_call) -> list:
+    """Graphe famille→familles A/B pour une ancre.</p>
+
+<p>Filtre les familles hors <code>candidate_profiles</code> et l'auto-référence. <code>klass</code>
+    normalisée en 'A'/'B' (toute valeur inattendue → 'B', conservateur : on ne
+    revendique pas une relation A douteuse). Renvoie
+    list[{comp_family, klass, relation, force, justification}]."""
+    cand_codes = {c["family_code"] for c in candidate_profiles}
+    cand_lines = "\n".join(
+        f"- {c['family_code']}: {c.get('label','')} — {c.get('summary','')}"
+        for c in candidate_profiles)
+    prompt = FAMILY_COMPLEMENT_PROMPT.format(
+        anchor_code=anchor_profile["family_code"],
+        anchor_label=anchor_profile.get("label", ""),
+        anchor_summary=anchor_profile.get("summary", ""),
+        candidates=cand_lines,
+    )
+    try:
+        items = _parse_json_obj_list(llm_call(prompt))
+    except Exception:
+        return []
+    out = []
+    for it in items:
+        fam = str(it.get("comp_family", "")).strip()
+        if not fam or fam == anchor_profile["family_code"] or fam not in cand_codes:
+            continue
+        klass = str(it.get("klass", "")).strip().upper()
+        if klass not in ("A", "B"):
+            klass = "B"
+        out.append({
+            "comp_family": fam,
+            "klass": klass,
+            "relation": it.get("relation") or "autre",
+            "force": float(it.get("force", 0.0) or 0.0),
+            "justification": it.get("justification") or "",
+        })
+    return out
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run full IA suite</strong> — <code>venv\Scripts\python.exe -m pytest tests/test_ai_typing.py -v</code> → PASS (anciens + 2 nouveaux).</li>
+  <li>[ ] <strong>Step 5: Commit</strong> — <code>git commit -am "feat(complements-v2): ai_typing.propose_family_complements (A/B graph)"</code></li>
+</ul>
+
+<p>---</p>
+
+<h2 id="task-8-scripts-refresh-product-complements-v2-py-orchestration-xlsx-json">Task 8: <code>scripts/refresh_product_complements_v2.py</code> — orchestration + XLSX/JSON</h2>
+
+<p><strong>Files:</strong> Create <code>scripts/refresh_product_complements_v2.py</code></p>
+
+<p>Intégration (DB + LLM réels) : pas de test unitaire — vérifiée par un run réel sur les 20 ancres. Toute la logique calculatoire est déjà couverte (Tasks 1-7).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the script</strong></li>
+</ul>
+
+<p><code></code>`python
+# scripts/refresh_product_complements_v2.py
+"""Refresh 'Produits complémentaires v2' (FR) — ancrage taxonomie famille.</p>
+
+<p>20 ancres du fichier source -> enrichissement ecom_products (famille/world/marque)
+-> profils familles (IA, caché) sur l'univers same-world -> graphe famille->familles
+A/B (IA) -> ventes (timescale) -> 3 vues (A / B / Mix) au format large -> XLSX
+(README + A + B + Mix + Baseline) + JSON. Méthode :
+docs/superpowers/specs/2026-06-08-product-complements-v2-design.md</p>
+
+<p>Run :
+  venv\\Scripts\\python.exe -m scripts.refresh_product_complements_v2 --n-anchors 20
+  venv\\Scripts\\python.exe -m scripts.refresh_product_complements_v2 --model sonnet --llm-backend cli
+"""
+from __future__ import annotations</p>
+
+<p>import argparse
+import json
+import sys
+from collections import Counter, defaultdict
+from datetime import datetime, timezone
+from pathlib import Path</p>
+
+<p>_REPO = Path(__file__).resolve().parent.parent
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))</p>
+
+<p>import openpyxl
+from database.crm_db import CRMDatabase
+from database.timeseries_db import TimeseriesDatabase
+from core.complement_families import (
+    rank_family_skus, build_family_profile_sample, order_complement_families,
+    assemble_anchor_blocks, build_wide_rows, WIDE_HEADER,
+)
+from core.ai_typing import profile_family, propose_family_complements, get_llm_backend</p>
+
+<p>COUNTRY = "FR"
+EXPORT_DIR = _REPO / "exports"
+SOURCE_XLSX = _REPO / "imports" / "lucas" / "20260608_094900_Produits_comple_mentaires_20260526_1.xlsx"
+PROFILE_CACHE = EXPORT_DIR / "complements_v2_family_profiles.json"
+SALES_DAYS = 365</p>
+
+<p>def step(msg: str) -> None:
+    print(f"  [{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)</p>
+
+<p>def pad(code: str) -> str:
+    return str(code).strip().zfill(18)</p>
+
+<p>def read_anchors(n: int) -> list:
+    """n premières ancres du fichier source (ordre du fichier)."""
+    wb = openpyxl.load_workbook(SOURCE_XLSX, read_only=True)
+    ws = wb["Sheet1"]
+    anchors = []
+    for r in ws.iter_rows(min_row=2, values_only=True):
+        if r[0] is None or str(r[0]).strip() == "":
+            continue
+        anchors.append({"reference": pad(r[0]), "raw": str(r[0]).strip(),
+                        "description": (r[1] or "")})
+        if len(anchors) >= n:
+            break
+    return anchors</p>
+
+<p>def compute(n_anchors: int, max_complements: int, llm_call) -> dict:
+    crm = CRMDatabase()
+    ts = TimeseriesDatabase()</p>
+
+<p>step(f"Phase 1/6 — lecture {n_anchors} ancres + enrichissement ecom_products…")
+    anchors = read_anchors(n_anchors)
+    refs = [a["reference"] for a in anchors]
+    meta = {r["product_reference"]: r for r in crm.query("""
+        SELECT p.product_reference, p.family_code, p.brand, p.manufacturer,
+               p.product_description, t.world
+        FROM ecom_products p
+        LEFT JOIN section_taxonomy t
+          ON p.section_code = t.section_code AND p.source_country = t.source_country
+        WHERE p.source_country = %s AND p.product_reference = ANY(%s)
+    """, (COUNTRY, refs))}
+    for a in anchors:
+        m = meta.get(a["reference"], {})
+        a["family_code"] = m.get("family_code")
+        a["world"] = m.get("world")
+    anchor_families = sorted({a["family_code"] for a in anchors if a["family_code"]})
+    worlds = sorted({a["world"] for a in anchors if a["world"]})
+    step(f"  → {len(anchors)} ancres · familles {anchor_families} · worlds {worlds}")</p>
+
+<p>step("Phase 2/6 — univers candidat (familles same-world) + profils IA (caché)…")
+    cand_rows = crm.query("""
+        SELECT p.family_code, p.product_reference, p.web_title, p.product_description,
+               p.not_salable_flag, p.not_visible_flag, p.status_code
+        FROM ecom_products p
+        JOIN section_taxonomy t
+          ON p.section_code = t.section_code AND p.source_country = t.source_country
+        WHERE p.source_country = %s AND t.world = ANY(%s)
+    """, (COUNTRY, worlds))
+    fam_products: dict[str, list] = defaultdict(list)
+    for r in cand_rows:
+        fam_products[r["family_code"]].append(r)
+    candidate_families = sorted(f for f in fam_products if f and f not in ("001000",))
+    step(f"  → {len(candidate_families)} familles candidates · {len(cand_rows)} produits")</p>
+
+<p>cache = json.loads(PROFILE_CACHE.read_text(encoding="utf-8")) if PROFILE_CACHE.exists() else {}
+    profiles: dict[str, dict] = {}
+    for fam in sorted(set(anchor_families) | set(candidate_families)):
+        if fam in cache:
+            profiles[fam] = cache[fam]
+            continue
+        sample = build_family_profile_sample(fam_products.get(fam, []), sample_size=12)
+        profiles[fam] = profile_family(fam, sample, llm_call)
+        cache[fam] = profiles[fam]
+        PROFILE_CACHE.write_text(json.dumps(cache, ensure_ascii=False, indent=2),
+                                 encoding="utf-8")
+    step(f"  → {len(profiles)} profils familles")</p>
+
+<p>step("Phase 3/6 — graphe famille→familles A/B (IA)…")
+    edges_by_family: dict[str, list] = {}
+    for fam in anchor_families:
+        cand_profiles = [profiles[f] for f in candidate_families if f != fam]
+        edges_by_family[fam] = propose_family_complements(
+            profiles[fam], cand_profiles, llm_call)
+    n_edges = sum(len(v) for v in edges_by_family.values())
+    step(f"  → {n_edges} arêtes famille (A/B)")</p>
+
+<p>step(f"Phase 4/6 — ventes FR (timescale, {SALES_DAYS}j) + tri SKU par famille…")
+    comp_families = sorted({e["comp_family"]
+                            for v in edges_by_family.values() for e in v})
+    comp_refs = [r["product_reference"] for r in cand_rows
+                 if r["family_code"] in comp_families]
+    sales: Counter = Counter()
+    for start in range(0, len(comp_refs), 20000):
+        for r in ts.query("""
+            SELECT product_reference, SUM(quantity)::bigint AS q
+            FROM ecom_order_lines
+            WHERE source_country = %s
+              AND order_date >= CURRENT_DATE - (%s || ' days')::INTERVAL
+              AND product_reference = ANY(%s)
+            GROUP BY product_reference
+        """, (COUNTRY, SALES_DAYS, comp_refs[start:start + 20000])):
+            sales[r["product_reference"]] = int(r["q"] or 0)
+    family_skus: dict[str, list] = {}
+    for fam in comp_families:
+        cands = [{"reference": r["product_reference"],
+                  "description": r["product_description"] or r["web_title"] or "",
+                  "sales": sales.get(r["product_reference"], 0),
+                  "not_salable": r["not_salable_flag"],
+                  "not_visible": r["not_visible_flag"],
+                  "status_code": r["status_code"]}
+                 for r in cand_rows if r["family_code"] == fam]
+        family_skus[fam] = rank_family_skus(cands, top_n=max_complements)
+    step(f"  → {len(comp_families)} familles complément dépliées en SKU")</p>
+
+<p>step("Phase 5/6 — assemblage 3 vues (A / B / Mix)…")
+    views = {"A": {}, "B": {}, "mix": {}}
+    for a in anchors:
+        fam = a["family_code"]
+        edges = edges_by_family.get(fam, [])
+        views["A"][a["reference"]] = assemble_anchor_blocks(
+            order_complement_families(edges, klass="A"), family_skus, max_complements)
+        views["B"][a["reference"]] = assemble_anchor_blocks(
+            order_complement_families(edges, klass="B"), family_skus, max_complements)
+        views["mix"][a["reference"]] = assemble_anchor_blocks(
+            order_complement_families(edges), family_skus, max_complements)</p>
+
+<p>step("Phase 6/6 — baseline (site actuel) pour comparaison…")
+    baseline = crm.query("""
+        SELECT anchor_reference, complement_reference, complement_description,
+               complement_status, display_sequence
+        FROM product_complements
+        WHERE source_country = %s AND anchor_reference = ANY(%s)
+        ORDER BY anchor_reference, display_sequence
+    """, (COUNTRY, refs))</p>
+
+<p>return {
+        "computed_at": datetime.now(timezone.utc).isoformat(),
+        "country": COUNTRY, "n_anchors": len(anchors),
+        "max_complements": max_complements,
+        "anchor_families": anchor_families, "worlds": worlds,
+        "candidate_families": candidate_families,
+        "n_edges": n_edges,
+        "anchors": anchors, "profiles": profiles,
+        "edges_by_family": edges_by_family,
+        "views": views, "baseline": baseline,
+    }</p>
+
+<p>def write_xlsx(out_path: Path, data: dict, n_blocks: int) -> None:
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.utils import get_column_letter</p>
+
+<p>wb = Workbook()
+    head_fill = PatternFill("solid", fgColor="2A2A38")
+    head_font = Font(bold=True, color="FFFFFF")</p>
+
+<p>def sheet(name):
+        ws = wb.active if wb.sheetnames == ["Sheet"] else wb.create_sheet(name)
+        ws.title = name
+        return ws</p>
+
+<p>def styled_header(ws, headers):
+        ws.append(headers)
+        for c in ws[1]:
+            c.fill = head_fill; c.font = head_font
+            c.alignment = Alignment(vertical="center", wrap_text=True)
+        ws.freeze_panes = "A2"</p>
+
+<p># README
+    ws = sheet("README")
+    for line in [
+        ["Produits complémentaires v2 — FR — ancrage taxonomie famille"],
+        [f"Généré : {data['computed_at']}  ·  {data['n_anchors']} ancres  ·  "
+         f"worlds {', '.join(data['worlds'])}"],
+        [],
+        ["Méthode : la catégorie n'est plus devinée depuis le titre SAP mais LUE "
+         "dans ecom_products (famille warehouse)."],
+        ["L'IA propose des FAMILLES complémentaires classées A (consommable/"
+         "nécessaire) ou B (complément d'usage),"],
+        ["puis on déplie en SKU actifs (ni not_salable ni not_visible) triés par "
+         "ventes FR (365j)."],
+        [],
+        ["Onglets : A — consommables · B — compléments larges · Mix (A+B) · "
+         "Baseline (site actuel)."],
+        ["Format large : col A = ancre SAP, col B = description, puis 20 blocs "
+         "[code complément · description · statut · display_sequence]."],
+        [f"Familles candidates (same-world) : {', '.join(data['candidate_families'])}"],
+        [f"Arêtes famille A/B proposées : {data['n_edges']}"],
+    ]:
+        ws.append(line)
+    ws.column_dimensions["A"].width = 110</p>
+
+<p>anchors = data["anchors"]
+    header = WIDE_HEADER(n_blocks)
+    for key, title in [("A", "A — consommables"), ("B", "B — compléments larges"),
+                       ("mix", "Mix (A+B)")]:
+        ws = sheet(title)
+        styled_header(ws, header)
+        for row in build_wide_rows(anchors, data["views"][key], n_blocks=n_blocks):
+            ws.append(row)
+        ws.column_dimensions["A"].width = 20
+        ws.column_dimensions["B"].width = 38</p>
+
+<p># Baseline (long format, read-only comparison)
+    ws = sheet("Baseline (site actuel)")
+    styled_header(ws, ["Anchor SAP", "Complement SAP", "Complement Description",
+                       "Status", "Display Sequence"])
+    for b in data["baseline"]:
+        ws.append([b["anchor_reference"], b["complement_reference"],
+                   b["complement_description"], b["complement_status"],
+                   b["display_sequence"]])</p>
+
+<p># Graphe familles (audit)
+    ws = sheet("Graphe familles")
+    styled_header(ws, ["anchor_family", "comp_family", "comp_label", "klass",
+                       "relation", "force", "justification"])
+    prof = data["profiles"]
+    for fam, edges in data["edges_by_family"].items():
+        for e in sorted(edges, key=lambda x: (x["klass"], -x["force"])):
+            ws.append([fam, e["comp_family"],
+                       (prof.get(e["comp_family"]) or {}).get("label", ""),
+                       e["klass"], e["relation"], round(e["force"], 2),
+                       (e["justification"] or "")[:160]])
+    for col, w in [("A", 14), ("B", 14), ("C", 22), ("G", 70)]:
+        ws.column_dimensions[col].width = w</p>
+
+<p>wb.save(out_path)</p>
+
+<p>def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--n-anchors", type=int, default=20, dest="n_anchors")
+    ap.add_argument("--max-complements", type=int, default=20, dest="max_complements")
+    ap.add_argument("--model", default="sonnet")
+    ap.add_argument("--llm-backend", default="cli", choices=["cli", "api"],
+                    dest="llm_backend")
+    ap.add_argument("--allow-api-billing", action="store_true", dest="allow_api_billing")
+    args = ap.parse_args()</p>
+
+<p>EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+    llm_call = get_llm_backend(prefer=args.llm_backend, model=args.model,
+                               allow_api_billing=args.allow_api_billing)</p>
+
+<p>data = compute(args.n_anchors, args.max_complements, llm_call)</p>
+
+<p>today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    out_xlsx = EXPORT_DIR / f"product_complements_v2_{COUNTRY}_{today}.xlsx"
+    out_json = out_xlsx.with_suffix(".json")
+    step(f"écriture {out_json.name}…")
+    out_json.write_text(json.dumps(data, indent=2, default=str, ensure_ascii=False),
+                        encoding="utf-8")
+    step(f"écriture {out_xlsx.name}…")
+    write_xlsx(out_xlsx, data, n_blocks=args.max_complements)</p>
+
+<p>print("\n" + "=" * 70)
+    print("PRODUITS COMPLÉMENTAIRES v2 — FR — SNAPSHOT")
+    print("=" * 70)
+    print(f"  Ancres: {data['n_anchors']} · Familles ancre: {data['anchor_families']}")
+    print(f"  Familles candidates: {len(data['candidate_families'])} · "
+          f"Arêtes A/B: {data['n_edges']}")
+    print(f"  exports/{out_xlsx.name}")
+    return 0</p>
+
+<p>if __name__ == "__main__":
+    sys.exit(main())
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Smoke-run on the 20 anchors</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m scripts.refresh_product_complements_v2 --n-anchors 20 --model sonnet --llm-backend cli</code>
+Expected: termine sans exception ; écrit <code>exports/product_complements_v2_FR_<date>.xlsx</code> + <code>.json</code> ; récap avec <code>Familles ancre: ['001001', '001002']</code>, arêtes A/B non nulles. (Nécessite <code>claude</code> sur le PATH pour la voie abonnement + DBs Docker up. La phase profils est cachée → un 2e run est quasi instantané.)</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Eyeball the output</strong></li>
+</ul>
+
+<p>Ouvrir l'XLSX : (a) onglet <strong>A — consommables</strong> : pour les cafés (<code>001002</code>), les blocs doivent pointer des gobelets/serviettes (<code>001005</code>) actifs ; (b) onglet <strong>B</strong> : biscuits/boissons dans le même contexte ; (c) <strong>Graphe familles</strong> : les <code>comp_family</code> ∈ candidates same-world, klass A/B cohérent, justification lisible ; (d) <strong>Baseline</strong> : les compléments actuels du site pour comparer. Noter qu'A peut être clairsemé pour les ancres consommables (attendu, cf. spec §6).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run the full pure + IA suite once more</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_families.py tests/test_ai_typing.py -v</code>
+Expected: PASS (5 pures + tests IA).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong> — <code>git add scripts/refresh_product_complements_v2.py && git commit -m "feat(complements-v2): refresh script (anchors->families A/B->SKU->xlsx/json)"</code></li>
+</ul>
+
+<p>---</p>
+
+<h2 id="task-9-optionnelle-apr-s-relecture-pierre-marie-des-20-lignes-extension-persistance">Task 9 (OPTIONNELLE — après relecture Pierre/Marie des 20 lignes): extension + persistance</h2>
+
+<p>À ne faire <strong>qu'après</strong> que Pierre/Marie aient relu les 20 lignes (garde-fou spec §2 « relu par Pierre/Marie sur les 20 lignes, puis étendues »). Deux extensions possibles, non requises pour la validation :
+<ul class="article-list">
+  <li><code>--n-anchors</code> au-delà de 20 (étendre l'univers candidat au-delà du same-world si A trop clairsemé pour les durables) ;</li>
+  <li>persistance postgres (<code>product_complements_v2</code> : ancre, complément, klass, force, display_sequence, computed_at) pour brancher un panel. Vérifier l'API réelle de <code>CRMDatabase</code> (présence d'<code>executemany</code>) avant d'écrire l'upsert — ne pas présumer.</li>
+</ul></p>
+
+<p>---</p>
+
+<h2 id="self-review">Self-Review</h2>
+
+<ul class="article-list">
+  <li><strong>Spec coverage</strong> : §4 Phase 1 (anchors+enrich)→Task 8 P1 ; §4 Phase 2 (profils famille)→Tasks 2+6, orchestré P2 ; §4 Phase 3 (graphe A/B)→Task 7, orchestré P3 ; resserrage A durable→hook noté (anchors CAFETERIA = consommables, A sémantique, conforme §4) ; §4 Phase 4 (expansion famille→SKU, actifs, tri ventes)→Tasks 1+4, orchestré P4 ; §4 Phase 5 (3 vues + display_sequence)→Tasks 3+4+5, orchestré P5 ; §4 Phase 6 / §Sorties (README+A+B+Mix+Baseline, format large)→Task 8 write_xlsx ; §5 architecture (core pur + ai_typing réutilisé + script)→respectée ; §6 garde-fous (statut actif dur, A clairsemé attendu, baseline read-only)→Tasks 1 + 8 ; §7 hors-périmètre (multi-saut, tout catalogue, écriture base, GB)→Task 9 optionnelle / non planifié.</li>
+  <li><strong>Faits warehouse</strong> : tous vérifiés par introspection (colonnes, 206 familles, status_code numérique → filtre via flags, 20 ancres 100 % jointes en 2 familles CAFETERIA, ventes sur timescale). Aucun chemin supposé.</li>
+  <li><strong>Type consistency</strong> : <code>family_code</code> = chaîne partout ; arête famille <code>{comp_family,klass,force,relation,justification}</code> produite par Task 7, consommée par Tasks 3/4/8 ; SKU candidat <code>{reference,description,sales,not_salable,not_visible,status_code}</code> produit en P4, consommé par Task 1 → bloc <code>{reference,description,status,display_sequence,klass,comp_family}</code> consommé par Tasks 4/5 ; <code>family_skus: {family_code: [SKU triés]}</code> cohérent Task 1↔4↔8 ; signature <code>llm_call(prompt)->str</code> identique Tasks 6/7 et orchestrateur (<code>get_llm_backend</code>). <code>build_wide_rows</code> consomme exactement <code>views[key]</code> (blocks_by_anchor) + <code>anchors</code>.</li>
+  <li><strong>Placeholders</strong> : aucun TODO/TBD ; tout le code des steps est complet. La note « vérifier l'API CRMDatabase » est dans la Task optionnelle 9.</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#faits-warehouse-v-rifi-s-introspection-2026-06-08-ne-pas-re-deviner">Faits warehouse vérifiés (introspection 2026-06-08, ne pas re-deviner)</a></li>
+<li><a href="#file-structure">File Structure</a></li>
+<li><a href="#task-1-rank-family-skus-sku-actifs-d-une-famille-tri-s-par-ventes">Task 1: `rank_family_skus` — SKU actifs d'une famille triés par ventes</a></li>
+<li><a href="#task-2-build-family-profile-sample-chantillon-d-terministe-pour-profilage-ia">Task 2: `build_family_profile_sample` — échantillon déterministe pour profilage IA</a></li>
+<li><a href="#task-3-order-complement-families-filtre-ordre-a-avant-b-des-ar-tes">Task 3: `order_complement_families` — filtre + ordre A-avant-B des arêtes</a></li>
+<li><a href="#task-4-assemble-anchor-blocks-expansion-famille-sku-display-sequence-cap-20">Task 4: `assemble_anchor_blocks` — expansion famille→SKU + display_sequence (cap 20)</a></li>
+<li><a href="#task-5-build-wide-rows-matrice-format-large-shape-du-fichier-baseline">Task 5: `build_wide_rows` — matrice format large (= shape du fichier baseline)</a></li>
+<li><a href="#task-6-ai-typing-profile-family-libell-r-sum-d-une-famille-ia-stubb">Task 6: `ai_typing.profile_family` — libellé + résumé d'une famille (IA, stubbé)</a></li>
+<li><a href="#task-7-ai-typing-propose-family-complements-graphe-famille-familles-a-b-ia-stubb">Task 7: `ai_typing.propose_family_complements` — graphe famille→familles A/B (IA, stubbé)</a></li>
+<li><a href="#task-8-scripts-refresh-product-complements-v2-py-orchestration-xlsx-json">Task 8: `scripts/refresh_product_complements_v2.py` — orchestration + XLSX/JSON</a></li>
+<li><a href="#task-9-optionnelle-apr-s-relecture-pierre-marie-des-20-lignes-extension-persistance">Task 9 (OPTIONNELLE — après relecture Pierre/Marie des 20 lignes): extension + persistance</a></li>
+<li><a href="#self-review">Self-Review</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

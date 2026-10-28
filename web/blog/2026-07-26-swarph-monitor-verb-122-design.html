@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>`swarph monitor` — pluggable DM delivery (board card #122) | Technical Whitepaper</title>
+  <meta name="description" content="`swarph monitor` — pluggable DM delivery (board card #122) — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-07-26-swarph-monitor-verb-122-design.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">`swarph monitor` — pluggable DM delivery (board card #122)</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 8 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># <code>swarph monitor</code> — pluggable DM delivery (board card #122)</p>
+
+<p><strong>Status:</strong> spec, for peer review by <code>droplet</code> before build.
+<strong>Greenlight:</strong> commander, 2026-07-26, DIRECT — build scoped to <code>tmux</code> / <code>stdout</code> / <code>none</code>.
+<strong>Held:</strong> the <code>webhook:</code> sink. Outward-facing egress; a build greenlight does not clear an egress gate.
+<strong>Peer review:</strong> droplet, DM #8532 — <em>"Rename and I approve."</em> Renamed; see the naming section.</p>
+
+<h2 id="why-this-exists">Why this exists</h2>
+
+<p><code>swarph mesh sidecar</code> has exactly one delivery mechanism: poke a tmux pane. That is <em>why</em>
+PR #138 happened — when there is only one sink, nothing forces you to separate "I read this
+message" from "somebody was told about it", so <code>last_msg_id</code> came to mean both, and a dead
+tmux pane froze the cursor forever.</p>
+
+<p>PR #138 fixed the symptom by splitting off <code>pending_wake</code>. This card fixes the cause: make
+delivery a <strong>named, pluggable choice</strong>, and finish the state split that <code>pending_wake</code> started.</p>
+
+<h2 id="the-state-model-droplet-s-ruling-dm-8525-the-load-bearing-decision">The state model (droplet's ruling, DM #8525 — the load-bearing decision)</h2>
+
+<p>Two pieces of state. They are different questions and must never share a variable.</p>
+
+<p>| | <strong>Observation cursor</strong> | <strong>Delivery ledger</strong> |
+|---|---|---|
+| Question | what has this monitor READ from the gateway | what has been DELIVERED to a given sink |
+| Scope | one per monitor | <strong>one per sink</strong> |
+| Advances on | observation — always | successful delivery to <em>that</em> sink |
+| Gated on downstream? | <strong>never</strong> | n/a (it <em>is</em> downstream) |
+| May lag | no | yes, arbitrarily far |</p>
+
+<p>Under this split the <code>--deliver none</code> question <strong>dissolves</strong>. It advances the observation
+cursor, and its ledger is trivially satisfied because there is no sink. Nothing is "consumed",
+because <strong>novelty is a property of a sink's ledger, not of the cursor</strong>. Attach a tmux sink
+tomorrow: it starts with an empty ledger and replays from <code>inbox.log</code>, which <code>_log_dm</code> already
+writes. The data was never lost — only that sink's pointer is new.</p>
+
+<p><code>pending_wake</code> is already the degenerate one-sink ledger. <em></em>Generalize it. Do not add a
+<code>none</code> special case.<em></em> (Special-casing the divergent leg is the error the whole card exists
+to avoid — see <code>feedback_one_variable_two_questions</code>.)</p>
+
+<h2 id="surface">Surface</h2>
+
+<p><code></code>`
+swarph monitor start  [--deliver SINK]... [--poll-s N] [--wake-min-interval-s N] [--as PEER]
+swarph monitor status [--as PEER] [--json]
+swarph monitor stop   [--as PEER]
+<code></code>`</p>
+
+<p><code>SINK</code> is one of:</p>
+
+<p>| Sink | Meaning | Egress |
+|---|---|---|
+| <code>tmux:<target></code> | <code>tmux send-keys</code> to that pane — today's behaviour | none |
+| <code>stdout</code> | write the DM to stdout; delivery always succeeds | none |
+| <code>pull</code> | <strong>default.</strong> consumer-pulled: ledger advances on ACK (<code>swarph mesh inbox</code> marking read), so <code>status</code> can answer "you have DMs" | none |
+| <code>none</code> | truly nothing: observe, append to <code>inbox.log</code>, no ledger, no unread tracking | none |
+| <code>webhook:<url></code> | <strong>HELD</strong> — must exit non-zero naming the gate, not silently ignore | <strong>yes</strong> |</p>
+
+<p><code>--deliver</code> is repeatable: several sinks, each with its own independent ledger. Default when
+omitted is <strong><code>pull</code></strong> — observing without pushing is now a first-class mode (droplet's item (b);
+today <code>_run_sidecar</code> returns 2 rather than starting).</p>
+
+<h3 id="naming-pull-is-a-sink-none-means-nothing-droplet-s-ruling-dm-8532">Naming: <code>pull</code> is a sink, <code>none</code> means nothing (droplet's ruling, DM #8532)</h3>
+
+<p>The first draft had <code>--deliver none</code> maintaining a ledger so <code>status</code> could report unread.
+droplet accepted the mechanism and rejected the name, as one finding rather than two:</p>
+
+<p>> a flag whose name and behaviour diverge is precisely the bug class we have both been digging
+> out for two days — <code>count</code> was named a count and was a decaying weight (96.7% of a graph
+> invisible); <code>MID=[4,6)</code> was named a band and straddled a mode boundary (the earning half
+> labelled loss-making); <code>last_msg_id</code> was named a cursor and was also a wake-receipt (the
+> repeat-forever freeze). Each hid for months because the name told everyone the wrong thing
+> while the code did something else.</p>
+
+<p>A <code>none</code> that keeps a ledger would be the fourth. So the axis is named honestly instead:</p>
+
+<ul class="article-list">
+  <li><strong><code>pull</code> is a real sink</strong> — it has a consumer (the agent running <code>swarph mesh inbox</code>), a</li>
+</ul>
+  delivery event (that read), and an acknowledgement (<code>POST /messages/{id}/read</code>). Its ledger
+  advances on <strong>ACK</strong>, never on observation. Being a real sink, it belongs in the same
+  <code>--deliver</code> list as the others rather than on a separate axis.
+<ul class="article-list">
+  <li><strong><code>none</code> means nothing</strong> — no ledger, no unread tracking. Kept, because a pure</li>
+</ul>
+  archiver/observer is a legitimate mode, and keeping it lets the name stay true rather than
+  deleting a word for being awkward. <code>status</code> under <code>none</code> reports the cursor position only,
+  and must <strong>say</strong> that it cannot report unread rather than reporting zero.
+
+<p>The last point matters: <code>none</code> reporting "0 unread" would recreate the exact defect being
+fixed — an absence that reads as evidence.</p>
+
+<p><code>start</code> is <strong>idempotent</strong>: a pidfile keyed by <code>self_name</code> in the state dir. A live PID means
+"already running" → exit 0, no second process. A stale pidfile (PID gone, or a live PID that
+is not ours) is reclaimed, and the reclaim is logged — a silently-adopted foreign PID is how a
+<code>stop</code> ends up killing something else.</p>
+
+<h2 id="pull-beats-push-commander-2026-07-26-promoted-to-primary-design">PULL beats PUSH — commander, 2026-07-26 (promoted to primary design)</h2>
+
+<p>> "couldn't the sidecar verify & run the monitor for a fully workable silent mode
+> 'you have dm' using <code>swarph monitor status</code> & <code>start</code>?"</p>
+
+<p>Yes, and it reframes the whole card. The dead-pane bug exists because delivery is <strong>push</strong>:
+the monitor pokes a pane, and if the pane is gone the message has nowhere to land. Pull
+inverts that — the monitor observes silently and the <strong>consumer asks</strong>.</p>
+
+<p>This composes exactly with the state model above, because <code>status</code> is precisely a read of
+"observation cursor minus this sink's ledger". The question already has a home; we are not
+adding state to answer it.</p>
+
+<p><strong>Why this is the floor and not a nicety.</strong> The mesh has already lost DMs twice this way: a
+tmux crash or resume kills the wake Monitor, SessionStart drains but does not re-arm, and the
+cell goes <strong>silently deaf</strong> — a state indistinguishable from "no mail has arrived". Every
+push sink shares that shape: its liveness is a precondition for hearing anything. A pull check
+run BY the cell lives one layer above tmux and therefore cannot die with it. (Same rule as
+<code>feedback_supervisor_cannot_heal_its_substrate</code>: supervise one layer up.)</p>
+
+<p><strong>The honest limit:</strong> pull only fires when the cell is awake enough to run the check. Push
+exists to wake an <em>idle</em> cell. So they compose rather than compete — <code>tmux:</code> is the
+optimization; status-pull is the guarantee that survives every sink being dead.</p>
+
+<h3 id="what-this-requires-of-the-surface">What this requires of the surface</h3>
+
+<ul class="article-list">
+  <li><code>monitor start</code> must be <strong>safely callable unconditionally</strong> — from a SessionStart hook, a</li>
+</ul>
+  cron, a shell rc, a wrapper. Already idempotent above; this promotes it from convenience to
+  contract, and means <code>start</code> must be <strong>fast and quiet</strong> on the already-running path (no
+  banner, no re-poll, exit 0).
+<ul class="article-list">
+  <li><code>monitor status --brief</code> → one line suitable for a prompt or hook, e.g.</li>
+</ul>
+  <code>2 unread DMs (droplet, watchtower) — swarph mesh inbox</code>, and <em></em>empty output + exit 0 when
+  there is nothing<em></em>, so it can be pasted into a hook without spamming every session.
+<ul class="article-list">
+  <li><code>status</code> exit codes carry the answer for scripts: <code>0</code> = nothing pending, <code>1</code> = DMs pending,</li>
+</ul>
+  <code>2</code> = monitor not running. A hook can then do `swarph monitor start && swarph monitor status
+  --brief` and get both self-healing and notification in one line.
+<ul class="article-list">
+  <li>Because the cell may be the only consumer, <code>--deliver none</code> <em></em>must still maintain a ledger</li>
+</ul>
+  for the puller<em></em>. This is the one refinement to droplet's ruling: <code>none</code> means "no <em>push</em>
+  sink", not "no ledger" — otherwise <code>status</code> has nothing to subtract and cannot report unread.
+  Proposal: a reserved implicit sink <code>pull</code>, whose ledger advances only when a consumer
+  acknowledges (i.e. <code>swarph mesh inbox</code> marks read). <em></em>RULED (droplet, #8532): mechanism
+  accepted — <code>pull</code> is a real sink, not a special case. Name rejected — see the naming section
+  above; the flag is <code>--deliver pull</code>, and <code>none</code> now means nothing.<em></em>
+
+<h2 id="relationship-to-mesh-sidecar">Relationship to <code>mesh sidecar</code></h2>
+
+<p><code>mesh sidecar</code> stays, as a thin deprecated alias delegating to `monitor start --deliver
+tmux:<target>`. Peers (droplet, gpu-wsl) are running it right now; breaking their command to
+rename a verb is not a trade worth making. Emit a deprecation line to stderr, not stdout —
+stdout is a sink.</p>
+
+<h2 id="what-must-not-regress">What must NOT regress</h2>
+
+<p>Every guarantee PR #138 established, now expressed per-sink:</p>
+
+<p>1. The observation cursor advances on <strong>observation</strong>, never gated on any sink.
+2. A failed delivery is <strong>visible</strong> — per-sink <code>consecutive_failures</code> + stderr naming the sink.
+3. An owed delivery survives an <strong>empty poll</strong> and a <strong>process restart</strong>.
+4. A sink whose delivery is throttled must not lose the message when the gateway's 50-message
+   window rolls past it. This is the trap that made #138 non-trivial: re-selection is not the
+   retry mechanism; the ledger is.
+5. <code>inbox.log</code> is written for every observed DM regardless of sink outcome — it is what makes
+   a late-attached sink able to replay.</p>
+
+<h2 id="open-questions-for-droplet">Open questions for droplet</h2>
+
+<p>1. <strong>Ledger identity.</strong> Keying by the sink <em>string</em> (<code>tmux:lab:0.0</code>) means renaming a pane
+   silently creates a fresh ledger that replays from zero. Keying by a stable sink <em>id</em> means
+   an operator must manage ids. Proposal: key by the string, and make <code>status</code> show
+   "ledger created this run" so a surprise replay is visible rather than mysterious.
+2. <strong>Replay bound.</strong> A sink attached after a long gap could replay thousands of DMs from
+   <code>inbox.log</code>. Proposal: <code>status</code> reports the lag; <code>start</code> replays at most N (default 50,
+   matching the gateway window) and <strong>logs what it skipped</strong> — a silent cap reads as
+   "delivered everything" when it did not.
+3. Does <code>stop</code> flush pending deliveries or abandon them? Proposal: abandon, since the ledger
+   persists and the next <code>start</code> resumes — but say so in the output.</p>
+
+<h2 id="test-obligations">Test obligations</h2>
+
+<p>Mirroring <code>tests/test_mesh_sidecar_cursor_decoupled.py</code>, which is the regression suite this
+design generalizes:</p>
+
+<ul class="article-list">
+  <li>per-sink ledger advances independently; one dead sink does not stall another</li>
+  <li>observation cursor advances with <strong>all</strong> sinks failing</li>
+  <li><code>none</code> advances the cursor and creates no ledger</li>
+  <li>a late-attached sink replays from <code>inbox.log</code>, and the replay is bounded and reported</li>
+  <li><code>start</code> twice → one process; stale pidfile reclaimed and logged; foreign PID not adopted</li>
+  <li><code>webhook:</code> exits non-zero naming the gate — asserted, so the hold cannot rot into a silent</li>
+</ul>
+  no-op. droplet: *"a held feature that silently no-ops is a hold that rots into a phantom
+  capability — someone configures it, sees no error, and believes it is delivering."*
+<ul class="article-list">
+  <li><code>none</code> reports "cannot report unread" rather than "0 unread" — an absence must not read as</li>
+</ul>
+  evidence
+<ul class="article-list">
+  <li><code>mesh sidecar</code> still works and warns on stderr</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#naming-pull-is-a-sink-none-means-nothing-droplet-s-ruling-dm-8532">Naming: `pull` is a sink, `none` means nothing (droplet's ruling, DM #8532)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#what-this-requires-of-the-surface">What this requires of the surface</a></li>
+<li><a href="#why-this-exists">Why this exists</a></li>
+<li><a href="#the-state-model-droplet-s-ruling-dm-8525-the-load-bearing-decision">The state model (droplet's ruling, DM #8525 — the load-bearing decision)</a></li>
+<li><a href="#surface">Surface</a></li>
+<li><a href="#pull-beats-push-commander-2026-07-26-promoted-to-primary-design">PULL beats PUSH — commander, 2026-07-26 (promoted to primary design)</a></li>
+<li><a href="#relationship-to-mesh-sidecar">Relationship to `mesh sidecar`</a></li>
+<li><a href="#what-must-not-regress">What must NOT regress</a></li>
+<li><a href="#open-questions-for-droplet">Open questions for droplet</a></li>
+<li><a href="#test-obligations">Test obligations</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

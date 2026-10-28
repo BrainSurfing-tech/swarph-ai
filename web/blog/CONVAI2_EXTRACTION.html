@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ConvAI2 / PersonaChat -> MatrAIx 1,290 dimensions | Technical Whitepaper</title>
+  <meta name="description" content="ConvAI2 / PersonaChat -> MatrAIx 1,290 dimensions — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/CONVAI2_EXTRACTION.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">ConvAI2 / PersonaChat -> MatrAIx 1,290 dimensions</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># ConvAI2 / PersonaChat -> MatrAIx 1,290 dimensions</p>
+
+<p>This pipeline maps the 18,560 deduplicated personas in
+<code>MatrAIx2026/MatrAIx2026/convai2_personas/personas.parquet</code> to the MatrAIx schema
+using deterministic phrase rules only. No LLM or API is used.</p>
+
+<p>The original persona sentences are the sole evidence source. The source table's
+<code>domain</code> and <code>seniority_level</code> columns are upstream inferences and are excluded.
+Placeholder names are also excluded. Every dimension without an explicit,
+schema-compatible statement is emitted as <code>null</code> / <code>unsupported</code>.</p>
+
+<p>Source license: CC BY 4.0, per ParlAI's PersonaChat task documentation.</p>
+
+<h2 id="download">Download</h2>
+
+<p><code></code>`bash
+huggingface-cli download MatrAIx2026/MatrAIx2026 \
+  convai2_personas/personas.parquet --repo-type dataset \
+  --local-dir data/matraix2026
+<code></code>`</p>
+
+<h2 id="prepare-and-validate-a-smoke-test">Prepare and validate a smoke test</h2>
+
+<p><code></code>`bash
+python persona/human_extraction/scripts/prepare_convai2.py \
+  --input data/matraix2026/convai2_personas/personas.parquet \
+  --out out/convai2_profiles_5.jsonl --limit 5</p>
+
+<p>python persona/human_extraction/scripts/postprocess_convai2.py \
+  --profiles out/convai2_profiles_5.jsonl \
+  --schema persona/schema/dimensions.json \
+  --out out/convai2_personas_5.jsonl</p>
+
+<p>python persona/human_extraction/scripts/validate_extraction.py \
+  --input out/convai2_personas_5.jsonl \
+  --schema persona/schema/dimensions.json \
+  --profiles out/convai2_profiles_5.jsonl
+<code></code>`</p>
+
+<h2 id="full-compressed-jsonl-extraction">Full compressed JSONL extraction</h2>
+
+<p>Remove <code>--limit 5</code>, write a full profiles JSONL, then run:</p>
+
+<p><code></code>`bash
+python persona/human_extraction/scripts/postprocess_convai2.py \
+  --profiles out/convai2_profiles_full.jsonl \
+  --schema persona/schema/dimensions.json \
+  --out convai2/extraction_v1/shard_00.jsonl.gz
+<code></code>`</p>
+
+<p>The output contains one JSON object per persona and a <code>fields</code> list with exactly
+1,290 ordered objects. Exact crosswalk matches are also collected in the
+top-level <code>observed</code> object; all other dimensions remain null and unsupported.</p>
+
+<p>> <strong>Coverage note:</strong> this rule-only extraction is intentionally sparse. It maps
+> 0.262 dimensions per persona on average, and only 4,568 of 18,560 personas
+> (24.6%) receive any mapping. Treat it as a high-precision observed layer, not
+> a dense persona extraction. Rich ConvAI2 coverage requires the LLM extraction
+> layer on top of these deterministic assignments.</p>
+
+<h2 id="current-extraction-statistics">Current extraction statistics</h2>
+
+<ul class="article-list">
+  <li>Personas / unique users: 18,560 / 18,560</li>
+  <li>Fields per persona: 1,290</li>
+  <li>Exact non-null assignments: 4,859</li>
+  <li>Mean mapped dimensions per persona: 0.262</li>
+  <li>Personas with at least one mapping: 4,568</li>
+  <li>Invalid lengths or assignments: 0</li>
+  <li>Output size: about 187 MB (gzip-compressed JSONL)</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#download">Download</a></li>
+<li><a href="#prepare-and-validate-a-smoke-test">Prepare and validate a smoke test</a></li>
+<li><a href="#full-compressed-jsonl-extraction">Full compressed JSONL extraction</a></li>
+<li><a href="#current-extraction-statistics">Current extraction statistics</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

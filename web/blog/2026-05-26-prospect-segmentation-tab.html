@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prospect Segmentation — Profile Scorer + Prospect Tab Implementation Plan | Technical Whitepaper</title>
+  <meta name="description" content="Prospect Segmentation — Profile Scorer + Prospect Tab Implementation Plan — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-05-26-prospect-segmentation-tab.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Prospect Segmentation — Profile Scorer + Prospect Tab Implementation Plan</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 11 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Prospect Segmentation — Profile Scorer + Prospect Tab Implementation Plan</p>
+
+<p>> <strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+
+<p><strong>Goal:</strong> Turn the cube foundation into a per-prospect <code>prospect_profile</code> (fit + coverage-aware warmth + best channel + inherited offer) and surface it as a dedicated <strong>Prospects</strong> dashboard tab (Fit × Engagement quadrant → ranked list).</p>
+
+<p><strong>Architecture:</strong> A pure coverage-aware warmth function (<code>core/warmth.py</code>) + a scorer (<code>workers/compute_prospect_profile.py</code>) that joins the prospect base → rank-1 community (fit) → <code>prospect_interaction</code> (warmth) → <code>community_product_offer</code> (the 5-SKU offer), writing one row per prospect to <code>prospect_profile</code>. The dashboard reads that table: a quadrant panel (counts per Fit×Engagement cell) and a list/card panel (ranked prospects with offer + best channel).</p>
+
+<p><strong>Tech Stack:</strong> Python 3.12, FastAPI/HTMX (existing dashboard), pytest. Builds on plan 1 (<code>core/shrinkage.py</code>, <code>core/prospect_dims.py</code>) + plan 2 (<code>prospect_interaction</code>).</p>
+
+<p><strong>Scope note:</strong> Plan 3 of 3 (final). Contagion flag (Layer 4) is a nullable column populated later (droplet/OMEGA consult), not built here.</p>
+
+<p><strong>Data keys (verified this session):</strong>
+<ul class="article-list">
+  <li><code>prospect_firmographic_features(campaign_label, lyreco_118_id BIGINT, company, country_code, cro_number, sic_section, region_key, …)</code> — the prospect universe (all GB today).</li>
+  <li><code>prospect_community_match(campaign_label, lyreco_118_id, rank, community_id, similarity, weight, …)</code> — fit; use <code>rank=1</code>.</li>
+  <li><code>prospect_interaction(campaign_label, lyreco_118_id, country_code, channel, …)</code> — warmth source (email channel populated).</li>
+  <li><code>community_product_offer(community_id, source_country, family_rank, product_rank, product_reference, product_description, penetration, …)</code> — the inherited 5-SKU offer.</li>
+</ul></p>
+
+<p>---</p>
+
+<h3 id="task-1-coverage-aware-warmth-core-warmth-py">Task 1: Coverage-aware warmth (<code>core/warmth.py</code>)</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>core/warmth.py</code></li>
+  <li>Test: <code>tests/test_warmth.py</code></li>
+</ul></p>
+
+<p><strong>Rationale:</strong> warmth must be computed over <em>observed</em> channels only — an unobserved channel is "unknown," not "cold" (spec hard-constraint; GA4 dual-bridge lesson). Returns a score in [0,1] + a confidence = observed-channels / total-channels.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_warmth.py
+from core.warmth import warmth_score, CHANNELS</p>
+
+<p>def test_more_touches_is_warmer():
+    low, _ = warmth_score({"email": 1})
+    high, _ = warmth_score({"email": 40})
+    assert high > low and 0.0 <= low <= 1.0 and high <= 1.0</p>
+
+<p>def test_confidence_reflects_channel_coverage():
+    _, c_one = warmth_score({"email": 5})
+    _, c_two = warmth_score({"email": 5, "web": 5})
+    assert c_one == round(1 / len(CHANNELS), 4)
+    assert c_two == round(2 / len(CHANNELS), 4)</p>
+
+<p>def test_unobserved_channels_do_not_drag_score_to_cold():
+    # email-only prospect with heavy email is HOT, not diluted by 3 missing channels
+    score, _ = warmth_score({"email": 100})
+    assert score > 0.8</p>
+
+<p>def test_no_interactions_is_zero_warmth_zero_confidence():
+    assert warmth_score({}) == (0.0, 0.0)
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>./venv/Scripts/python.exe -m pytest tests/test_warmth.py -v</code>
+Expected: FAIL — <code>ModuleNotFoundError: No module named 'core.warmth'</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# core/warmth.py
+"""Coverage-aware prospect warmth. Score is the mean per-channel intensity over
+OBSERVED channels only -- a channel we never observe is unknown, not cold (spec
+hard-constraint). Confidence = observed-channels / total-channels.
+"""
+from __future__ import annotations</p>
+
+<p># Canonical observable channels (excludes UNK). Mirrors core/prospect_dims.
+CHANNELS = ("web", "email", "social", "offline")
+_SATURATION = 10.0   # touches at which a channel's intensity ~0.5</p>
+
+<p>def _intensity(count: int) -> float:
+    """Saturating touch intensity in [0,1): count/(count+SATURATION)."""
+    return count / (count + _SATURATION)</p>
+
+<p>def warmth_score(channel_counts: dict) -> tuple[float, float]:
+    """channel_counts = {canonical_channel: n_interactions} -> (score, confidence).
+    score = mean intensity over observed channels; confidence = coverage."""
+    observed = {c: n for c, n in channel_counts.items() if c in CHANNELS and n > 0}
+    if not observed:
+        return (0.0, 0.0)
+    score = sum(_intensity(n) for n in observed.values()) / len(observed)
+    confidence = len(observed) / len(CHANNELS)
+    return (round(score, 4), round(confidence, 4))
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>./venv/Scripts/python.exe -m pytest tests/test_warmth.py -v</code>
+Expected: PASS (4 passed).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/warmth.py tests/test_warmth.py
+git commit -m "feat: coverage-aware prospect warmth score"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-2-prospect-profile-table-scorer">Task 2: <code>prospect_profile</code> table + scorer</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>database/init_postgres_prospect_profile.sql</code></li>
+  <li>Create: <code>workers/compute_prospect_profile.py</code></li>
+  <li>Test: <code>tests/test_compute_prospect_profile.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Create the schema</strong></li>
+</ul>
+
+<p><code></code>`sql
+-- database/init_postgres_prospect_profile.sql
+BEGIN;
+CREATE TABLE IF NOT EXISTS prospect_profile (
+    campaign_label  TEXT NOT NULL,
+    lyreco_118_id   BIGINT NOT NULL,
+    company         TEXT,
+    country_code    TEXT,
+    fit_community   INTEGER,
+    fit_tier        TEXT,            -- low / mid / high
+    warmth_score    REAL,
+    engagement_tier TEXT,            -- cold / warm / hot
+    best_channel    TEXT,
+    n_interactions  INTEGER,
+    confidence      REAL,
+    contagion_flag  BOOLEAN,         -- Layer 4, populated later (nullable now)
+    last_computed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (campaign_label, lyreco_118_id)
+);
+CREATE INDEX IF NOT EXISTS idx_pp_quadrant ON prospect_profile(country_code, fit_tier, engagement_tier);
+COMMIT;
+<code></code>`</p>
+
+<p>Run: <code>docker exec -e PGPASSWORD=lc_2026 -i lc-postgres psql -U leadcontagion -d leadcontagion < database/init_postgres_prospect_profile.sql</code>
+Expected: CREATE TABLE / CREATE INDEX / COMMIT.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Write the failing test</strong> (pure assembly helpers — no DB)</li>
+</ul>
+
+<p><code></code>`python
+# tests/test_compute_prospect_profile.py
+from workers.compute_prospect_profile import fit_tier, best_channel</p>
+
+<p>def test_fit_tier_thresholds():
+    assert fit_tier(0.8) == "high"
+    assert fit_tier(0.4) == "mid"
+    assert fit_tier(0.1) == "low"
+    assert fit_tier(None) == "low"      # unmatched prospect</p>
+
+<p>def test_best_channel_picks_max_count():
+    assert best_channel({"email": 9, "web": 2}) == "email"
+    assert best_channel({}) is None
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>./venv/Scripts/python.exe -m pytest tests/test_compute_prospect_profile.py -v</code>
+Expected: FAIL — <code>ModuleNotFoundError</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# workers/compute_prospect_profile.py
+"""Assemble prospect_profile: one row per prospect joining fit (rank-1 community),
+coverage-aware warmth (prospect_interaction), best channel, and confidence.
+The 5-SKU offer is read at display time from community_product_offer via
+fit_community, so it is not duplicated here.</p>
+
+<p>Run:  python -m workers.compute_prospect_profile --country GB
+"""
+from __future__ import annotations</p>
+
+<p>import argparse
+import sys
+from collections import defaultdict
+from pathlib import Path</p>
+
+<p>import psycopg2.extras</p>
+
+<p>_REPO = Path(__file__).resolve().parent.parent
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))</p>
+
+<p>from core.prospect_dims import normalize_engagement_tier
+from core.warmth import warmth_score
+from database.crm_db import CRMDatabase</p>
+
+<p>def fit_tier(similarity: float | None) -> str:
+    if similarity is None:
+        return "low"
+    if similarity >= 0.66:
+        return "high"
+    if similarity >= 0.33:
+        return "mid"
+    return "low"</p>
+
+<p>def best_channel(channel_counts: dict) -> str | None:
+    return max(channel_counts, key=channel_counts.get) if channel_counts else None</p>
+
+<p>def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--country", default="GB")
+    args = ap.parse_args()
+    crm = CRMDatabase()</p>
+
+<p>base = crm.query(
+        """SELECT campaign_label, lyreco_118_id, company, country_code
+             FROM prospect_firmographic_features WHERE country_code = %s""",
+        (args.country,))</p>
+
+<p>fit = {(r["campaign_label"], r["lyreco_118_id"]): r for r in crm.query(
+        """SELECT campaign_label, lyreco_118_id, community_id, similarity
+             FROM prospect_community_match WHERE rank = 1""")}</p>
+
+<p>inter: dict = defaultdict(lambda: defaultdict(int))
+    for r in crm.query(
+        """SELECT campaign_label, lyreco_118_id, channel, COUNT(*) c
+             FROM prospect_interaction WHERE country_code = %s
+            GROUP BY 1,2,3""", (args.country,)):
+        inter[(r["campaign_label"], r["lyreco_118_id"])][r["channel"]] = r["c"]</p>
+
+<p>rows = []
+    for b in base:
+        key = (b["campaign_label"], b["lyreco_118_id"])
+        f = fit.get(key)
+        counts = dict(inter.get(key, {}))
+        score, conf = warmth_score(counts)
+        rows.append({
+            "campaign_label": b["campaign_label"], "lyreco_118_id": b["lyreco_118_id"],
+            "company": b["company"], "country_code": b["country_code"],
+            "fit_community": f["community_id"] if f else None,
+            "fit_tier": fit_tier(f["similarity"] if f else None),
+            "warmth_score": score, "engagement_tier": normalize_engagement_tier(score),
+            "best_channel": best_channel(counts),
+            "n_interactions": sum(counts.values()), "confidence": conf,
+            "contagion_flag": None,
+        })
+    with crm.connect() as conn, conn.cursor() as cur:
+        cur.execute("DELETE FROM prospect_profile WHERE country_code = %s", (args.country,))
+        psycopg2.extras.execute_batch(cur, """
+            INSERT INTO prospect_profile
+              (campaign_label, lyreco_118_id, company, country_code, fit_community,
+               fit_tier, warmth_score, engagement_tier, best_channel, n_interactions,
+               confidence, contagion_flag)
+            VALUES (%(campaign_label)s,%(lyreco_118_id)s,%(company)s,%(country_code)s,
+                    %(fit_community)s,%(fit_tier)s,%(warmth_score)s,%(engagement_tier)s,
+                    %(best_channel)s,%(n_interactions)s,%(confidence)s,%(contagion_flag)s)
+        """, rows, page_size=1000)
+    print(f"wrote {len(rows)} prospect profiles ({args.country})")
+    return 0</p>
+
+<p>if __name__ == "__main__":
+    sys.exit(main())
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Run the unit test, verify PASS (2 passed).</strong></li>
+</ul>
+
+<p>Run: <code>./venv/Scripts/python.exe -m pytest tests/test_compute_prospect_profile.py -v</code></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 6: Integration smoke (live PG) + commit</strong></li>
+</ul>
+
+<p>Run: <code>./venv/Scripts/python.exe -m workers.compute_prospect_profile --country GB</code>
+Expected: <code>wrote <N> prospect profiles (GB)</code> with N ≈ 25,762 (the prospect base count). Then verify:
+<code>docker exec -e PGPASSWORD=lc_2026 lc-postgres psql -U leadcontagion -d leadcontagion -c "SELECT fit_tier, engagement_tier, COUNT(*) FROM prospect_profile GROUP BY 1,2 ORDER BY 1,2;"</code>
+Expected: a small grid of counts (the 9 quadrant cells, some possibly empty).</p>
+
+<p><code></code>`bash
+git add database/init_postgres_prospect_profile.sql workers/compute_prospect_profile.py tests/test_compute_prospect_profile.py
+git commit -m "feat: prospect_profile scorer (fit + coverage-aware warmth + best channel)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-3-prospects-tab-fit-engagement-quadrant-panel">Task 3: Prospects tab — Fit × Engagement quadrant panel</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>dashboard/app.py</code> (add route <code>/panel/prospect-quadrant</code>)</li>
+  <li>Create: <code>dashboard/templates/_prospect_quadrant.html</code></li>
+  <li>Modify: <code>dashboard/templates/home.html</code> (new "Prospects" tab + nav)</li>
+  <li>Test: HTTP smoke (manual command in Step 5)</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Add the route</strong> — insert near the other <code>/panel/...</code> routes in <code>dashboard/app.py</code>:</li>
+</ul>
+
+<p><code></code>`python
+@app.get("/panel/prospect-quadrant", response_class=HTMLResponse)
+def prospect_quadrant_panel(request: Request, country: str = "GB") -> HTMLResponse:
+    """Fit x Engagement quadrant counts from prospect_profile."""
+    country = country.upper() if country.upper() in ("FR", "GB") else "GB"
+    rows = crm.query(
+        """SELECT fit_tier, engagement_tier, COUNT(*) n,
+                  ROUND(AVG(warmth_score)::numeric, 3) avg_warmth
+             FROM prospect_profile WHERE country_code = %s
+            GROUP BY fit_tier, engagement_tier""", (country,))
+    grid = {(r["fit_tier"], r["engagement_tier"]): r for r in rows}
+    total = sum(r["n"] for r in rows)
+    return templates.TemplateResponse(request, "_prospect_quadrant.html",
+        {"country": country, "grid": grid, "total": total})
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Create the template</strong> <code>dashboard/templates/_prospect_quadrant.html</code>:</li>
+</ul>
+
+<p><code></code>`html
+<style>
+  .pq-grid { display:grid; grid-template-columns:auto repeat(3,1fr); gap:4px; max-width:680px; }
+  .pq-grid .hd { color:#889; font-size:0.72rem; text-align:center; align-self:center; }
+  .pq-cell { background:#15151f; border:1px solid #23232f; border-radius:5px; padding:0.6rem; text-align:center; }
+  .pq-cell .n { font-size:1.3rem; font-weight:600; color:#cde; }
+  .pq-cell .w { font-size:0.68rem; color:#778; }
+  .pq-cell.act { border-color:#3a8a5a; }      /<em> high-fit + hot = act now </em>/
+  .pq-bar { color:#889; font-size:0.74rem; margin-bottom:0.6rem; }
+</style>
+<div class="pq-bar">{{ '{:,}'.format(total) }} {{ country }} prospects · Fit (rows) × Engagement (cols)</div>
+<div class="pq-grid">
+  <div class="hd"></div><div class="hd">cold</div><div class="hd">warm</div><div class="hd">hot</div>
+  {% for ft in ['high','mid','low'] %}
+  <div class="hd">{{ ft }} fit</div>
+  {% for et in ['cold','warm','hot'] %}
+    {% set c = grid.get((ft,et)) %}
+    <div class="pq-cell {% if ft=='high' and et=='hot' %}act{% endif %}">
+      <div class="n">{{ '{:,}'.format(c.n) if c else 0 }}</div>
+      <div class="w">{% if c %}avg {{ c.avg_warmth }}{% else %}—{% endif %}</div>
+    </div>
+  {% endfor %}
+  {% endfor %}
+</div>
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Add the Prospects tab</strong> in <code>dashboard/templates/home.html</code>. Add a tab button alongside the others (<code><div class="tab-btn" data-tab="prospects" ...>Prospects</div></code>) and a tab page section:</li>
+</ul>
+
+<p><code></code>`html
+<section class="tab-page" data-tab="prospects">
+    <div class="panel full-width" id="prospect-quadrant">
+        <h2>Prospect Quadrant &mdash; Fit × Engagement
+            <button class="refresh" hx-get="/panel/prospect-quadrant" hx-target="#panel-prospect-quadrant">&#x21bb;</button>
+        </h2>
+        <div id="panel-prospect-quadrant" data-panel="prospect-quadrant"></div>
+    </div>
+</section>
+<code></code>`</p>
+
+<p>(Match the exact tab-button markup of the sibling tabs — copy one and change <code>data-tab</code>/label.)</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Restart the dashboard service</strong></li>
+</ul>
+
+<p>Run: <code>nssm restart LeadContagionDashboard</code></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: HTTP smoke + commit</strong></li>
+</ul>
+
+<p>Run (PowerShell): build Basic-auth header for <code>lyreco:ryu4dPIvg_-WGYz8</code>, GET <code>http://127.0.0.1:8001/panel/prospect-quadrant?country=GB</code>.
+Expected: HTTP 200, HTML containing the 3×3 grid with non-zero total.</p>
+
+<p><code></code>`bash
+git add dashboard/app.py dashboard/templates/_prospect_quadrant.html dashboard/templates/home.html
+git commit -m "feat: Prospects tab + Fit x Engagement quadrant panel"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-4-prospects-tab-ranked-list-offer-card-panel">Task 4: Prospects tab — ranked list / offer card panel</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>dashboard/app.py</code> (add route <code>/panel/prospect-list</code>)</li>
+  <li>Create: <code>dashboard/templates/_prospect_list.html</code></li>
+  <li>Modify: <code>dashboard/templates/home.html</code> (add the list panel to the Prospects tab)</li>
+  <li>Test: HTTP smoke (Step 5)</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Add the route</strong> in <code>dashboard/app.py</code>:</li>
+</ul>
+
+<p><code></code>`python
+@app.get("/panel/prospect-list", response_class=HTMLResponse)
+def prospect_list_panel(request: Request, country: str = "GB",
+                        fit: str = "high", eng: str = "hot", limit: int = 50) -> HTMLResponse:
+    """Ranked prospects in a chosen Fit×Engagement cell, with the inherited offer."""
+    country = country.upper() if country.upper() in ("FR", "GB") else "GB"
+    prospects = crm.query(
+        """SELECT campaign_label, lyreco_118_id, company, fit_community,
+                  warmth_score, best_channel, n_interactions, confidence
+             FROM prospect_profile
+            WHERE country_code=%s AND fit_tier=%s AND engagement_tier=%s
+            ORDER BY warmth_score DESC NULLS LAST LIMIT %s""",
+        (country, fit, eng, limit))
+    # the inherited 5-SKU offer for the communities in view
+    cids = sorted({p["fit_community"] for p in prospects if p["fit_community"] is not None})
+    offers: dict = {}
+    if cids:
+        for r in crm.query(
+            """SELECT community_id, product_description, family_rank, product_rank
+                 FROM community_product_offer
+                WHERE source_country=%s AND community_id = ANY(%s)
+                ORDER BY community_id, family_rank, product_rank""", (country, cids)):
+            offers.setdefault(r["community_id"], []).append(r["product_description"])
+    return templates.TemplateResponse(request, "_prospect_list.html",
+        {"country": country, "fit": fit, "eng": eng, "prospects": prospects, "offers": offers})
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Create the template</strong> <code>dashboard/templates/_prospect_list.html</code>:</li>
+</ul>
+
+<p><code></code>`html
+<style>
+  .pl-tbl { width:100%; border-collapse:collapse; font-size:0.82rem; }
+  .pl-tbl th { text-align:left; color:#889; padding:0.3rem 0.5rem; border-bottom:1px solid #2a2a38; }
+  .pl-tbl td { padding:0.3rem 0.5rem; border-bottom:1px solid #1a1a28; color:#d8d8de; vertical-align:top; }
+  .pl-off { color:#9d9; font-size:0.72rem; }
+  .muted { color:#667; }
+</style>
+<div class="muted" style="font-size:0.76rem;margin-bottom:0.5rem;">
+  {{ country }} · fit={{ fit }} · engagement={{ eng }} · {{ prospects|length }} shown (top by warmth)
+</div>
+<table class="pl-tbl">
+  <thead><tr><th>Company</th><th>Warmth</th><th>Best channel</th><th>Touches</th><th>Inherited offer (top SKUs)</th></tr></thead>
+  <tbody>
+  {% for p in prospects %}
+    <tr>
+      <td>{{ p.company or '—' }}</td>
+      <td>{{ '%.2f'|format(p.warmth_score or 0) }}</td>
+      <td>{{ p.best_channel or '—' }}</td>
+      <td>{{ p.n_interactions }}</td>
+      <td class="pl-off">{{ (offers.get(p.fit_community) or [])[:5]|join(' · ') or '—' }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="5" class="muted">No prospects in this cell.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Add the list panel</strong> to the Prospects tab section in <code>home.html</code> (below the quadrant panel):</li>
+</ul>
+
+<p><code></code>`html
+    <div class="panel full-width" id="prospect-list">
+        <h2>Prospect List &mdash; ranked by warmth, with inherited offer
+            <button class="refresh" hx-get="/panel/prospect-list" hx-target="#panel-prospect-list">&#x21bb;</button>
+        </h2>
+        <div id="panel-prospect-list" data-panel="prospect-list"></div>
+    </div>
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Restart the dashboard service</strong></li>
+</ul>
+
+<p>Run: <code>nssm restart LeadContagionDashboard</code></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: HTTP smoke + commit</strong></li>
+</ul>
+
+<p>Run (PowerShell): GET <code>http://127.0.0.1:8001/panel/prospect-list?country=GB&fit=high&eng=hot</code> with the Basic-auth header.
+Expected: HTTP 200 (a table, or the "No prospects in this cell" row if that cell is empty — both are valid).</p>
+
+<p><code></code>`bash
+git add dashboard/app.py dashboard/templates/_prospect_list.html dashboard/templates/home.html
+git commit -m "feat: Prospect list/offer panel on Prospects tab"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="self-review">Self-Review</h2>
+
+<ul class="article-list">
+  <li><strong>Spec coverage:</strong> profile scorer (spec component 6) ✓ Tasks 1–2 (coverage-aware warmth ✓ Task 1); Prospect tab (component 7) ✓ Tasks 3–4 (quadrant + list/card). Contagion flag is a nullable column, populated later (Layer 4) — out of scope by design.</li>
+  <li><strong>Placeholders:</strong> none — every step has runnable code + exact command. Dashboard HTTP smokes accept an empty cell as valid (data-dependent), which is correct, not a placeholder.</li>
+  <li><strong>Type consistency:</strong> <code>warmth_score(channel_counts) -> (score, confidence)</code> used identically in Task 2; <code>normalize_engagement_tier</code> (plan 1) maps the same [0,1] score the scorer emits; <code>fit_tier</code>/<code>best_channel</code> defined in Task 2 and not re-defined elsewhere; <code>fit_community</code> (INTEGER) joins <code>community_product_offer.community_id</code>.</li>
+  <li><strong>Pattern adherence:</strong> routes follow the existing <code>@app.get("/panel/X")</code> + <code>templates.TemplateResponse(request, "_X.html", {...})</code> + <code>data-panel</code> auto-load + refresh-button convention used by sibling panels; <code>nssm restart LeadContagionDashboard</code> per CLAUDE.md.</li>
+  <li><strong>Coverage-aware:</strong> email-only prospects (today's only populated channel) get confidence = 1/4 and a warmth driven purely by email intensity — honest, not falsely cold.</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#task-1-coverage-aware-warmth-core-warmth-py">Task 1: Coverage-aware warmth (`core/warmth.py`)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-2-prospect-profile-table-scorer">Task 2: `prospect_profile` table + scorer</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-3-prospects-tab-fit-engagement-quadrant-panel">Task 3: Prospects tab — Fit × Engagement quadrant panel</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-4-prospects-tab-ranked-list-offer-card-panel">Task 4: Prospects tab — ranked list / offer card panel</a></li>
+<li><a href="#self-review">Self-Review</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>"Chat with Claude" Floating Widget — Design Spec | Technical Whitepaper</title>
+  <meta name="description" content=""Chat with Claude" Floating Widget — Design Spec — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-05-26-chat-widget-design.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">"Chat with Claude" Floating Widget — Design Spec</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># "Chat with Claude" Floating Widget — Design Spec</p>
+
+<p>_2026-05-26 · workstation-lc · status: draft for review_</p>
+
+<h2 id="problem">Problem</h2>
+
+<p>The dashboard's Ask-Claude is a form/template panel on one tab. We want a
+<strong>floating "chat with us"-style widget</strong> — a contrasted launcher (white circle +
+chat-bubble glyph) fixed lower-right, opening a conversational popover — so
+<code>lucas</code>, <code>darshan</code>, and <code>lyreco</code> (Pierre) can just <em>chat</em> with their service-Claude
+to produce deliverables, from <strong>any tab</strong> (it follows them around). It must keep a
+<strong>persistent, long-lived context per user</strong> that survives new threads / session
+expiry / reloads, auto-<strong>compacting at ~1M tokens</strong> the way Claude's own context does.</p>
+
+<h2 id="goals-scope">Goals / scope</h2>
+<ul class="article-list">
+  <li>Global, persistent widget (lives outside the tab-pages; visible on every tab) for the 3 dashboard users.</li>
+  <li>Conversational multi-turn chat over the <strong>existing</strong> <code>claude -p</code> runner.</li>
+  <li><strong>Persistent per-user context</strong> with <strong>~1M-token compaction → carry-over</strong>.</li>
+  <li>v1 deliverable handling = <strong>read + copy</strong> (markdown/tables rendered, per-answer copy). No save-to-Reports/export, uploads, or voice in v1.</li>
+  <li>Bypass per decision: <code>lucas</code>/<code>lyreco</code> run immediately; <code>darshan</code> keeps the extraction-approval gate.</li>
+  <li><strong>Superadmin/Lucas Chat Oversight</strong> (calibration): a panel gated to <strong>{lucas, superadmin}</strong> (NOT darshan) to view + <strong>edit/clear</strong> any user's carry-over memory and see their recent chat turns. Every oversight edit/clear is <strong>audit-logged</strong> (who changed whose memory). Darshan is chat-only (no oversight).</li>
+</ul>
+
+<h2 id="architecture">Architecture</h2>
+
+<p><code></code>`
+Browser (any tab)
+  ┌ launcher (white ⬤ + bubble, fixed lower-right) ──toggles── popover
+  │   popover: thread (user/Claude bubbles, markdown, copy) + input
+  │   holds current thread token + cumulative tokens in localStorage
+  └────────────────────────── POST /api/chat (JSON) ───────────────────────┐
+                                                                            ▼
+  dashboard/app.py  POST /api/chat {message, continue_token?, carry?}
+    • _ac_user(request)  → attribute + bypass decision
+    • extraction gate: lucas/lyreco bypass; darshan → DM-approval (existing flow)
+    • prompt = (carry-over prefix if reseeding) + message
+    • _ac_run_claude_with_fallback(prompt, resume_session_id, parent_token, timeout=floor)
+    • accumulate usage tokens on the thread; if >= COMPACT_AT → flag compaction
+    • returns {token, answer_markdown, session_id, status, cumulative_tokens, compacted}
+                                                                            │
+  persistent context (server):                                             │
+    • per-user carry-over  logs/chat_memory/<user>.md   ◄── compaction writes
+    • per-thread token tally in the ask-claude state file (reuse _ac_save)
+<code></code>`</p>
+
+<h3 id="behaviour">Behaviour</h3>
+<ul class="article-list">
+  <li><strong>Multi-turn:</strong> widget sends the prior turn's <code>token</code> as <code>continue_token</code> → <code>_ac_run_claude_with_fallback</code> resumes that Claude session (existing thread-depth + resume-fallback logic).</li>
+  <li><strong>Persistent memory via compaction:</strong> the endpoint accumulates the thread's token usage (from the <code>claude -p</code> result JSON). When cumulative ≥ <code>COMPACT_AT</code> (default <strong>850_000</strong>, safely under 1M; env-tunable), it runs a <strong>compaction turn</strong> — asks Claude to condense the conversation into a compact carry-over, writes it to <code>logs/chat_memory/<user>.md</code>, and the <strong>next</strong> turn starts a <em>fresh</em> thread seeded with that carry-over (no <code>continue_token</code>). Cumulative resets.</li>
+  <li><strong>Durability:</strong> the carry-over also reseeds a fresh thread when <code>--resume</code> fails (session aged out) or the user returns after a reload — so context persists indefinitely; only raw transcript is shed at the 1M mark.</li>
+  <li><strong>Bypass:</strong> reuse <code>_AC_EXTRACTION</code> detection. <code>user in {lucas, lyreco}</code> → run now (audit the bypass). <code>darshan</code> + extraction-shaped → existing approval gate (DM commander, <code>_ac_send_dm</code>), returned to the widget as <code>status="pending_approval"</code>.</li>
+  <li><strong>Timeout:</strong> the existing per-user floor already gives Lucas 1200s; chat uses the same <code>effective_timeout</code> path.</li>
+</ul>
+
+<h2 id="components-each-separable">Components (each separable)</h2>
+1. <strong><code>POST /api/chat</code></strong> (<code>dashboard/app.py</code>) — JSON entry point wrapping <code>_ac_run_claude_with_fallback</code>; bypass/gate decision; token accumulation; returns JSON. No HTML.
+2. <strong><code>core/chat_memory.py</code></strong> (pure-ish) — <code>carry_path(user)</code>, <code>read_carry(user)</code>, <code>write_carry(user, text)</code>, <code>should_compact(cumulative, threshold)</code>. Unit-testable; file I/O isolated to read/write.
+3. <strong>Compaction step</strong> — a function that, given a thread token, asks the runner to summarize → <code>write_carry</code> → returns the carry text. Triggered by the endpoint when <code>should_compact</code>.
+4. <strong>Widget frontend</strong> — markup in <code>dashboard/templates/home.html</code> (launcher + popover, placed once outside the tab <code><section></code>s, <code>position:fixed</code>), a <code><style></code> block, and JS (toggle, send, render bubbles + markdown, copy button, localStorage thread token). Matches the dashboard's dark theme + existing htmx/vanilla-JS conventions.
+
+<h2 id="data-flow-a-turn">Data flow (a turn)</h2>
+1. Widget POSTs <code>{message, continue_token}</code> (+ a hint if it should reseed).
+2. Endpoint: user → bypass/gate; assemble prompt (carry prefix only when reseeding); run; accumulate tokens; if over threshold, compact (write carry) and mark <code>compacted</code>.
+3. Returns <code>{token, answer_markdown, session_id, cumulative_tokens, compacted, status}</code>.
+4. Widget renders the answer bubble, stores the new <code>token</code>, and on <code>compacted=true</code> quietly drops <code>continue_token</code> next turn (fresh thread, carry-seeded server-side).
+
+<h2 id="error-handling">Error handling</h2>
+<ul class="article-list">
+  <li>Run timeout → <code>{status:"timeout"}</code> → widget shows a retry affordance.</li>
+  <li><code>--resume</code> session lost → runner already falls back to a fresh thread; here we additionally seed it with the carry-over.</li>
+  <li>Gate (darshan) → <code>{status:"pending_approval"}</code> → widget shows "sent for approval."</li>
+  <li>Compaction failure → keep the existing carry-over, don't reset the tally (degrade safely; log).</li>
+</ul>
+
+<h2 id="testing">Testing</h2>
+<ul class="article-list">
+  <li><code>core/chat_memory.py</code> — pure unit tests (<code>should_compact</code> threshold, carry read/write round-trip in a tmp dir).</li>
+  <li>bypass decision — unit test the user→(run|gate) logic.</li>
+  <li>endpoint — integration smoke: one real <code>/api/chat</code> turn returns an answer + token; a follow-up with <code>continue_token</code> threads.</li>
+  <li>widget — manual HTTP/DOM smoke (launcher renders, posts, bubble appears).</li>
+</ul>
+
+<h2 id="phasing-2-plans">Phasing (2 plans)</h2>
+<ul class="article-list">
+  <li><strong>Plan A — backend + memory:</strong> <code>/api/chat</code> + <code>core/chat_memory.py</code> + compaction + bypass/gate + token accounting. The engine; fully testable headless.</li>
+  <li><strong>Plan B — the widget UI:</strong> launcher + popover + thread + copy + localStorage threading, wired to <code>/api/chat</code>; dashboard restart + HTTP/DOM smoke.</li>
+</ul>
+
+<h2 id="open-items">Open items</h2>
+<ul class="article-list">
+  <li><code>COMPACT_AT</code> exact value (default 850k; tune after observing real usage).</li>
+  <li>Carry-over store: flat per-user <code>.md</code> (chosen) vs a PG table — <code>.md</code> keeps it simple + inspectable; revisit if multi-instance.</li>
+  <li>Per-user carry for darshan/lyreco too (yes — one file each; same mechanism).</li>
+  <li>Later (not v1): save-to-Reports, export, "pin" memory, file upload.</li>
+</ul>
+
+<h2 id="credits-reuse">Credits / reuse</h2>
+Reuses the Ask-Claude runner (<code>_ac_run_claude_with_fallback</code>), session-resume threading, extraction gate + <code>_DASH_BYPASS_USERS</code>, and Lucas's 1200s timeout floor (all shipped this session). Compaction mirrors Claude's own auto-compaction model (Pierre's framing).
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#behaviour">Behaviour</a></li>
+<li><a href="#problem">Problem</a></li>
+<li><a href="#goals-scope">Goals / scope</a></li>
+<li><a href="#architecture">Architecture</a></li>
+<li><a href="#components-each-separable">Components (each separable)</a></li>
+<li><a href="#data-flow-a-turn">Data flow (a turn)</a></li>
+<li><a href="#error-handling">Error handling</a></li>
+<li><a href="#testing">Testing</a></li>
+<li><a href="#phasing-2-plans">Phasing (2 plans)</a></li>
+<li><a href="#open-items">Open items</a></li>
+<li><a href="#credits-reuse">Credits / reuse</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

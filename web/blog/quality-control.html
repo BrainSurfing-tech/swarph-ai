@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Full DAG Quality Control | Technical Whitepaper</title>
+  <meta name="description" content="Full DAG Quality Control — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/quality-control.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Full DAG Quality Control</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Full DAG Quality Control</p>
+
+<p>Static validation checks:</p>
+
+<ul class="article-list">
+  <li>no duplicate node ids;</li>
+  <li>no duplicate directed pairs;</li>
+  <li>no missing source, target, CPT, or mask references;</li>
+  <li>cycle-free dependency graph;</li>
+  <li>valid topological order;</li>
+  <li>normalized node priors, pairwise CPD rows, and full-CPT rows;</li>
+  <li>source-proxy nodes marked <code>emit:false</code>.</li>
+</ul>
+
+<p>Sampling audits track marginal drift for high-leverage nodes such as:</p>
+
+<p><code></code>`text
+region
+age_bracket
+urbanicity
+socioeconomic_band
+highest_education
+tech_savviness
+primary_language
+demo_ethnicity_broad
+demo_religion_affiliation
+demo_employment_status
+demo_children_count
+<code></code>`</p>
+
+<p>Consistency audits check high-confidence contradictions, including:</p>
+
+<p><code></code>`text
+child/parent status mismatch
+life_stage / children mismatch
+minor adult-finance behavior
+minor adult-work experience
+primary_language / lang_* mismatch
+unaffiliated + devout religion mismatch
+blind + current-driver mismatch
+low-tech + power-user developer tool mismatch
+<code></code>`</p>
+
+<p>The release caveat still applies: the current graph does not add `Not
+applicable<code> to </code>domain<code> or </code>role_function`, so non-working personas can still
+carry concrete background or role labels.</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#">Overview</a></li>
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,1182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>zeroCPR Complement Guardrails Implementation Plan | Technical Whitepaper</title>
+  <meta name="description" content="zeroCPR Complement Guardrails Implementation Plan — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-07-03-zerocpr-guardrails.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">zeroCPR Complement Guardrails Implementation Plan</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 25 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># zeroCPR Complement Guardrails Implementation Plan</p>
+
+<p>> <strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+
+<p><strong>Goal:</strong> Add generation-time guardrails to the zeroCPR complement fallback so it stops proposing hub-collapsed, cross-section, supplier-conflicting, and cross-brand-incompatible complements, writing a non-destructive <code>signal_type='zerocpr_v2'</code>.</p>
+
+<p><strong>Architecture:</strong> New pure-predicate module <code>core/complement_gates.py</code> (section / material / supplier gates + lexicons) and a composition module <code>core/complement_guardrails.py</code> (<code>build_guarded_blocks</code>) that runs the gates then a hub-aware SKU fill. Reuse existing <code>core/complement_families.py</code> machinery (<code>brand_compatible</code>, <code>is_durable_anchor</code>, <code>per_family_cap</code>, <code>assemble_anchor_blocks</code>); extend it with <code>_DURABLE_RX</code> (staplers/calculators) and a new cross-anchor <code>hub_adjusted_rank</code>. A new runner <code>scripts/refresh_complements_guardrails.py</code> orchestrates I/O, re-calls qwen on pruned families with a section-filtered vocabulary, and persists <code>zerocpr_v2</code>.</p>
+
+<p><strong>Tech Stack:</strong> Python 3.12 (venv), pytest, psycopg2 (Postgres :5433), Ollama/qwen on gpu-wsl (backend='ollama'). Pure functions carry no I/O.</p>
+
+<h2 id="global-constraints">Global Constraints</h2>
+
+<ul class="article-list">
+  <li>Pure functions in <code>core/</code> — NO DB or network I/O; all I/O lives in <code>scripts/</code>.</li>
+  <li>Never mutate curated or <code>zerocpr</code> rows: v2 writes <code>signal_type='zerocpr_v2'</code>, <code>source_file='zerocpr-v2-2026-07-03'</code>, DELETE-by-(source_country, source_file, anchor)+INSERT only.</li>
+  <li>COUNTRY='FR' for this run. All product refs are 18-char zero-padded <code>product_reference</code>.</li>
+  <li>Gates treat missing data (unknown brand/section/material) as <strong>pass</strong> — never block on absence (matches <code>brand_compatible</code>).</li>
+  <li>LLM re-calls use qwen only (<code>backend='ollama'</code>, host 'gpu-wsl', concurrency ≤5) — ZERO Claude quota.</li>
+  <li>Run tests with <code>venv\Scripts\python.exe -m pytest</code>. Commit after each task.</li>
+  <li>Hub-IDF penalty defaults (<code>penalty_k=1.0</code>, <code>cap=200</code>, <code>min_sales=1</code>) are the working defaults pending gridiron's cross-check (mesh #3908); they are parameters, tune later without code change.</li>
+</ul>
+
+<p>---</p>
+
+<h3 id="task-1-section-coherence-gate">Task 1: Section-coherence gate</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>core/complement_gates.py</code></li>
+  <li>Test: <code>tests/test_complement_gates.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Produces: <code>SECTION_ADJACENCY: dict[str, set[str]]</code>; <code>section_coherent(anchor_section: str, family_section: str) -> bool</code> (True if same section, or the pair is adjacent, or either is empty/unknown).</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_complement_gates.py
+from core.complement_gates import section_coherent</p>
+
+<p>def test_section_coherent_same_adjacent_and_unknown():
+    assert section_coherent("003", "003") is True          # same section
+    assert section_coherent("003", "002") is True           # EPI <-> Hygiene (adjacent)
+    assert section_coherent("002", "003") is True           # symmetric
+    assert section_coherent("004", "006") is True           # printer cluster
+    assert section_coherent("005", "004") is True           # printer cluster mutual
+    assert section_coherent("003", "001") is False          # EPI -> Restauration: reject
+    assert section_coherent("003", "010") is False          # EPI -> Ecriture: reject
+    # unknown/empty never blocks (missing data -> pass)
+    assert section_coherent("", "010") is True
+    assert section_coherent("003", "") is True
+    assert section_coherent(None, "010") is True
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_gates.py::test_section_coherent_same_adjacent_and_unknown -v</code>
+Expected: FAIL (ModuleNotFoundError: core.complement_gates)</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# core/complement_gates.py
+"""Guardrails compléments zeroCPR v2 — prédicats purs (aucun I/O).</p>
+
+<p>Complète core.complement_families : cohérence de section, compatibilité matière
+(chaussures cuir vs textile), protection fournisseur (pas de marque propre Lyréco
+sur un durable concurrent), et filtrage de vocabulaire par section pour le re-call
+LLM. Décision : docs/superpowers/specs/2026-07-03-zerocpr-guardrails-design.md
+"""
+from __future__ import annotations</p>
+
+<p>import re</p>
+
+<p># Adjacence de sections autorisée (symétrique). Codes = SHARED taxonomy FR.
+# Seed initial (affinable) : EPI<->Hygiène, cluster impression (info/conso/machines),
+# Restauration<->Hygiène, Emballage<->Fournitures, Cahiers<->Écriture<->Fournitures.
+_ADJ_SEED = [
+    ("003", "002"),
+    ("001", "002"),
+    ("004", "005"), ("004", "006"), ("005", "006"),
+    ("011", "016"),
+    ("009", "010"), ("009", "011"), ("010", "011"),
+]
+SECTION_ADJACENCY: dict[str, set[str]] = {}
+for _a, _b in _ADJ_SEED:
+    SECTION_ADJACENCY.setdefault(_a, set()).add(_b)
+    SECTION_ADJACENCY.setdefault(_b, set()).add(_a)</p>
+
+<p>def section_coherent(anchor_section, family_section) -> bool:
+    """True si la famille complément est dans la même section que l'ancre, ou une
+    section adjacente autorisée. Une section inconnue/vide ne bloque jamais (on ne
+    sait pas -> on garde), comme brand_compatible. Pur."""
+    a = (anchor_section or "").strip()
+    f = (family_section or "").strip()
+    if not a or not f:
+        return True
+    if a == f:
+        return True
+    return f in SECTION_ADJACENCY.get(a, set())
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_gates.py::test_section_coherent_same_adjacent_and_unknown -v</code>
+Expected: PASS</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/complement_gates.py tests/test_complement_gates.py
+git commit -m "feat(gates): section-coherence gate + adjacency allow-list"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-2-material-tagger-material-compatibility">Task 2: Material tagger + material compatibility</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>core/complement_gates.py</code></li>
+  <li>Test: <code>tests/test_complement_gates.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: nothing from Task 1.</li>
+  <li>Produces: <code>tag_materials(text: str) -> set[str]</code>; <code>material_compatible(anchor_text: str, sku_text: str) -> bool</code> (only meaningful for footwear-care/gloves; caller decides when to apply). Blocks only on a genuine leather-vs-textile clash; unknown → pass.</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_complement_gates.py  (append)
+from core.complement_gates import tag_materials, material_compatible</p>
+
+<p>def test_tag_materials_extracts_known_materials():
+    assert tag_materials("SPRAY IMPERMEABILISANT CUIR ET DAIM") == {"cuir"}
+    assert tag_materials("LOT CHAUSSETTES COTON TEXTILE") == {"textile"}
+    assert tag_materials("GANTS NITRILE JETABLES BLEU") == {"nitrile"}
+    assert tag_materials("BOITE CARTON") == set()          # nothing relevant
+    assert tag_materials("") == set()</p>
+
+<p>def test_material_compatible_blocks_leather_vs_textile_only():
+    # leather shoe anchor + textile-only care product -> clash -> block
+    assert material_compatible("CHAUSSURE SECURITE CUIR S3", "DEODORANT TEXTILE COTON") is False
+    # leather anchor + leather care -> ok
+    assert material_compatible("CHAUSSURE SECURITE CUIR S3", "SPRAY ENTRETIEN CUIR") is True
+    # anchor has material, complement has none -> unknown -> pass
+    assert material_compatible("CHAUSSURE SECURITE CUIR S3", "SPRAY DESODORISANT") is True
+    # neither has material -> pass
+    assert material_compatible("GANT", "LINGETTE") is True
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_gates.py -k material -v</code>
+Expected: FAIL (ImportError: cannot import name 'tag_materials')</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# core/complement_gates.py  (append)</p>
+
+<p># Lexique matière v1 (chaussures/gants). tag -> mots-clés (FR/EN). On mappe les
+# synonymes vers un tag canonique exclusif : cuir vs textile s'excluent.
+_MATERIAL_LEXICON: dict[str, list[str]] = {
+    "cuir": ["cuir", "leather", "daim", "nubuck"],
+    "textile": ["textile", "coton", "cotton", "tissu", "toile", "mesh", "synthetique"],
+    "nitrile": ["nitrile"],
+    "latex": ["latex"],
+    "vinyle": ["vinyle", "vinyl"],
+}
+# Groupe exclusif : au sein de {cuir, textile}, deux tags différents = incompatibilité
+# d'entretien (on n'imperméabilise pas du coton avec un soin cuir, et inversement).
+_MATERIAL_EXCLUSIVE = {"cuir", "textile"}</p>
+
+<p>def tag_materials(text: str) -> set[str]:
+    """Ensemble de tags matière canoniques trouvés dans le texte libre. Pur."""
+    t = (text or "").lower()
+    tags = set()
+    for tag, kws in _MATERIAL_LEXICON.items():
+        if any(re.search(r"\b" + re.escape(kw), t) for kw in kws):
+            tags.add(tag)
+    return tags</p>
+
+<p>def material_compatible(anchor_text: str, sku_text: str) -> bool:
+    """False seulement si l'ancre et le complément portent des matières EXCLUSIVES
+    différentes (cuir vs textile) sans recouvrement. Matière absente d'un côté =
+    inconnu -> on ne bloque pas. À n'appeler que pour les familles sensibles
+    (chaussures/gants). Pur."""
+    a = tag_materials(anchor_text) & _MATERIAL_EXCLUSIVE
+    s = tag_materials(sku_text) & _MATERIAL_EXCLUSIVE
+    if a and s and a.isdisjoint(s):
+        return False
+    return True
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_gates.py -k material -v</code>
+Expected: PASS</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/complement_gates.py tests/test_complement_gates.py
+git commit -m "feat(gates): material tagger + leather-vs-textile compatibility"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-3-durable-detector-extension-supplier-protection-gate">Task 3: Durable-detector extension + supplier-protection gate</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>core/complement_families.py:59-67</code> (the <code>_DURABLE_RX</code> regex)</li>
+  <li>Modify: <code>core/complement_gates.py</code></li>
+  <li>Test: <code>tests/test_complement_families.py</code>, <code>tests/test_complement_gates.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: <code>is_durable_anchor</code> (from <code>complement_families</code>).</li>
+  <li>Produces: <code>is_own_brand(rec: dict) -> bool</code>; <code>resolve_fit_critical_families(taxonomy_rows: list[dict], patterns: list[str] = FIT_CRITICAL_LABEL_PATTERNS) -> set[str]</code>; <code>FIT_CRITICAL_LABEL_PATTERNS: list[str]</code>; <code>supplier_protected(anchor: dict, sku: dict, fit_critical_family_codes: set[str]) -> bool</code> (True = allowed, False = block the own-brand-on-competitor-durable case).</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_complement_families.py  (append)
+from core.complement_families import is_durable_anchor as _ida</p>
+
+<p>def test_durable_rx_covers_staplers_and_calculators():
+    assert _ida("RAPID CLASSIC 66 STAPLER") is True
+    assert _ida("AGRAFEUSE LEITZ 5502") is True
+    assert _ida("CASIO HR-8RCE CALCULATRICE IMPRIMANTE") is True
+    assert _ida("CALCULATOR CITIZEN SDC-888") is True
+    # a terminal consumable stays non-durable
+    assert _ida("PK5000 AGRAFES 24/6") is False
+<code></code>`</p>
+
+<p><code></code>`python
+# tests/test_complement_gates.py  (append)
+from core.complement_gates import (
+    is_own_brand, resolve_fit_critical_families, supplier_protected,
+    FIT_CRITICAL_LABEL_PATTERNS,
+)</p>
+
+<p>def test_resolve_fit_critical_families_matches_labels():
+    rows = [
+        {"family_code": "111", "family": "AGRAFES"},
+        {"family_code": "222", "family": "ENCRES ET TONERS"},
+        {"family_code": "333", "family": "STYLOS BILLE"},
+        {"family_code": "444", "family": "RUBANS ET ETIQUETTES"},
+    ]
+    got = resolve_fit_critical_families(rows)
+    assert got == {"111", "222", "444"}          # staples, ink/toner, tape/labels</p>
+
+<p>def test_supplier_protected_blocks_ownbrand_on_competitor_durable():
+    fit = {"111"}                                 # agrafes = fit-critical
+    stapler = {"description": "RAPID CLASSIC 66 STAPLER", "brand": "RAPID",
+               "lyreco_brand": False}
+    lyreco_staples = {"reference": "s1", "description": "PK5000 LYRECO AGRAFES 24/6",
+                      "brand": "LYRECO", "lyreco_brand": True, "family_code": "111"}
+    rapid_staples = {"reference": "s2", "description": "PK5000 RAPID AGRAFES 24/6",
+                     "brand": "RAPID", "lyreco_brand": False, "family_code": "111"}
+    # own-brand staples on a competitor stapler in a fit-critical family -> BLOCK
+    assert supplier_protected(stapler, lyreco_staples, fit) is False
+    # supplier's own staples -> allowed
+    assert supplier_protected(stapler, rapid_staples, fit) is True
+    # non-fit-critical family -> never blocked
+    assert supplier_protected(stapler, {<em></em>lyreco_staples, "family_code": "999"}, fit) is True
+    # anchor already own-brand (no supplier to protect) -> allowed
+    own_stapler = {<em></em>stapler, "brand": "LYRECO", "lyreco_brand": True}
+    assert supplier_protected(own_stapler, lyreco_staples, fit) is True
+    # non-durable anchor -> gate does not apply
+    pen = {"description": "BIC CRISTAL PEN", "brand": "BIC", "lyreco_brand": False}
+    assert supplier_protected(pen, lyreco_staples, fit) is True
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run tests to verify they fail</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_families.py -k durable_rx tests/test_complement_gates.py -k "fit_critical or supplier" -v</code>
+Expected: FAIL (staplers not matched; ImportError on supplier_protected)</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p>In <code>core/complement_families.py</code>, extend <code>_DURABLE_RX</code> (add the three alternatives at the end of the pattern, before the closing quote on line 65-66):</p>
+
+<p><code></code>`python
+# core/complement_families.py  (_DURABLE_RX, add to the alternation)
+    r"|ASPIRATEUR|VACUUM|\bMANCHE\b|BALAI"
+    r"|AGRAFEUSE|STAPLER|CALCULATRICE|CALCULATOR",
+<code></code>`</p>
+
+<p>In <code>core/complement_gates.py</code>:</p>
+
+<p><code></code>`python
+# core/complement_gates.py  (append)</p>
+
+<p>FIT_CRITICAL_LABEL_PATTERNS = [
+    "agraf", "encre", "toner", "cartouche", "ruban", "etiquet",
+    "rouleau", "dosette", "capsule",
+]</p>
+
+<p>_OWN_BRAND_RX = re.compile(r"lyreco", re.IGNORECASE)</p>
+
+<p>def is_own_brand(rec: dict) -> bool:
+    """True si la réf est une marque propre Lyréco (flag lyreco_brand vrai, ou
+    marque contenant 'lyreco'). Pur."""
+    lb = rec.get("lyreco_brand")
+    if lb is True:
+        return True
+    if isinstance(lb, str) and lb.strip() and lb.strip().lower() not in ("n", "no", "false", "0"):
+        return True
+    return bool(_OWN_BRAND_RX.search((rec.get("brand") or "")))</p>
+
+<p>def resolve_fit_critical_families(taxonomy_rows, patterns=FIT_CRITICAL_LABEL_PATTERNS) -> set:
+    """Codes famille dont le libellé matche un motif 'consommable captif' (agrafes,
+    encres/toner, rubans/étiquettes, rouleaux, dosettes/capsules). Pur."""
+    pats = [p.lower() for p in patterns]
+    out = set()
+    for r in taxonomy_rows:
+        label = (r.get("family") or "").lower()
+        code = r.get("family_code")
+        if code and any(p in label for p in pats):
+            out.add(code)
+    return out</p>
+
+<p>def supplier_protected(anchor: dict, sku: dict, fit_critical_family_codes: set) -> bool:
+    """True = autorisé ; False = à BLOQUER. Bloque uniquement le cas politique : une
+    ancre DURABLE de marque CONCURRENTE (pas own-brand) reçoit un complément MARQUE
+    PROPRE Lyréco dans une famille consommable captive (agrafes pour agrafeuse, encre
+    pour imprimante...). Protège la relation fournisseur (ex. Rapid). Distinct de
+    brand_compatible (compat physique) : bloque même si compatible. Pur."""
+    from core.complement_families import is_durable_anchor
+    if not is_durable_anchor(anchor.get("description") or ""):
+        return True
+    anchor_is_competitor = (anchor.get("brand") or "").strip() and not is_own_brand(anchor)
+    if not anchor_is_competitor:
+        return True
+    if sku.get("family_code") not in fit_critical_family_codes:
+        return True
+    return not is_own_brand(sku)
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run tests to verify they pass</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_families.py -k durable_rx tests/test_complement_gates.py -k "fit_critical or supplier" -v</code>
+Expected: PASS</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/complement_families.py core/complement_gates.py tests/test_complement_families.py tests/test_complement_gates.py
+git commit -m "feat(gates): supplier-protection gate + durable detector covers staplers/calculators"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-4-cross-anchor-hub-idf-adjusted-ranking">Task 4: Cross-anchor hub-IDF adjusted ranking</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>core/complement_families.py</code> (add <code>hub_adjusted_rank</code> after <code>rank_family_skus</code>)</li>
+  <li>Test: <code>tests/test_complement_families.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: <code>_is_active</code>, <code>is_in_perimeter</code> (module-internal).</li>
+  <li>Produces: <code>hub_adjusted_rank(candidates: list[dict], top_n: int, attach_counts: dict[str, int], penalty_k: float = 1.0, cap: int | None = None, min_sales: int = 1, active_only: bool = True, perimeter_only: bool = True) -> list[dict]</code>. Score = <code>log1p(sales) - penalty_k*log1p(attach_counts.get(ref,0))</code>; SKUs at/over <code>cap</code> attachments are excluded; a per-SKU <code>min_sales</code> floor is applied; ties broken by reference asc; <code>status</code> label added like <code>rank_family_skus</code>.</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_complement_families.py  (append)
+from core.complement_families import hub_adjusted_rank</p>
+
+<p>def test_hub_adjusted_rank_demotes_hubs_and_enforces_cap():
+    cands = [
+        _sku("hub", 1000),      # top seller but already glued everywhere
+        _sku("mid", 300),       # decent, rarely used
+        _sku("low", 5),         # tail
+    ]
+    attach = {"hub": 5000, "mid": 2, "low": 0}
+    # strong penalty pushes the fresh 'mid' above the over-attached 'hub'
+    out = hub_adjusted_rank(cands, top_n=2, attach_counts=attach, penalty_k=1.0)
+    assert [s["reference"] for s in out] == ["mid", "hub"]
+    # hard cap excludes a SKU already at/over the cap entirely
+    capped = hub_adjusted_rank(cands, top_n=3, attach_counts=attach, penalty_k=1.0, cap=1000)
+    assert "hub" not in [s["reference"] for s in capped]
+    # min_sales floor drops the tail SKU
+    floored = hub_adjusted_rank(cands, top_n=5, attach_counts={}, min_sales=10)
+    assert [s["reference"] for s in floored] == ["hub", "mid"]
+    # no penalty, no cap == sales order (parity with rank_family_skus intent)
+    plain = hub_adjusted_rank(cands, top_n=3, attach_counts={}, penalty_k=0.0, min_sales=0)
+    assert [s["reference"] for s in plain] == ["hub", "mid", "low"]
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_families.py -k hub_adjusted -v</code>
+Expected: FAIL (ImportError: cannot import name 'hub_adjusted_rank')</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# core/complement_families.py  (append after rank_family_skus)
+import math</p>
+
+<p>def hub_adjusted_rank(candidates, top_n: int, attach_counts: dict,
+                      penalty_k: float = 1.0, cap: int | None = None,
+                      min_sales: int = 1, active_only: bool = True,
+                      perimeter_only: bool = True) -> list:
+    """Comme rank_family_skus mais avec DÉMOTION anti-hub inter-ancres.</p>
+
+<p>Le problème hub est trans-ancre (un même SKU collé à des milliers d'ancres) —
+    <code>per_family_cap</code> (intra-ancre) ne le traite pas. Ici :
+<ul class="article-list">
+  <li><code>attach_counts[ref]</code> = nb d'ancres déjà servies par ce SKU dans le run courant ;</li>
+  <li>un SKU à <code>attach_counts >= cap</code> est exclu (garde-fou dur) ;</li>
+  <li><code>min_sales</code> = plancher (on ne remonte pas la longue traîne sans ventes) ;</li>
+  <li>score = log1p(ventes) − penalty_k·log1p(attach) : pénalité continue façon IDF.</li>
+</ul>
+    Tri score desc, puis <code>reference</code> asc (déterministe). Pur (attach_counts non muté)."""
+    pool = [s for s in candidates
+            if (not active_only or _is_active(s))
+            and (not perimeter_only or is_in_perimeter(s))
+            and (s.get("sales") or 0) >= min_sales
+            and (cap is None or attach_counts.get(s["reference"], 0) < cap)]</p>
+
+<p>def score(s):
+        sales = s.get("sales") or 0
+        att = attach_counts.get(s["reference"], 0)
+        return math.log1p(sales) - penalty_k * math.log1p(att)</p>
+
+<p>pool.sort(key=lambda s: (-score(s), s["reference"]))
+    return [{<em></em>s, "status": "Active" if _is_active(s) else "Inactive"} for s in pool[:top_n]]
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_families.py -k hub_adjusted -v</code>
+Expected: PASS</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/complement_families.py tests/test_complement_families.py
+git commit -m "feat(families): cross-anchor hub-IDF adjusted ranking (demotion + cap + floor)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-5-section-filtered-vocabulary-for-the-qwen-re-call">Task 5: Section-filtered vocabulary for the qwen re-call</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>core/complement_gates.py</code></li>
+  <li>Test: <code>tests/test_complement_gates.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: <code>section_coherent</code> (Task 1).</li>
+  <li>Produces: <code>section_filtered_vocab(anchor_section: str, families: list[dict]) -> list[tuple[str, str]]</code>. Input families are dicts <code>{"family_code","family","section_code"}</code>; returns <code>(family_code, family)</code> tuples for families whose <code>section_code</code> is coherent with the anchor's section — the exact shape <code>build_fallback_prompt</code> consumes.</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_complement_gates.py  (append)
+from core.complement_gates import section_filtered_vocab</p>
+
+<p>def test_section_filtered_vocab_keeps_only_coherent_families():
+    fams = [
+        {"family_code": "a1", "family": "GANTS", "section_code": "003"},        # same
+        {"family_code": "a2", "family": "ESSUYAGE", "section_code": "002"},     # adjacent
+        {"family_code": "a3", "family": "CAFE", "section_code": "001"},         # far -> drop
+        {"family_code": "a4", "family": "STYLOS", "section_code": "010"},       # far -> drop
+    ]
+    got = section_filtered_vocab("003", fams)
+    assert got == [("a1", "GANTS"), ("a2", "ESSUYAGE")]
+    # tuples, in input order, ready for build_fallback_prompt
+    assert all(isinstance(t, tuple) and len(t) == 2 for t in got)
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_gates.py -k section_filtered -v</code>
+Expected: FAIL (ImportError: cannot import name 'section_filtered_vocab')</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# core/complement_gates.py  (append)</p>
+
+<p>def section_filtered_vocab(anchor_section: str, families: list) -> list:
+    """Restreint le vocabulaire familles passé au LLM aux seules familles cohérentes
+    de section avec l'ancre (même section ou adjacente). Le LLM ne PEUT alors pas
+    choisir hors-section. Retourne des tuples (code, libellé) — la forme attendue par
+    build_fallback_prompt. Pur."""
+    return [(f["family_code"], f["family"]) for f in families
+            if section_coherent(anchor_section, f.get("section_code"))]
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_gates.py -k section_filtered -v</code>
+Expected: PASS</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/complement_gates.py tests/test_complement_gates.py
+git commit -m "feat(gates): section-filtered vocabulary for constrained qwen re-call"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-6-build-guarded-blocks-compose-gates-hub-aware-fill">Task 6: <code>build_guarded_blocks</code> — compose gates + hub-aware fill</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>core/complement_guardrails.py</code></li>
+  <li>Test: <code>tests/test_complement_guardrails.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: <code>section_coherent</code>, <code>material_compatible</code>, <code>supplier_protected</code> (gates); <code>hub_adjusted_rank</code>, <code>brand_compatible</code>, <code>is_durable_anchor</code> (families).</li>
+  <li>Produces: <code>build_guarded_blocks(anchor, families_meta, family_skus, cfg, attach_counts) -> tuple[list[dict], list[str]]</code>. <code>anchor</code>: <code>{"reference","description","section_code","brand","lyreco_brand"}</code>. <code>families_meta</code>: <code>{family_code: {"section_code","material_sensitive": bool}}</code>. <code>family_skus</code>: <code>{family_code: [sku dict,...]}</code> (each sku has reference/description/sales/family_code/brand/lyreco_brand/web_title/subcategory_code/not_salable/not_visible). <code>cfg</code>: <code>GuardConfig</code> dataclass (below). <code>attach_counts</code>: mutable <code>{ref: int}</code> updated in place as SKUs are chosen. Returns <code>(blocks, pruned_family_codes)</code> where <code>pruned_family_codes</code> are families that yielded zero SKUs after gating (candidates for qwen re-call).</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_complement_guardrails.py
+from core.complement_guardrails import build_guarded_blocks, GuardConfig</p>
+
+<p>def _anchor(ref, desc, section, brand="", own=False):
+    return {"reference": ref, "description": desc, "section_code": section,
+            "brand": brand, "lyreco_brand": own}</p>
+
+<p>def _sku(ref, desc, sales, fam, section, brand="", own=False, sub="x"):
+    return {"reference": ref, "description": desc, "sales": sales, "family_code": fam,
+            "section_code": section, "brand": brand, "lyreco_brand": own,
+            "web_title": desc, "subcategory_code": sub,
+            "not_salable": False, "not_visible": False}</p>
+
+<p>def test_build_guarded_blocks_drops_cross_section_family_as_pruned():
+    anchor = _anchor("A1", "CHAUSSURE SECURITE CUIR S3", "003")
+    fams = {"F_deo": {"section_code": "001", "material_sensitive": False},   # far -> pruned
+            "F_glove": {"section_code": "003", "material_sensitive": False}}  # same -> kept
+    skus = {"F_deo": [_sku("d1", "DEODORANT CORPS", 500, "F_deo", "001")],
+            "F_glove": [_sku("g1", "GANTS NITRILE", 50, "F_glove", "003")]}
+    cfg = GuardConfig(fit_critical={}, per_family_cap=3, max_total=20,
+                      penalty_k=1.0, cap=None, min_sales=1)
+    blocks, pruned = build_guarded_blocks(anchor, fams, skus, cfg, attach_counts={})
+    refs = [b["reference"] for b in blocks]
+    assert refs == ["g1"]                 # deodorant family dropped
+    assert pruned == ["F_deo"]</p>
+
+<p>def test_build_guarded_blocks_material_and_supplier_and_attach_update():
+    anchor = _anchor("A2", "CHAUSSURE CUIR", "003")
+    fams = {"F_care": {"section_code": "003", "material_sensitive": True}}
+    skus = {"F_care": [
+        _sku("c_text", "SPRAY TEXTILE COTON", 900, "F_care", "003"),   # material clash -> drop
+        _sku("c_leath", "SPRAY CUIR", 100, "F_care", "003"),           # ok
+    ]}
+    cfg = GuardConfig(fit_critical={}, per_family_cap=3, max_total=20,
+                      penalty_k=1.0, cap=None, min_sales=1)
+    attach = {}
+    blocks, pruned = build_guarded_blocks(anchor, fams, skus, cfg, attach_counts=attach)
+    assert [b["reference"] for b in blocks] == ["c_leath"]
+    assert pruned == []
+    assert attach["c_leath"] == 1          # attachment counter incremented in place
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_guardrails.py -v</code>
+Expected: FAIL (ModuleNotFoundError: core.complement_guardrails)</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# core/complement_guardrails.py
+"""Composition des garde-fous zeroCPR v2 : applique les gates puis le tri anti-hub.</p>
+
+<p>Pur (aucun I/O). Le runner scripts/refresh_complements_guardrails.py fournit les
+données et persiste. Décision : docs/superpowers/specs/2026-07-03-zerocpr-guardrails-design.md
+"""
+from __future__ import annotations</p>
+
+<p>from dataclasses import dataclass</p>
+
+<p>from core.complement_families import (
+    hub_adjusted_rank, brand_compatible, is_durable_anchor,
+)
+from core.complement_gates import (
+    section_coherent, material_compatible, supplier_protected,
+)</p>
+
+<p>@dataclass
+class GuardConfig:
+    fit_critical: set                 # codes famille consommables captifs
+    per_family_cap: int = 3           # SKU max par famille (intra-ancre)
+    max_total: int = 10               # blocs max par ancre
+    penalty_k: float = 1.0            # force pénalité hub
+    cap: int | None = 200             # plafond attachements inter-ancres
+    min_sales: int = 1                # plancher ventes</p>
+
+<p>def build_guarded_blocks(anchor, families_meta, family_skus, cfg, attach_counts):
+    """Retourne (blocks, pruned_family_codes). Pour chaque famille candidate :
+    1) section_coherent(ancre, famille) sinon la famille est prunée ;
+    2) filtre SKU : supplier_protected + brand_compatible (si ancre durable) +
+       material_compatible (si famille sensible) ;
+    3) hub_adjusted_rank sur les SKU restants (démotion hub + cap + plancher) ;
+    4) per_family_cap + max_total + dédup ; incrémente attach_counts en place.
+    Famille sans aucun SKU retenu -> pruned (candidate re-call qwen)."""
+    a_desc = anchor.get("description") or ""
+    a_section = anchor.get("section_code")
+    a_brand = anchor.get("brand")
+    durable = is_durable_anchor(a_desc)
+    blocks, seen, pruned = [], set(), []</p>
+
+<p>for fam, meta in families_meta.items():
+        if not section_coherent(a_section, meta.get("section_code")):
+            pruned.append(fam)
+            continue
+        cands = []
+        for s in family_skus.get(fam, []):
+            if not supplier_protected(anchor, s, cfg.fit_critical):
+                continue
+            if durable and not brand_compatible(a_brand, s):
+                continue
+            if meta.get("material_sensitive") and not material_compatible(
+                    a_desc, (s.get("description") or "") + " " + (s.get("web_title") or "")):
+                continue
+            cands.append(s)
+        ranked = hub_adjusted_rank(cands, cfg.per_family_cap, attach_counts,
+                                   penalty_k=cfg.penalty_k, cap=cfg.cap,
+                                   min_sales=cfg.min_sales)
+        kept = 0
+        for s in ranked:
+            ref = s["reference"]
+            if ref in seen:
+                continue
+            seen.add(ref); kept += 1
+            attach_counts[ref] = attach_counts.get(ref, 0) + 1
+            blocks.append({"reference": ref, "description": s.get("description") or "",
+                           "status": s.get("status") or "", "family_code": fam,
+                           "display_sequence": len(blocks) + 1})
+            if len(blocks) >= cfg.max_total:
+                return blocks, pruned
+        if kept == 0:
+            pruned.append(fam)
+    return blocks, pruned
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_guardrails.py -v</code>
+Expected: PASS</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/complement_guardrails.py tests/test_complement_guardrails.py
+git commit -m "feat(guardrails): build_guarded_blocks composes gates + hub-aware fill"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-7-v2-runner-with-qwen-re-call-and-non-destructive-persist">Task 7: v2 runner with qwen re-call and non-destructive persist</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>scripts/refresh_complements_guardrails.py</code></li>
+  <li>Reference (mirror I/O patterns, do not modify): <code>scripts/refresh_complements_fallback.py</code> (<code>_ollama_call</code>, <code>make_llm</code>, <code>top_products_for_family</code>, <code>_persist_batch</code>), <code>scripts/export_marie_complements.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: <code>build_guarded_blocks</code>, <code>GuardConfig</code> (Task 6); <code>resolve_fit_critical_families</code>, <code>section_filtered_vocab</code> (Tasks 3, 5); <code>build_fallback_prompt</code>, <code>parse_fallback_response</code> (<code>core.complement_fallback</code>); <code>top_products_for_family</code>, <code>_ollama_call</code> (import from <code>scripts.refresh_complements_fallback</code>).</li>
+  <li>Produces: CLI <code>venv\Scripts\python.exe -m scripts.refresh_complements_guardrails --country FR [--limit N] [--penalty-k 1.0] [--cap 200] [--recall/--no-recall]</code>. Writes <code>signal_type='zerocpr_v2'</code>, <code>source_file='zerocpr-v2-2026-07-03'</code>. Prints per-batch counts: anchors, pruned families, qwen re-calls, gaps, rows.</li>
+</ul></p>
+
+<p><strong>Interfaces detail — the runner's shape (mirror <code>refresh_complements_fallback.py</code>):</strong></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the module scaffold + pure-glue test</strong></li>
+</ul>
+
+<p>Create <code>scripts/refresh_complements_guardrails.py</code>:</p>
+
+<p><code></code>`python
+# -<em>- coding: utf-8 -</em>-
+"""zeroCPR v2 — re-dérive les compléments des ancres zeroCPR sous garde-fous.</p>
+
+<p>Charge les familles choisies par le LLM (déjà stockées, signal_type='zerocpr'),
+applique build_guarded_blocks (gates + anti-hub), re-appelle qwen (vocabulaire
+filtré par section) pour les familles prunées, persiste signal_type='zerocpr_v2'
+(non destructif). Décision : docs/superpowers/specs/2026-07-03-zerocpr-guardrails-design.md</p>
+
+<p>Run : venv\\Scripts\\python.exe -m scripts.refresh_complements_guardrails --country FR
+"""
+from __future__ import annotations
+import argparse, sys
+from collections import defaultdict
+from datetime import datetime, timezone
+from pathlib import Path
+_REPO = Path(__file__).resolve().parent.parent
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))
+from database.crm_db import CRMDatabase
+from database.timeseries_db import TimeseriesDatabase
+from core.complement_guardrails import build_guarded_blocks, GuardConfig
+from core.complement_gates import (
+    resolve_fit_critical_families, section_filtered_vocab,
+)
+from core.complement_fallback import build_fallback_prompt, parse_fallback_response
+from scripts.refresh_complements_fallback import _ollama_call</p>
+
+<p>SOURCE_FILE = "zerocpr-v2-2026-07-03"
+MATERIAL_SENSITIVE_LABELS = ["chaussure", "gant"]   # familles sensibles matière</p>
+
+<p>_sku_cache: dict = {}
+def load_family_skus(crm, ts, fc, country, sales_days=365):
+    """Pool COMPLET des SKU actifs/in-périmètre d'une famille, enrichi (web_title,
+    brand, brand_group, lyreco_brand, subcategory_code) + ventes 365j. NON tronqué :
+    hub_adjusted_rank fait le tri + coupe AVEC démotion hub, donc il faut lui donner
+    tout le pool (sinon le hub, toujours top-ventes, resterait dans le top-5). Caché."""
+    if fc in _sku_cache:
+        return _sku_cache[fc]
+    prods = crm.query("""SELECT product_reference ref, product_description descr,
+          web_title, brand, brand_group, lyreco_brand, family_code, subcategory_code
+        FROM ecom_products WHERE source_country=%s AND family_code=%s
+          AND not_salable_flag='N' AND not_visible_flag='N'""", (country, fc))
+    refs = [p["ref"] for p in prods]
+    sales = {}
+    for i in range(0, len(refs), 5000):
+        for r in ts.query(f"""SELECT product_reference ref, SUM(quantity) q FROM ecom_order_lines
+            WHERE source_country=%s AND product_reference = ANY(%s)
+              AND order_date >= (CURRENT_DATE - INTERVAL '{sales_days} days') GROUP BY 1""",
+            (country, refs[i:i + 5000])):
+            sales[r["ref"]] = int(r["q"] or 0)
+    pool = [{"reference": p["ref"], "description": p["descr"] or "",
+             "web_title": p["web_title"] or "", "brand": p["brand"],
+             "brand_group": p["brand_group"], "lyreco_brand": p["lyreco_brand"],
+             "family_code": p["family_code"], "subcategory_code": p["subcategory_code"],
+             "sales": sales.get(p["ref"], 0), "not_salable": False, "not_visible": False}
+            for p in prods]
+    _sku_cache[fc] = pool
+    return pool</p>
+
+<p>def load_anchor_families(crm, country):
+    """{anchor_ref: {"anchor": rec, "families": set(codes)}} depuis les picks zeroCPR."""
+    rows = crm.query("""
+        SELECT pc.anchor_reference a, ea.product_description descr, ea.section_code sec,
+               ea.brand, ea.lyreco_brand, pc.family_code fc
+        FROM product_complements pc
+        JOIN ecom_products ea ON ea.product_reference=pc.anchor_reference
+                             AND ea.source_country=pc.source_country
+        WHERE pc.source_country=%s AND pc.signal_type='zerocpr'""", (country,))
+    out = {}
+    for r in rows:
+        d = out.setdefault(r["a"], {"anchor": {
+            "reference": r["a"], "description": r["descr"], "section_code": r["sec"],
+            "brand": r["brand"], "lyreco_brand": r["lyreco_brand"]}, "families": set()})
+        d["families"].add(r["fc"])
+    return out</p>
+
+<p>def load_family_meta(crm, country):
+    """{family_code: {"section_code","family","material_sensitive"}} depuis la taxonomie."""
+    rows = crm.query("""SELECT DISTINCT family_code, family, section_code
+        FROM product_taxonomy WHERE source_country=%s AND family_code IS NOT NULL""", (country,))
+    meta = {}
+    for r in rows:
+        label = (r["family"] or "").lower()
+        meta[r["family_code"]] = {
+            "section_code": r["section_code"], "family": r["family"],
+            "material_sensitive": any(k in label for k in MATERIAL_SENSITIVE_LABELS)}
+    return meta
+<code></code>`</p>
+
+<p>Add a tiny pure-glue test that <code>load_family_meta</code>'s sensitivity flag is derived correctly — but since it needs DB, instead unit-test the sensitivity predicate inline by asserting the label rule in <code>tests/test_complement_guardrails.py</code>:</p>
+
+<p><code></code>`python
+# tests/test_complement_guardrails.py  (append)
+def test_material_sensitive_label_rule():
+    labels = ["chaussure", "gant"]
+    assert any(k in "chaussures de securite".lower() for k in labels) is True
+    assert any(k in "gants nitrile".lower() for k in labels) is True
+    assert any(k in "stylos bille".lower() for k in labels) is False
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run the glue test to verify it passes (scaffold imports resolve)</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_guardrails.py -k material_sensitive_label -v</code>
+Expected: PASS (and no ImportError from the new module's imports)</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Implement <code>main()</code> — build, re-call, persist</strong></li>
+</ul>
+
+<p>Append to <code>scripts/refresh_complements_guardrails.py</code>:</p>
+
+<p><code></code>`python
+def _persist(crm, country, anchor_ref, blocks):
+    """DELETE ciblé (country, source_file, anchor) puis INSERT — non destructif vis-à-vis
+    des lignes 'zerocpr' (source_file différent). Même forme que _persist_batch."""
+    crm.execute("""DELETE FROM product_complements WHERE source_country=%s AND source_file=%s
+        AND anchor_reference=%s""", (country, SOURCE_FILE, anchor_ref))
+    if not blocks:
+        return 0
+    now = datetime.now(timezone.utc)
+    crm.executemany("""INSERT INTO product_complements
+        (anchor_reference, anchor_code_raw, complement_reference, complement_code_raw,
+         complement_description, display_sequence, family_code, signal_type, signal_label,
+         confidence, source_country, source_file, imported_at)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        ON CONFLICT (anchor_reference, complement_reference, source_country) DO NOTHING""",
+        [(anchor_ref, str(int(anchor_ref)), b["reference"], str(int(b["reference"])),
+          b["description"], b["display_sequence"], b["family_code"], "zerocpr_v2",
+          "guardrails-v2", 0.6, country, SOURCE_FILE, now) for b in blocks])
+    return len(blocks)</p>
+
+<p>def main(country, limit, penalty_k, cap, recall):
+    crm = CRMDatabase(); ts = TimeseriesDatabase()
+    fam_meta = load_family_meta(crm, country)
+    fit_critical = resolve_fit_critical_families(
+        [{"family_code": k, "family": v["family"]} for k, v in fam_meta.items()])
+    vocab = [{"family_code": k, "family": v["family"], "section_code": v["section_code"]}
+             for k, v in fam_meta.items()]
+    valid = set(fam_meta)
+    anchors = load_anchor_families(crm, country)
+    items = list(anchors.items())[:limit] if limit else list(anchors.items())
+    cfg = GuardConfig(fit_critical=fit_critical, per_family_cap=3, max_total=10,
+                      penalty_k=penalty_k, cap=cap, min_sales=1)
+    attach = {}
+    tot_rows = tot_pruned = tot_recall = tot_gap = 0
+    print(f"anchors={len(items)} fit_critical={len(fit_critical)} penalty_k={penalty_k} "
+          f"cap={cap} recall={recall}", flush=True)</p>
+
+<p>for i, (aref, d) in enumerate(items, 1):
+        anchor = d["anchor"]
+        fam_skus = {fc: load_family_skus(crm, ts, fc, country) for fc in d["families"]}
+        fmeta = {fc: fam_meta.get(fc, {"section_code": None, "material_sensitive": False})
+                 for fc in d["families"]}
+        blocks, pruned = build_guarded_blocks(anchor, fmeta, fam_skus, cfg, attach)
+        tot_pruned += len(pruned)</p>
+
+<p>if recall and pruned and len(blocks) < cfg.max_total:
+            allowed = section_filtered_vocab(anchor["section_code"], vocab)
+            if allowed:
+                resp = _ollama_call("gpu-wsl", "qwen2.5:7b-instruct",
+                                    build_fallback_prompt(anchor["description"], "", allowed))
+                new_fams = [c["family_code"] for c in parse_fallback_response(resp, valid)
+                            if c["family_code"] not in d["families"]]
+                if new_fams:
+                    tot_recall += 1
+                    fam_skus2 = {fc: load_family_skus(crm, ts, fc, country) for fc in new_fams}
+                    fmeta2 = {fc: fam_meta.get(fc, {"section_code": None,
+                              "material_sensitive": False}) for fc in new_fams}
+                    more, _ = build_guarded_blocks(anchor, fmeta2, fam_skus2, cfg, attach)
+                    # keep display_sequence contiguous
+                    for b in more:
+                        b["display_sequence"] = len(blocks) + 1
+                        blocks.append(b)
+                        if len(blocks) >= cfg.max_total:
+                            break
+        if not blocks:
+            tot_gap += 1
+        tot_rows += _persist(crm, country, aref, blocks)
+        if i % 200 == 0:
+            print(f"  {i}/{len(items)} | rows={tot_rows} pruned={tot_pruned} "
+                  f"recalls={tot_recall} gaps={tot_gap}", flush=True)</p>
+
+<p>print(f"\nDONE anchors={len(items)} rows={tot_rows} pruned_families={tot_pruned} "
+          f"qwen_recalls={tot_recall} gaps={tot_gap}")</p>
+
+<p>if __name__ == "__main__":
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--country", default="FR")
+    ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--penalty-k", type=float, default=1.0)
+    ap.add_argument("--cap", type=int, default=200)
+    ap.add_argument("--recall", dest="recall", action="store_true", default=True)
+    ap.add_argument("--no-recall", dest="recall", action="store_false")
+    a = ap.parse_args()
+    main(a.country, a.limit or None, a.penalty_k, a.cap, a.recall)
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Smoke-run on a small limit and verify it writes v2 rows</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m scripts.refresh_complements_guardrails --country FR --limit 50 --no-recall</code>
+Expected: prints <code>DONE anchors=50 rows=<N></code> with N>0; then verify rows exist:
+Run: <code>venv\Scripts\python.exe -c "import sys; sys.path.insert(0,'.'); from database.crm_db import CRMDatabase; c=CRMDatabase(); print(c.query(\"SELECT COUNT(*) n, COUNT(DISTINCT anchor_reference) a FROM product_complements WHERE source_country='FR' AND signal_type='zerocpr_v2'\")[0])"</code>
+Expected: <code>{'n': <N>, 'a': <=50}</code>; zeroCPR (v1) row count unchanged.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add scripts/refresh_complements_guardrails.py tests/test_complement_guardrails.py
+git commit -m "feat(guardrails): v2 runner with section-constrained qwen re-call + non-destructive persist"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-8-full-fr-run-validation-against-success-criteria-v1-v2-diff">Task 8: Full FR run + validation against success criteria + v1/v2 diff</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>scripts/validate_zerocpr_v2.py</code></li>
+  <li>Reference: <code>docs/superpowers/specs/2026-07-03-zerocpr-guardrails-design.md</code> (Success criteria)</li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: the persisted <code>zerocpr_v2</code> rows.</li>
+  <li>Produces: a printed validation report asserting the spec's success criteria; exit non-zero if any hard criterion fails.</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the validation script</strong></li>
+</ul>
+
+<p><code></code>`python
+# scripts/validate_zerocpr_v2.py
+# -<em>- coding: utf-8 -</em>-
+"""Valide zerocpr_v2 vs les critères de succès du spec + diff v1/v2. Exit!=0 si échec dur."""
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from database.crm_db import CRMDatabase</p>
+
+<p>C = "FR"; CAP = 200
+crm = CRMDatabase()
+base = """FROM product_complements pc
+  JOIN ecom_products ea ON ea.product_reference=pc.anchor_reference AND ea.source_country=pc.source_country
+  JOIN ecom_products ec ON ec.product_reference=pc.complement_reference AND ec.source_country=pc.source_country
+  WHERE pc.source_country=%s AND pc.signal_type=%s"""</p>
+
+<p>def stats(sig):
+    tot = crm.query(f"SELECT COUNT(*) n {base}", (C, sig))[0]["n"]
+    xsec = crm.query(f"""SELECT COUNT(*) n {base}
+        AND COALESCE(ea.section_code,'')<>'' AND COALESCE(ec.section_code,'')<>''
+        AND ea.section_code<>ec.section_code""", (C, sig))[0]["n"]
+    skus = crm.query(f"SELECT COUNT(DISTINCT pc.complement_reference) n {base}", (C, sig))[0]["n"]
+    maxhub = crm.query(f"""SELECT COALESCE(MAX(a),0) m FROM (
+        SELECT COUNT(DISTINCT pc.anchor_reference) a {base} GROUP BY pc.complement_reference) t""",
+        (C, sig))[0]["m"]
+    return {"pairs": tot, "xsec_pct": (100*xsec/tot if tot else 0),
+            "distinct_skus": skus, "max_hub": maxhub}</p>
+
+<p>v1, v2 = stats("zerocpr"), stats("zerocpr_v2")
+print(f"{'metric':16} {'v1':>12} {'v2':>12}")
+for k in ("pairs", "xsec_pct", "distinct_skus", "max_hub"):
+    print(f"  {k:16} {v1[k]:>12.1f} {v2[k]:>12.1f}" if k == "xsec_pct"
+          else f"  {k:16} {v1[k]:>12,} {v2[k]:>12,}")</p>
+
+<p>fails = []
+if v2["xsec_pct"] >= 15: fails.append(f"cross-section {v2['xsec_pct']:.0f}% >= 15%")
+if v2["max_hub"] > CAP: fails.append(f"max hub {v2['max_hub']} > cap {CAP}")
+if v2["distinct_skus"] <= v1["distinct_skus"]: fails.append("SKU pool did not widen")
+print("\nRESULT:", "FAIL — " + "; ".join(fails) if fails else "PASS — all hard criteria met")
+sys.exit(1 if fails else 0)
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run the full FR generation</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m scripts.refresh_complements_guardrails --country FR</code>
+Expected: <code>DONE anchors=~11000 rows=<N></code>, qwen_recalls>0, gaps small. (Long run — foreground; qwen re-calls are the slow part. If reaped, re-run: it is idempotent per anchor via DELETE-by-source_file.)</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Run validation</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m scripts.validate_zerocpr_v2</code>
+Expected: <code>RESULT: PASS — all hard criteria met</code> (cross-section <15%, max hub ≤200, SKU pool wider than 671). If FAIL, tune <code>--penalty-k</code> / <code>--cap</code> and re-run Step 2.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Spot-check Marie's four cases</strong></li>
+</ul>
+
+<p>Run: `venv\Scripts\python.exe -c "import sys; sys.path.insert(0,'.'); from database.crm_db import CRMDatabase; c=CRMDatabase();
+rows=c.query(\"\"\"SELECT ea.product_description a, ec.product_description b, pc.family_code
+  FROM product_complements pc JOIN ecom_products ea ON ea.product_reference=pc.anchor_reference AND ea.source_country=pc.source_country
+  JOIN ecom_products ec ON ec.product_reference=pc.complement_reference AND ec.source_country=pc.source_country
+  WHERE pc.source_country='FR' AND pc.signal_type='zerocpr_v2'
+    AND (ea.product_description ILIKE '%CHAUSSURE%' OR ea.product_description ILIKE '%AGRAFEUSE%' OR ea.product_description ILIKE '%STAPLER%' OR ea.product_description ILIKE '%CALCULAT%')
+  LIMIT 40\"\"\");
+[print(r['a'][:34],'->',r['b'][:34]) for r in rows]"`
+Expected: no shoe→body-deodorant, no competitor-stapler→Lyreco-staples, no Casio-adapter→Lyreco-calc. Record findings.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add scripts/validate_zerocpr_v2.py
+git commit -m "feat(guardrails): v2 validation against success criteria + v1/v2 diff"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="post-plan-notes">Post-plan notes</h2>
+
+<ul class="article-list">
+  <li><strong>Conscious spec deviation — cooc branch omitted (YAGNI):</strong> the spec's "route zeroCPR through the existing <code>cooc</code> (subcat lift) gate where co-occurrence data exists" branch is intentionally NOT implemented. zeroCPR anchors are, by construction, the population that <em>lacked</em> co-occurrence signal (that's why they fell to the fallback), so the cooc branch would almost never fire for them while adding a full order-line aggregation pass. Hub-IDF demotion is the mechanism for this population. Flag for Pierre at handoff; easy to add later if a subset does have cooc data.</li>
+  <li><strong>Export/review-queue flip to v2 is a SEPARATE follow-up</strong> (not in this plan): once v2 validates and Marie's cases are confirmed fixed, point <code>scripts/export_marie_complements.py</code> and <code>scripts/export_zerocpr_review_queue.py</code> at <code>signal_type IN ('zerocpr_v2', ...)</code> instead of <code>'zerocpr'</code>.</li>
+  <li><strong>gridiron's cross-check (mesh #3908)</strong> may tune <code>penalty_k</code> / <code>cap</code> / the penalty form in Task 4 — these are parameters, no structural change needed.</li>
+  <li><strong>Deferred to Lyréco data-ask</strong> (per spec): model-level compatibility maps, a structured material/attribute table, a strategic-supplier brand list.</li>
+</ul>
+<code></code>`
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#task-1-section-coherence-gate">Task 1: Section-coherence gate</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-2-material-tagger-material-compatibility">Task 2: Material tagger + material compatibility</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-3-durable-detector-extension-supplier-protection-gate">Task 3: Durable-detector extension + supplier-protection gate</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-4-cross-anchor-hub-idf-adjusted-ranking">Task 4: Cross-anchor hub-IDF adjusted ranking</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-5-section-filtered-vocabulary-for-the-qwen-re-call">Task 5: Section-filtered vocabulary for the qwen re-call</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-6-build-guarded-blocks-compose-gates-hub-aware-fill">Task 6: `build_guarded_blocks` — compose gates + hub-aware fill</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-7-v2-runner-with-qwen-re-call-and-non-destructive-persist">Task 7: v2 runner with qwen re-call and non-destructive persist</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-8-full-fr-run-validation-against-success-criteria-v1-v2-diff">Task 8: Full FR run + validation against success criteria + v1/v2 diff</a></li>
+<li><a href="#global-constraints">Global Constraints</a></li>
+<li><a href="#post-plan-notes">Post-plan notes</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

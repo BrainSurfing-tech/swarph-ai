@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reporting and evaluation | Technical Whitepaper</title>
+  <meta name="description" content="Reporting and evaluation — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/reporting-and-evaluation.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Reporting and evaluation</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 7 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Reporting and evaluation</p>
+
+<p>Batch reporting turns many persona trials into one job-level summary (Playground
+<strong>Runs</strong> → job <code>aggregation.json</code>). As a task author you own two things: the
+per-trial <strong>facts</strong> (<code>tests/</code> verifier) and the optional cross-trial <strong>policy</strong>
+(<code>reporting.json</code>). The platform owns execution, aggregation, and the UI.</p>
+
+<p>See [README.md](../README.md) <strong>Step 4</strong> for the onboarding version; this is the full
+reference.</p>
+
+<h2 id="pipeline">Pipeline</h2>
+
+<p><code></code>`mermaid
+flowchart TB
+  subgraph trial ["Per trial — facts only (author)"]
+    V["tests/ verifier"] --> SO["structured_output.json<br/>contexts[] + facets[]"]
+    SR["input/self_report_schema.yaml"] -.->|"agent writes user_feedback.json"| UF["user_feedback context<br/>(auto-synthesized)"]
+    UF --> SO
+  end</p>
+
+<p>subgraph job ["Per job — aggregation (platform)"]
+    SO --> AGG["build_job_aggregation()"]
+    RC["reporting.json<br/>(optional policy)"] -.-> AGG
+  end</p>
+
+<p>AGG --> G["General analysis<br/>automatic, no config"]
+  AGG --> P["Persona insights<br/>declared distributions, no LLM"]
+  AGG --> C["Custom analysis<br/>LLM prose summaries"]
+<code></code>`</p>
+
+<p>The verifier is the only file that <strong>must</strong> exist. <code>reporting.json</code> is optional —
+an empty stub still yields full General analysis:</p>
+
+<p><code></code>`json
+{ "schemaVersion": "1.0", "contextRules": [] }
+<code></code>`</p>
+
+<h2 id="the-three-report-views">The three report views</h2>
+
+<p>The batch <strong>Detailed</strong> report has three tabs. Which tab a result lands in is
+decided by the <strong>directive type</strong>, not by any separate rule list.</p>
+
+<p>| Tab | Produced from | LLM? | Answers |
+|---|---|---|---|
+| <strong>General analysis</strong> | Automatic Layer 1 over every facet | No | "What happened?" — stats + explanation previews |
+| <strong>Persona insights</strong> | <code>contextRules[].distributions[]</code> | No | "How do outcomes differ by customer segment?" |
+| <strong>Custom analysis</strong> | <code>contextRules[].summaryAnalyses</code> (LLM prose) | Yes | Narrative — SUT pain points <strong>and</strong> product/behavior analysis |</p>
+
+<p><em></em>Lean default: let General do the heavy lifting, add a few <code>distributions[]</code> for
+persona insight, and reserve report-time LLM (Custom analysis) for prose the
+numbers can't give.<em></em> Structured signals belong in the verifier (below), not at
+report time. Most tasks need only bindings + 1–3 distributions.</p>
+
+<h2 id="what-you-author">What you author</h2>
+
+<h3 id="1-verifier-facts-structured-output-json">1. Verifier facts — <code>structured_output.json</code></h3>
+
+<p>The verifier normalizes one trial into <strong>contexts</strong> (typed slices, e.g.
+<code>task_outcome</code>, <code>user_feedback</code>) each holding <strong>facets</strong> (named fields). Reuse the
+shared context/facet names from your type README so reports stay comparable.</p>
+
+<p>Every facet has a <code>kind</code> and a <code>role</code>:</p>
+
+<p>| <code>kind</code> | Layer 1 stats |
+|---|---|
+| <code>numerical</code> | count, min, max, avg, std |
+| <code>categorical</code> | ranked value counts + distinctCount |
+| <code>textual</code> | count, uniqueCount, up to 5 samples |</p>
+
+<p>| <code>role</code> | Meaning |
+|---|---|
+| <code>primary</code> | the headline result of the context |
+| <code>score</code> | a numeric measure |
+| <code>evidence</code> | a supporting categorical signal |
+| <code>explanation</code> | free-text reason for another facet |</p>
+
+<h3 id="2-self-report-input-self-report-schema-yaml">2. Self-report — <code>input/self_report_schema.yaml</code></h3>
+
+<p>For interactive tasks, when the agent writes <code>user_feedback.json</code>, the platform
+<strong>auto-synthesizes</strong> a <code>user_feedback</code> context from the schema — no verifier code
+needed. Bind a free-text field to the field it explains so General can group it:</p>
+
+<p><code></code>`yaml
+fields:
+<ul class="article-list">
+  <li>key: overallExperienceRating</li>
+</ul>
+    prompt: Overall, rate the experience from 1 to 10.
+    kind: integer
+    minimum: 1
+    maximum: 10
+    explanation:              # this reason explains overallExperienceRating
+      key: reason
+      prompt: Briefly explain the rating in your own voice.
+<code></code>`</p>
+
+<p>(<code>explanation:</code> desugars to a normal flat <code>reason</code> field plus the binding; a flat
+<code>explains: overallExperienceRating</code> on the text field is equivalent.)</p>
+
+<h3 id="3-cross-trial-policy-reporting-json">3. Cross-trial policy — <code>reporting.json</code></h3>
+
+<p>A list of <code>contextRules[]</code>; each rule <code>match</code>es a <code>contextType</code> and adds
+<code>distributions[]</code> (Persona insights) and/or <code>summaryAnalyses</code> (Custom analysis
+LLM prose).</p>
+
+<h2 id="general-analysis-automatic-layer-1">General analysis (automatic, Layer 1)</h2>
+
+<p>Runs whenever verifier output exists — <strong>no config</strong>. It emits per-facet stats
+(table above) and, for each free-text explanation, a <strong>non-LLM</strong> grouped preview
+(<code>crossFacetViews[]</code> of type <code>text_by_primary_category</code>).</p>
+
+<p>The grouping axis comes <strong>only</strong> from an explicit binding — the platform never
+guesses:</p>
+
+<ul class="article-list">
+  <li>schema <code>explanation:</code> / <code>explains:</code> (self-report), or</li>
+  <li><code>explainsFacetKey</code> on a verifier-emitted facet.</li>
+</ul>
+
+<p><code></code>`json
+// verifier facet: this reason explains outcome_status
+{ "key": "outcome_reason", "role": "explanation", "kind": "textual",
+  "explainsFacetKey": "outcome_status", "value": "…" }
+<code></code>`</p>
+
+<p>Rules:</p>
+
+<ul class="article-list">
+  <li><strong>The binding is authoritative for <code>role</code></strong>: any textual facet that declares a</li>
+</ul>
+  target is treated as an explanation, whatever its name.
+<ul class="article-list">
+  <li><strong>Bind to the specific field it explains</strong> — a context may carry several</li>
+</ul>
+  explanations, each bound differently (<code>feedback_reason</code> →
+  <code>overall_experience_rating</code>, <code>outcome_reason</code> → <code>outcome_status</code>).
+<ul class="article-list">
+  <li><strong>Numeric targets are auto-binned</strong> by distribution (Low / Medium / High);</li>
+</ul>
+  categorical targets group by value.
+<ul class="article-list">
+  <li>An unbound reason still gets stats, just no grouped view.</li>
+</ul>
+
+<p>Because General already summarizes "explanation by its bound field" for free, you
+do <strong>not</strong> need a <code>summaryAnalyses</code> rule to reproduce it.</p>
+
+<h2 id="persona-insights-declared-no-llm">Persona insights (declared, no LLM)</h2>
+
+<p>Each trial ran under a persona with ~60 <code>dimensions:</code> attributes
+(<code>persona/datasets/<em></em>/persona_*.yaml</code>, e.g. <code>age_bracket</code>, <code>life_stage</code>,
+<code>risk_tolerance</code>). Persona insights cross-tabs your chosen facets against those
+dimensions.</p>
+
+<p>Declare only the facets worth surfacing by default — auto-enumerating every
+facet × dimension floods the tab:</p>
+
+<p><code></code>`json
+"contextRules": [
+  {
+    "match": { "contextType": "user_feedback" },
+    "distributions": [
+      { "facetKey": "overall_experience_rating", "title": "Overall experience rating" },
+      { "facetKey": "need_constraint_satisfaction" }
+    ]
+  }
+]
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>The platform emits one per-segment table per <code>(facet, dimension)</code> into</li>
+</ul>
+  <code>context.personaDistributions[]</code>.
+<ul class="article-list">
+  <li>Dimensions default to <code>persona_strategy.json</code> → <code>stratifyFields</code>; if none, they</li>
+</ul>
+  fall back to the keys of <code>dimensionFilters</code>. Override with
+  <code>groupByPersonaDimensions: [...]</code> (or a single <code>groupByPersonaDimension</code>).
+<ul class="article-list">
+  <li>The tab also renders an <strong>interactive explorer</strong>: every eligible</li>
+</ul>
+  <code>(facet, dimension)</code> pairing is precomputed (non-LLM, cheap) into
+  <code>context.personaDistributionOptions[]</code>, so users can slice anything on demand
+  while authors declare only the defaults.
+
+<h2 id="custom-analysis-llm-prose">Custom analysis (LLM prose)</h2>
+
+<p>Custom analysis is the only view that runs an LLM <strong>at report time</strong>, via
+<code>contextRules[].summaryAnalyses</code> (<code>summaryKind: "llm_bucket_summary"</code>). It groups
+trials into buckets and writes a short prose summary per bucket — the <em></em>narrative
+the numbers cannot give<em></em>, from two angles:</p>
+
+<ul class="article-list">
+  <li><strong>SUT improvement</strong> — recurring pain points, friction, and failure themes to fix.</li>
+  <li><strong>Product / application analysis</strong> — how the product behaves and what each</li>
+</ul>
+  customer segment valued or rejected (positioning / segmentation insight).
+
+<p>Group by any facet with <code>groupByFacetKey</code>, or by a persona dimension with
+<code>groupByPersonaDimension</code> (which infers <code>groupByMode: "persona_attribute"</code>); the
+dimension is just the axis — output still lands in Custom analysis.</p>
+
+<p><code></code>`json
+{
+  "match": { "contextType": "decision" },
+  "summaryAnalyses": [
+    {
+      "id": "decision.reason_by_values_priority",
+      "title": "What each values segment optimized for",
+      "targetFacetKey": "reason",
+      "groupByPersonaDimension": "values_priority",
+      "summaryKind": "llm_bucket_summary",
+      "instruction": "For each segment, summarize in 1-2 sentences what tipped the decision."
+    }
+  ]
+}
+<code></code>`</p>
+
+<p>LLM directives run in the background only when
+<code>PLAYGROUND_REPORTING_ENABLE_LLM=1</code> and cache into <code>aggregation.json</code> by
+fingerprint.</p>
+
+<h3 id="structured-signals-live-in-the-verifier">Structured signals live in the verifier</h3>
+
+<p>A <strong>signal</strong> — a boolean/enum label read from free text (*stayed in research
+scope<em>, </em>safety escalation appropriate<em>, </em>substitution barrier*) — is a <strong>fact</strong>,
+so it belongs in the verifier, not in a report-time scan. Have the verifier call an
+LLM at verify time and emit the result as a normal categorical <strong>facet</strong>:</p>
+
+<p><code></code>`python
+# tests/ verifier — best-effort; grading never fails if the LLM is unavailable
+facets.extend(_llm_signal_facets(assistant_text, specs=[
+    ("safety_escalation_appropriate", "Flagged when to seek clinician / emergency care"),
+    ("overconfident_no_caveats", "Made absolute claims without caveats"),
+], context_desc="…", rubric="…"))
+<code></code>`</p>
+
+<p>Once emitted, the signal is indistinguishable from a deterministic facet: it feeds
+General, Persona insights (<code>distributions[]</code>), and Custom analysis alike, and keeps
+report time non-LLM. Guard the call so a missing key / network / parse error
+returns nothing — the trial must still pass on its deterministic facts. Wire keys
+via <code>task.toml [verifier.env]</code> (<code>OPENAI_API_KEY = "${OPENAI_API_KEY}"</code>); the
+verifier phase has network egress by default. Reference pattern:
+[<code>chat_multi-agent-medical-assistant</code>](../../application/tasks/chat_multi-agent-medical-assistant),
+[<code>chat_openbb</code>](../../application/tasks/chat_openbb),
+[<code>os-app-ios_news-subscription-decision</code>](../../application/tasks/os-app-ios_news-subscription-decision).</p>
+
+<p>The platform still accepts a report-time <code>signalScans</code> directive (it routes to
+Custom analysis), but use it only as an <strong>interim fallback</strong> when the verifier
+cannot reach an LLM.</p>
+
+<h2 id="when-there-is-no-self-report-web-os-app">When there is no self-report (web / os-app)</h2>
+
+<p><code>user_feedback</code> exists only when the agent wrote <code>user_feedback.json</code>. Many web /
+os-app tasks skip self-report, leaving only artifact-derived contexts
+(<code>task_outcome</code>, <code>decision</code>, …). Rules whose <code>contextType</code> is absent simply
+produce nothing.</p>
+
+<p>To keep persona and custom lenses working, the <strong>verifier</strong> can derive facts from
+the run's own trajectory or result artifact and emit an <strong>app-specific</strong> context —
+a categorical <code>primary</code> the lenses can group by, plus a <code>textual</code> <code>explanation</code>
+facet. What is worth extracting is entirely task-specific, so keep it in the
+verifier; there is deliberately no shared "trajectory metrics" schema. The minimum
+fallback is to bind the explanations the agent already writes (<code>reason</code>,
+<code>comparison_notes</code>, <code>outcome_explanation</code>).</p>
+
+<h2 id="files-and-ownership">Files and ownership</h2>
+
+<p>| File | Written by | Contains |
+|---|---|---|
+| <code>instruction.md</code>, <code>input/*</code>, <code>input/self_report_schema.yaml</code> | Author | Scenario, inputs, self-report questions |
+| <code>tests/</code> → <code>verifier/structured_output.json</code> | Verifier | Normalized contexts + facets (facts) for one trial |
+| <code>reporting.json</code> | Author | Optional cross-trial policy (distributions + LLM analyses) |
+| <code>aggregation.json</code> | Platform | Layer 1 stats + declared Layer 2 results |</p>
+
+<p>Keep policy out of verifier code, and keep facts out of <code>reporting.json</code>.</p>
+
+<h2 id="type-templates">Type templates</h2>
+
+<p>| Type | Reporting template | Notes |
+|---|---|---|
+| Survey | [<code>survey/survey_reporting.example.json</code>](../survey/survey_reporting.example.json) | per-question contexts; persona layer usually N/A |
+| Chatbot | [<code>chatbot/chatbot_reporting.example.json</code>](../chatbot/chatbot_reporting.example.json) | baseline covers outcome + conversation + feedback |
+| Web | [<code>web/web_metric_reporting.example.json</code>](../web/web_metric_reporting.example.json), [<code>web/persona_sensitive_reporting.example.json</code>](../web/persona_sensitive_reporting.example.json) | merge <code>contextRules[]</code> for both lenses |
+| OS / app | [<code>os-app/os_app_metric_reporting.example.json</code>](../os-app/os_app_metric_reporting.example.json), [<code>os-app/os_app_persona_reporting.example.json</code>](../os-app/os_app_persona_reporting.example.json) | merge <code>contextRules[]</code> for both lenses |</p>
+
+<p>Type READMEs define required facets per family. Chatbot harness artifacts:
+[<code>eval_artifacts.md</code>](eval_artifacts.md).</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#1-verifier-facts-structured-output-json">1. Verifier facts — `structured_output.json`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#2-self-report-input-self-report-schema-yaml">2. Self-report — `input/self_report_schema.yaml`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#3-cross-trial-policy-reporting-json">3. Cross-trial policy — `reporting.json`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#structured-signals-live-in-the-verifier">Structured signals live in the verifier</a></li>
+<li><a href="#pipeline">Pipeline</a></li>
+<li><a href="#the-three-report-views">The three report views</a></li>
+<li><a href="#what-you-author">What you author</a></li>
+<li><a href="#general-analysis-automatic-layer-1">General analysis (automatic, Layer 1)</a></li>
+<li><a href="#persona-insights-declared-no-llm">Persona insights (declared, no LLM)</a></li>
+<li><a href="#custom-analysis-llm-prose">Custom analysis (LLM prose)</a></li>
+<li><a href="#when-there-is-no-self-report-web-os-app">When there is no self-report (web / os-app)</a></li>
+<li><a href="#files-and-ownership">Files and ownership</a></li>
+<li><a href="#type-templates">Type templates</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Initiative 2.2 — "En stock livraison 24h" baseline + post tracking | Technical Whitepaper</title>
+  <meta name="description" content="Initiative 2.2 — "En stock livraison 24h" baseline + post tracking — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-05-26-initiative-2.2-delivery-eta-design.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Initiative 2.2 — "En stock livraison 24h" baseline + post tracking</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 6 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Initiative 2.2 — "En stock livraison 24h" baseline + post tracking</p>
+
+<p><strong>Date:</strong> 2026-05-26
+<strong>Backlog item:</strong> <code>2.2 · Pilot</code> (FR) — <em>Add cart-level delivery ETA (or "En stock livraison 24h" on PDP)</em>
+<strong>Friction hypothesis:</strong> "Cart shows stock, but not ETA"
+<strong>Funnel step:</strong> 2 — Product view → add to cart</p>
+
+<h2 id="goal">Goal</h2>
+
+<p>Measure whether the "En stock - Livraison 24h" stock-label badge (live on PDPs since
+<strong>2026-05-20</strong>) improves the product-view → add-to-cart → purchase funnel, and verify the
+badge is actually firing. Wire the result into the <strong>Web Funnel Initiatives Backlog</strong>
+dashboard panel as baseline-vs-actual KPI tracking, mirroring the existing Test 1
+(<code>1.5 · Test 1</code>) pattern.</p>
+
+<p>> <strong>Correction during implementation (2026-05-26):</strong> the backfilled data showed the badge
+> string <code>'1_available_En stock - Livraison 24h'</code> lives in <code>PRODUCT_STOCK</code> (not
+> <code>PRODUCT_DELIVERY_TIME</code>, a sparse numeric lead-time) and first appears <strong>2026-05-20</strong>, not
+> the 13/05 originally given. The cutoff was realigned to 2026-05-20 (which matches the
+> backlog's stored <code>start_date</code>). Sections below reflect the corrected values.</p>
+
+<p>Two funnels are measured on <strong>all FR traffic</strong>, at <strong>session grain</strong>, over two windows:</p>
+
+<p>| Window | Range | Meaning |
+|--------|-------|---------|
+| Baseline | <code>2026-02-13 … 2026-05-19</code> | Pre go-live (team baseline rule, 2026-05-19) |
+| Post | <code>2026-05-20 … 2026-05-29</code> | Badge live. Script caps the post end to the latest date present in all three source tables (action/sessions/product) and re-runs as more arrives. |</p>
+
+<p>Cutoff = <strong>2026-05-20</strong> (badge first appears in data; matches the stored <code>2.2 · Pilot</code>
+<code>start_date</code>, which is therefore left unchanged).</p>
+
+<h2 id="funnel-definitions-session-grain-fr-all-traffic">Funnel definitions (session grain, FR, all traffic)</h2>
+
+<p>Both funnels are computed from <code>ga4_action_events</code> (event-level <code>page_type</code> distinguishes
+PDP from listing) joined to <code>ga4_sessions</code> (same-session purchase via <code>order_count > 0</code>).
+A session counts once at each stage if it has ≥1 qualifying event.</p>
+
+<p>| Path | Stage A (denominator) | Stage B | Stage C |
+|------|----------------------|---------|---------|
+| <strong>PDP</strong> | sessions with a PDP view — <code>event_name='view_item'</code> AND <code>page_type='product'</code> | + add-to-cart from PDP — <code>event_name='add_to_cart'</code> AND <code>page_type='product'</code> | + purchased same session |
+| <strong>Vignette</strong> | sessions with a vignette interaction — <code>event_name='select_item'</code> on a listing page | + add-to-cart from vignette — <code>event_name='add_to_cart'</code> AND <code>page_type ∈ VIGNETTE_PAGE_TYPES</code> | + purchased same session |</p>
+
+<p>`VIGNETTE_PAGE_TYPES = {search-results, product-category, product-list, category,
+search_with_results, list}<code> — confirmed present on FR </code>add_to_cart` events (probe
+2026-05-26). <code>page_type='product'</code> is the PDP context.</p>
+
+<p>Reported metrics per path × window:
+<ul class="article-list">
+  <li><strong>A→B</strong> add rate, <strong>B→C</strong> add→buy rate, <strong>A→C</strong> overall conversion</li>
+  <li>Δ (percentage points) baseline → post</li>
+</ul></p>
+
+<h3 id="known-limitation-vignette-stage-a-denominator">Known limitation — vignette Stage-A denominator</h3>
+The lighter <code>view_item_list</code> browsing event is deliberately <strong>not</strong> ingested into the
+warehouse (see <code>oracle_ga4_products_pull.py</code> / <code>oracle_ga4_action_pull.py</code> skip lists), so
+there is no clean "viewed a listing" atom. <code>select_item</code> (GA4 "clicked/selected a product
+tile") is used as the vignette-interaction proxy. This slightly under-counts the vignette
+denominator (a user can add from a tile without a recorded <code>select_item</code>). Documented so
+the rate is interpreted as "of sessions that clicked a tile…". Fallback if undesirable:
+drop Stage A and report vignette as add(listing)→buy only.
+
+<h2 id="the-badge-signal-product-stock-the-analyst-s-dimension25">The badge signal — <code>PRODUCT_STOCK</code> (the analyst's "dimension25")</h2>
+
+<p>The "En stock - Livraison 24h" badge is the <strong>item-scoped</strong> Oracle column
+<code>T_ECOM_GA4_PRODUCT.PRODUCT_STOCK</code> (VARCHAR2(255)) — specifically the value
+<code>'1_available_En stock - Livraison 24h'</code>, matched by <code>product_stock ILIKE '%livraison 24h%'</code>
+(verified as the only value containing that substring). The sibling <code>PRODUCT_DELIVERY_TIME</code>
+(VARCHAR2(255)) is <strong>not</strong> the badge — it is a sparse numeric lead-time in days (mostly
+NULL); it was ingested too but is not used for the functional check. There is <strong>no</strong> literal
+<code>DIMENSION25</code> column. Both columns were <strong>not</strong> ingested into <code>ga4_product_events</code> before
+this work.</p>
+
+<p>The <code>'En stock - Livraison 24h'</code> value first appears in FR data on <strong>2026-05-20</strong> (zero
+before; ~18.5k rows 05-20, ~36k 05-21), confirming go-live and driving the cutoff choice.</p>
+
+<h3 id="ingestion-extension-scoped-small">Ingestion extension (scoped, small)</h3>
+1. <code>ALTER TABLE ga4_product_events ADD COLUMN product_delivery_time TEXT, ADD COLUMN product_stock TEXT;</code>
+   (added to <code>database/init_timescale_ga4.sql</code> for fresh installs.)
+2. Add <code>PRODUCT_DELIVERY_TIME</code>, <code>PRODUCT_STOCK</code> to the <code>SELECT</code> and the upsert column
+   list/tuple in <code>workers/oracle_ga4_products_pull.py</code> (include both in the
+   <code>ON CONFLICT DO UPDATE</code> set so re-pulls refresh them).
+3. <strong>Backfill FR only</strong> over the recent window via the existing <code>--schemas FRANCE --days N</code>
+   path (used <code>--days 16</code>). No GB / no full-history backfill.
+
+<h2 id="analysis-outputs">Analysis outputs</h2>
+
+<h3 id="1-functional-check-does-the-badge-fire">1. Functional check (does the badge fire?)</h3>
+On FR PDP <code>view_item</code> rows in the post window, count sessions where
+<code>product_stock ILIKE '%livraison 24h%'</code>. Confirms the badge appears from 2026-05-20 and its
+PDP coverage (% of PDP-view sessions seeing it). Surfaced as a <strong>badge-coverage KPI</strong> and in
+the markdown body.
+
+<h3 id="2-saw-badge-vs-not-effect-isolation">2. Saw-badge vs not (effect isolation)</h3>
+Within the post window, split PDP sessions into those whose PDP view carried the badge vs
+those that did not, and compare PDP→cart and PDP→conversion. <strong>Caveat:</strong> this cohort is
+confounded by product attributes (in-stock/fast-delivery SKUs convert better regardless of
+the label), so the gap is correlational, not a clean causal lift. Reported in the markdown
+body.
+
+<h3 id="3-baseline-vs-actual-kpis">3. Baseline-vs-actual KPIs</h3>
+<code>wf_test_kpis</code> rows for <code>initiative_number='2.2 · Pilot'</code>, <code>source_country='FR'</code>:
+
+<p>| kpi_index | kpi_name | baseline (pre) | actual (post) |
+|-----------|----------|----------------|---------------|
+| 1 (exists) | Conversion rate PDP to cart | PDP A→B baseline | PDP A→B post |
+| 2 | PDP cart → conversion | PDP B→C baseline | PDP B→C post |
+| 3 | Vignette → add to cart | Vignette A→B baseline | Vignette A→B post |
+| 4 | Vignette cart → conversion | Vignette B→C baseline | Vignette B→C post |
+| 5 | Badge PDP coverage (post only) | n/a | % of post PDP views with badge |</p>
+
+<p>Each KPI stores <code>baseline_value</code> (numeric, 0–1 rate) + <code>baseline_text</code> (window + n), and
+<code>actual_value</code> + <code>actual_result_text</code>, matching the Test 1 storage convention. KPI #5 has
+no baseline (badge didn't exist pre-2026-05-20).</p>
+
+<h2 id="components">Components</h2>
+
+<p>| Component | Path | Change |
+|-----------|------|--------|
+| Warehouse schema | <code>database/init_timescale_ga4.sql</code> | + <code>product_delivery_time</code>, <code>product_stock</code> columns |
+| Product ingestion | <code>workers/oracle_ga4_products_pull.py</code> | pull the two new columns |
+| Refresh/analysis script | <code>scripts/update_wf_test22_delivery_eta.py</code> <em>(new)</em> | compute funnels + badge metrics, write KPIs, emit <code>result_markdown</code> |
+| Backlog test row | <code>wf_tests</code> (<code>2.2 · Pilot</code>, FR) | <code>start_date</code> set to 2026-05-20 (already matched; left as-is) |
+| KPI rows | <code>wf_test_kpis</code> (<code>2.2 · Pilot</code>, FR) | upsert KPIs #2–#5 (keep #1) |</p>
+
+<p>The script follows <code>scripts/update_wf_test5_variants.py</code>: idempotent, re-runnable, prints a
+human summary, and emits the <code>===RESULT_MARKDOWN_BEGIN===</code> / <code>===RESULT_MARKDOWN_END===</code>
+block so the dashboard refresh button can extract and store the report body. No new
+dashboard endpoint or template is needed — the existing <code>/panel/wf-backlog</code> already renders
+<code>wf_test_kpis</code> baseline/actual columns and the report body.</p>
+
+<h2 id="data-flow">Data-flow</h2>
+
+<p><code></code>`
+Oracle FRANCE.T_ECOM_GA4_PRODUCT  ──(extended pull, FR --days 16)──────▶  ga4_product_events
+                                                                          (+ delivery_time, stock)
+ga4_action_events + ga4_sessions  ──(funnels, both windows)──┐
+ga4_product_events (PRODUCT_STOCK badge) ─(coverage + saw-badge)─┤
+                                                              ▼
+                                            scripts/update_wf_test22_delivery_eta.py
+                                                              │
+                                       ┌──────────────────────┴───────────────────────┐
+                                       ▼                                               ▼
+                              wf_test_kpis (baseline/actual)                  result_markdown body
+                                       └───────────────────────┬───────────────────────┘
+                                                               ▼
+                                                /panel/wf-backlog  (existing dashboard)
+<code></code>`</p>
+
+<h2 id="out-of-scope-non-goals">Out of scope / non-goals</h2>
+<ul class="article-list">
+  <li>GB country (FR only).</li>
+  <li>Full-history backfill of the new product columns (post window only).</li>
+  <li>A/B variant split — this is a pre/post pilot, not a randomised test, so no</li>
+</ul>
+  <code>wf_test_variants</code> rows.
+<ul class="article-list">
+  <li>Statistical significance testing — descriptive rates + Δpp only (post window is short).</li>
+  <li>New dashboard endpoints/templates.</li>
+</ul>
+
+<h2 id="verification-results-2026-05-26">Verification (results, 2026-05-26)</h2>
+<ul class="article-list">
+  <li>✓ The badge value appears on FR PDP <code>view_item</code> rows from 2026-05-20 (zero before).</li>
+  <li>✓ Funnel rates plausible & nested: PDP A→B baseline 39.16% / post 39.95%; PDP→purchase</li>
+</ul>
+  16.35% / 16.70%; vignette A→B 36.26% / 36.70%. Post window auto-capped to 2026-05-21
+  (latest date in all three source tables).
+<ul class="article-list">
+  <li>✓ <code>wf_test_kpis</code> for <code>2.2 · Pilot</code> has populated baseline + actual for KPIs #1–#4 and</li>
+</ul>
+  actual-only for #5 (badge coverage 53.8%); 5 rows, no duplicates (idempotent).
+<ul class="article-list">
+  <li>✓ Saw-badge vs not (post): view→cart 55.97% vs 20.75%; view→purchase 23.83% vs 8.17%</li>
+</ul>
+  (correlational — see caveat).
+
+<h2 id="cleanup">Cleanup</h2>
+Delete temporary exploration scripts created during design/implementation:
+<code>scripts/_probe_atc.py</code>, <code>scripts/_probe_22.py</code>, <code>scripts/_probe_22kpi.py</code>,
+<code>scripts/_probe_dim25.py</code>, <code>scripts/_probe_badge.py</code>, <code>scripts/_probe_verify.py</code>.
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#known-limitation-vignette-stage-a-denominator">Known limitation — vignette Stage-A denominator</a></li>
+<li style="margin-left: 0.8rem;"><a href="#ingestion-extension-scoped-small">Ingestion extension (scoped, small)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#1-functional-check-does-the-badge-fire">1. Functional check (does the badge fire?)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#2-saw-badge-vs-not-effect-isolation">2. Saw-badge vs not (effect isolation)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#3-baseline-vs-actual-kpis">3. Baseline-vs-actual KPIs</a></li>
+<li><a href="#goal">Goal</a></li>
+<li><a href="#funnel-definitions-session-grain-fr-all-traffic">Funnel definitions (session grain, FR, all traffic)</a></li>
+<li><a href="#the-badge-signal-product-stock-the-analyst-s-dimension25">The badge signal — `PRODUCT_STOCK` (the analyst's "dimension25")</a></li>
+<li><a href="#analysis-outputs">Analysis outputs</a></li>
+<li><a href="#components">Components</a></li>
+<li><a href="#data-flow">Data-flow</a></li>
+<li><a href="#out-of-scope-non-goals">Out of scope / non-goals</a></li>
+<li><a href="#verification-results-2026-05-26">Verification (results, 2026-05-26)</a></li>
+<li><a href="#cleanup">Cleanup</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PROVEN — the portfolio truth layer  (concept v0, science-claude) | Technical Whitepaper</title>
+  <meta name="description" content="PROVEN — the portfolio truth layer  (concept v0, science-claude) — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/PROVEN_concept_v0.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">PROVEN — the portfolio truth layer  (concept v0, science-claude)</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 8 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># PROVEN — the portfolio truth layer  (concept v0, science-claude)</p>
+
+<p>> <em>An assay is a quantitative test of what something actually contains.</em>
+> <strong>"Did it work — causally, leak-free, in dollars — or does it just report success?"</strong></p>
+
+<p>Named PROVEN (commander, 2026-08-04). The platform science-claude orchestrates: the layer that PROVES outcomes across the whole portfolio and reports them UP to the META admins. Not another dashboard that echoes numbers — the one surface that certifies which numbers are real.</p>
+
+<h2 id="the-gap-why-it-doesn-t-exist-yet">The gap (why it doesn't exist yet)</h2>
+Everything in the stack MAKES things happen — the funnel generates leads, the SEO/content platform generates reach, the repos ship code. Nothing PROVES any of it worked. And the two obvious ways to check are both broken:
+<ul class="article-list">
+  <li><strong>Status claims lie by omission.</strong> A funnel says "1,200 conversions", a CI says "green", a repo says "deployed", a cost field emits <code>0.0</code> and aggregates as <em>measured free usage</em> (real defect, board #244). A control that works but cannot report is indistinguishable from one that never ran; a status keeps being believed until someone re-measures.</li>
+  <li><strong>Single-vendor self-grading.</strong> Every eval/LLM-judge tool grades a model with its own kind — the self-review gate that passed 49/53 self-reviews, structurally. A verdict is only trustworthy if it survived an OUTSIDE frame.</li>
+</ul>
+
+<h2 id="what-proven-produces-a-certificate-not-an-answer">What PROVEN produces: a CERTIFICATE, not an answer</h2>
+Every claim submitted returns a signed certificate containing:
+1. <strong>Verdict</strong> — did it work, with effect size in the unit that matters (dollars, conversions, latency, accuracy).
+2. <strong>The disagreement</strong> — the cross-vendor panel (Claude / Gemini / GPT / EU-Mistral vibe) argued it adversarially; the certificate carries the dissent, not just the majority. Certified by disagreement, not by an oracle.
+3. <strong>The ground truth</strong> it was scored against (runs on <code>swarph bench</code>: distance-to-defined-truth, reproducible, no judge-vote).
+4. <strong>Provenance stamp</strong> — bound to the artifact AT decision time, so a later edit can't silently invalidate the certificate (verdict-binds-to-artifact, like the merge gate's <code>self_authored</code>).
+5. <strong>Method</strong> — leak-free / pre-registered design (real A/B + multi-arm bandit #234, incrementality not last-click); the hypothesis was frozen before the number, so nobody p-hacked the win.
+
+<h2 id="the-refusal-is-the-product">The refusal is the product</h2>
+When PROVEN cannot prove a claim, it <strong>abstains BY NAME</strong> — "could not evaluate: missing anchor X" — never a confident green. A certifier that always certifies is worthless. (Abstention is fine as a transient, a dead control as a steady state, so every abstain is named and surfaced.)
+
+<h2 id="scope-three-surfaces-one-engine-aimed-at-the-meta-admins">Scope — three surfaces, one engine, aimed at the META admins</h2>
+<ul class="article-list">
+  <li><strong>Marketing:</strong> is this campaign lift real, causal, in dollars? (sits over funnel × SEO)</li>
+  <li><strong>Repos (public + private):</strong> did this ship do what the PR claimed; is this control actually exercised; is this "green" behavioural? Reporting UP through the gateway — the missing direction (#249: private repos are invisible through the gateway today; PROVEN is the consumer that makes repo-reporting-to-admins a first-class need).</li>
+  <li><strong>Any decision:</strong> trading signal, model release, research result. Subject-agnostic by construction — marketing is the first customer, not the category.</li>
+</ul>
+
+<h2 id="operating-model-every-peer-s-test-wires-to-proven-and-why-that-alone-isn-t-enough">Operating model — every peer's test wires to PROVEN (and why that alone isn't enough)</h2>
+Commander's scope (2026-08-04): every peer, running ANY test — A/B, benchmark (<code>swarph bench</code>), anything — wires its results to PROVEN; science-claude makes sure everything is measured. That is necessary but NOT sufficient — a wire can silently not-carry, and a reported number is a claim, not a measurement. Two design rules close the gap:
+<ul class="article-list">
+  <li><strong>Enrollment, not reporting.</strong> PROVEN holds the registry of WHAT MUST BE MEASURED, so a missing result is a visible RED, not silence. Default flips: nothing is "measured" until proven — not "measured unless someone reports it broken." (Silence-read-as-fine is the control-that-can't-report bug; unmeasured must be LOUD.)</li>
+  <li><strong>Re-derivation, not receipt.</strong> A test counts as measured only when PROVEN can REPRODUCE it against ground truth (<code>swarph bench</code>) or certify the METHOD was leak-free / pre-registered. The peer's number is evidence to check, never a verdict to echo. (A peer measuring their own thing and wiring the number is self-certification — the self-review gate.)</li>
+  <li><strong>Wiring as plumbing, not discipline.</strong> Instrument the test tooling (<code>swarph bench</code>, the A/B + bandit #234) to emit to PROVEN AT THE MOMENT THE TEST RUNS — registration by construction, non-skippable. Assert-at-the-step-that-changes-it, applied to measurement enrollment. Discipline decays; plumbing doesn't.</li>
+</ul>
+
+<p>So science-claude is not the inbox numbers get dropped into — it is the authority that (a) knows what owes a measurement, (b) re-derives before it counts, (c) makes unmeasured loud.</p>
+
+<h2 id="moat">Moat</h2>
+Only a NEUTRAL MULTI-VENDOR MESH can produce a certificate whose value is <em>not being any one vendor</em>. OpenAI can't sell "proof you can trust because it isn't us"; neither can Anthropic. The swarph mesh already runs the rival lanes as first-class adversaries + treats verification as a mesh property. The moat is structural, not a feature.
+
+<h2 id="dogfood-first-prove-it-on-ourselves-before-we-sell-it">Dogfood first (prove it on ourselves before we sell it)</h2>
+The first claim PROVEN certifies is one of OURS — candidate: the #137 graduation gate itself ("does leg-2 behave on three shapes, at fire time, on-box"), or "did Issue-8's shipped fixes actually change behaviour." If PROVEN can't certify our own gate, it isn't ready to certify anyone's.
+
+<h2 id="decisions-locked-2026-08-04-commander">Decisions (locked 2026-08-04, commander)</h2>
+<ul class="article-list">
+  <li><strong>Name: PROVEN.</strong></li>
+  <li><strong>First surface: internal-first — repo-STATE ATTESTATION reported to the META admins.</strong> (NOT "closing #249" — see Post-handoff below: #249 shipped+deployed 2026-08-04 14:05Z and is CLOSED. #249 = access resolution; PROVEN = state attestation. Marketing-lift is a later vertical, not the opener.)</li>
+  <li><strong>Home: a board Project OWNED BY science-claude</strong> — requested from lab-ovh (board Project creation is lab's control-plane). PROVEN lives as its own Project; cards land under it once created.</li>
+  <li><strong>Build shape: AI²</strong> — science-claude owns the metric/verification core (registry, re-derivation, certificate, abstain contract); lab owns the substrate seam (board Project + gateway repo-grant reporting for #249 + the cross-vendor panel wiring).</li>
+</ul>
+
+<h2 id="post-handoff-lab-created-project-14-corrected-the-premise-handed-a-live-partial-impl-2026-08-04">Post-handoff — lab created Project 14, corrected the premise, handed a live partial impl (2026-08-04)</h2>
+<ul class="article-list">
+  <li><strong>Project exists:</strong> id 14, slug <code>proven</code>, owner science-claude.</li>
+  <li><strong>#249 is CLOSED</strong> (shipped+deployed 14:05Z; re-derived from my seat, not received: <code>GET /codegraph/custody</code> → held=5). PROVEN's opening is NOT "fill an empty table" — it is the <strong>attestation / reporting-up layer</strong>. #249 = access resolution ("may peer SEE repo X"); PROVEN = state attestation ("what IS the state of repo X, reported to admins"). Shared table, otherwise disjoint. lab owns the reporting-up seam (says it's bigger than #249 was).</li>
+  <li><strong>A live enrollment-registry-in-miniature already exists to argue with, not a blank page:</strong> <code>GET /codegraph/custody</code> → {held, unclaimed, orphaned, index_readable}. <code>unclaimed</code> = missing-is-RED (3 real subjects today: lab-orchestrator, meta-edge-auth, swarph-desktop / 2,209 symbols); <code>orphaned</code> = re-derivation-not-receipt; <code>index_readable</code> = abstain-by-name. PROVEN generalizes this pattern across ALL measured subjects.</li>
+</ul>
+
+<h3 id="hardening-principles-baked-in-from-the-249-post-mortem">Hardening principles (baked in, from the #249 post-mortem)</h3>
+<ul class="article-list">
+  <li><strong>The result contract MUST have a THIRD state:</strong> pass / fail / COULD-NOT-EVALUATE as a first-class value, never folded into fail. If the type has two states, the third is already being silently folded and you can't tell which from outside. (The type-design form of abstain-by-name.)</li>
+  <li><strong>Finder-of-a-defect is the WORST verifier of its fix BY REPORT, the BEST BY MEASUREMENT.</strong> A report of a fix to one's own finding is the least independent evidence available → a fix is certified by an independent re-measurement, never the finder's word. (Into the certificate contract.)</li>
+  <li><strong>The empty-store trap — the failure PROVEN is MOST exposed to:</strong> #249's root cause was not a code defect; the policy store had NEVER held a row, so the system faithfully enforced a never-written policy and every test passed. PROVEN's enrollment registry is a policy store of EXACTLY that shape — ship it with no producer and PROVEN reports "nothing owes a measurement" = indistinguishable from "everything is measured" = fails CLOSED and SILENTLY = the exact defect PROVEN exists to catch, committed by PROVEN. NON-NEGOTIABLE: at ship, define the registry's expected row count and WHO WRITES THE FIRST ROW; count rows before trusting the mechanism. This is why "wiring as plumbing, not discipline" is mandatory, not preferable.</li>
+  <li><strong>THREE LIVE SPECIMENS, all found 2026-08-04 (demonstrated, not argued):</strong> <code>#249</code> gateway repo-grant table = zero rows → every private repo invisible for months; <code>#264</code> a grant to a memberless group → accepted, stored, granting nobody anything; <code>#284</code> <code>MESH_BOARD_ORCHESTRATORS</code> unset → board authority holdable by nobody, ever (every board write flowed through one meta peer). Same shape each time: <em>a correct enforcement path with an empty policy store is indistinguishable from a broken one, and it fails closed so nobody files a defect.</em> Three in one day is a shape, not luck — each surfaced only because someone tried to act and could name the wall (#284 surfaced because science-claude tried to move a card on a project it owns). This is the founding constraint's proof.</li>
+  <li><strong>Moat, now DEMONSTRATED not argued:</strong> three vendors found the same #249 defect by THREE DIFFERENT ROUTES (lab executing a probe, grok reading <code>_peer_groups</code>, drop reading the covering test and noticing it asserted the write not the resolution). Diversity of METHOD, not model — what a single-vendor panel structurally cannot buy.</li>
+</ul>
+
+<h3 id="dogfood-lab-s-candidate-adopted-better-than-mine">Dogfood (lab's candidate, adopted — better than mine)</h3>
+Certify TODAY'S #249 deploy: a claim TRUE AT ONE SCOPE and FALSE AT ANOTHER — "private repos are now protected" is true of the codegraph path, false of the box (drop measured, minutes post-deploy, the gateway denied <code>mesh-gateway</code> while the file was readable at 434,995 bytes and grep found the symbol; carded #270). Written ground truth + two independent measurements already exist. A certifier that can't catch a scope-shifted true statement won't catch anything harder.
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#hardening-principles-baked-in-from-the-249-post-mortem">Hardening principles (baked in, from the #249 post-mortem)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#dogfood-lab-s-candidate-adopted-better-than-mine">Dogfood (lab's candidate, adopted — better than mine)</a></li>
+<li><a href="#the-gap-why-it-doesn-t-exist-yet">The gap (why it doesn't exist yet)</a></li>
+<li><a href="#what-proven-produces-a-certificate-not-an-answer">What PROVEN produces: a CERTIFICATE, not an answer</a></li>
+<li><a href="#the-refusal-is-the-product">The refusal is the product</a></li>
+<li><a href="#scope-three-surfaces-one-engine-aimed-at-the-meta-admins">Scope — three surfaces, one engine, aimed at the META admins</a></li>
+<li><a href="#operating-model-every-peer-s-test-wires-to-proven-and-why-that-alone-isn-t-enough">Operating model — every peer's test wires to PROVEN (and why that alone isn't enough)</a></li>
+<li><a href="#moat">Moat</a></li>
+<li><a href="#dogfood-first-prove-it-on-ourselves-before-we-sell-it">Dogfood first (prove it on ourselves before we sell it)</a></li>
+<li><a href="#decisions-locked-2026-08-04-commander">Decisions (locked 2026-08-04, commander)</a></li>
+<li><a href="#post-handoff-lab-created-project-14-corrected-the-premise-handed-a-live-partial-impl-2026-08-04">Post-handoff — lab created Project 14, corrected the premise, handed a live partial impl (2026-08-04)</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

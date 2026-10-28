@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Changelog | Technical Whitepaper</title>
+  <meta name="description" content="Changelog — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/CHANGELOG.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Changelog</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 14 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Changelog</p>
+
+<h2 id="0-42-9-2026-08-12">0.42.9 — 2026-08-12</h2>
+
+<ul class="article-list">
+  <li><strong>Windows: subprocess output is decoded as UTF-8, not the ANSI code page.</strong> Every <code>subprocess</code></li>
+</ul>
+  call that decodes text now passes <code>encoding="utf-8", errors="replace"</code> — 27 sites, no exemptions.
+  <code>text=True</code> alone uses <code>locale.getpreferredencoding(False)</code>, which is UTF-8 on Linux and <em></em>cp1252
+  or cp850 on Windows<em></em>, so any non-ASCII byte in a captured pane produced mojibake, and any byte
+  undefined in the code page raised <code>UnicodeDecodeError</code>.
+
+<p><strong>The failure was invisible by construction.</strong> The exception is raised in <code>subprocess</code>'s *reader
+  thread*, so <code>run()</code> returns <code>returncode 0</code> with <code>stdout</code> set to <code>None</code>, and the caller dies later
+  on the <code>None</code> instead. Nothing ever logged <code>UnicodeDecodeError</code> — two separate searches for that
+  string came back empty and were reported as negatives. <em></em>The absence of a traceback was the
+  signature, not a refutation.<em></em></p>
+
+<p><code>errors="replace"</code> is load-bearing rather than merely cautious: bare UTF-8 fixes the mojibake and
+  still raises on invalid bytes, and <code>capture-pane</code> reads whatever a TUI painted — including a
+  partial escape sequence at a buffer boundary. <code>session_bridge</code> feeds <code>probe_pane</code>, so a raise
+  costs the caller its idle/busy/modal verdict <em>and</em> its fail-safe. (#226)</p>
+
+<h2 id="0-42-8-2026-08-12">0.42.8 — 2026-08-12</h2>
+
+<ul class="article-list">
+  <li><strong>tmux wakes now submit on Codex.</strong> <code>_tmux_wake</code> sends the payload literally (<code>-l</code>, since 0.42.7)</li>
+</ul>
+  and then submits with <strong>two</strong> <code>Enter</code> key events. Codex's multiline composer requires the second
+  to submit; in single-submit composers the first already sent and the second reaches an empty
+  composer. Confirmed on Windows: codex CLI submit works. Without this, a literal-but-unsubmitted
+  wake sat in the pane looking delivered. (#223)
+
+<p>A wake failure now also says the pane <strong>may hold an unsubmitted wake</strong>, so a partial failure is
+  diagnosable rather than silent.</p>
+
+<p>KNOWN AND UNTESTED, recorded rather than implied away: the "second Enter is a no-op" rationale
+  holds when a composer has focus. On a numbered menu — the Claude Code rating modal is
+  <code>1: Bad 2: Fine 3: Good 0: Dismiss</code> — Enter is a SELECTION. <code>_tmux_wake</code> does not probe pane
+  state, unlike lab-orchestrator's <code>wake_cell</code>, which refuses to inject into a menu for exactly
+  that reason. Board card #421 carries the two measurements that would close it.</p>
+
+<h2 id="0-42-7-2026-08-11">0.42.7 — 2026-08-11</h2>
+
+<p>Windows cells were running 0.42.6 and hitting defects already fixed in source. A fix that
+exists and cannot be installed is, from the affected cell's position, not a fix.</p>
+
+<p><em></em>Two distinct defects, different scopes — stated separately because conflating them is how the
+wrong one gets believed fixed.<em></em></p>
+
+<ul class="article-list">
+  <li><strong>Wake injection was not literal (cross-provider).</strong> <code>tmux send-keys</code> without <code>-l</code> is a</li>
+</ul>
+  KEY-PARSING interface: tokens are read as key names and recognised ones are consumed, so an
+  injected prompt is chunk-deleted. <code>_tmux_wake</code> now sends the payload with <code>-l</code> and submits with
+  a separate <code>Enter</code>. Latent on Linux — real tmux passes an unrecognised key-name argument
+  through as literal characters; psmux does not. Hit Claude and codex cells alike. (#219)
+<ul class="article-list">
+  <li><strong>Hook commands could not execute on Windows (provider-specific).</strong> <code>swarph hooks add</code> wrote</li>
+</ul>
+  Windows-native paths into settings.json, and Claude Code runs hook commands through bash, where
+  each backslash is consumed: <code>C:\Users\x\.swarph\hooks\activity-marker.sh</code> collapsed to
+  <code>C:Usersx.swarphhooksactivity-marker.sh</code>. Every hook a Windows cell installed failed, silently,
+  at every fire. Now emitted with forward slashes, with a migration for settings.json files
+  already holding backslash bindings and a third match site so <code>hooks list</code> stops reporting
+  legacy bindings as absent. (#216)
+
+<p>Also:</p>
+
+<ul class="article-list">
+  <li><code>ensure_monitor.sh</code> no longer starts a monitor under a GUESSED identity — an unset</li>
+</ul>
+  <code>SWARPH_SELF</code> used to default to a specific peer name, so a cell with no identity started a
+  monitor as that peer and drained its DMs. Refuses the action, loudly, and still exits 0,
+  because a hook that can wedge a session is worse than the deafness it prevents. (#217, #360)
+<ul class="article-list">
+  <li><code>MeteredMistralBackend</code> — the fifth bench lane, wired with a declared dependency. (#191)</li>
+</ul>
+
+<p>Notable changes to <code>swarph-cli</code>. Earlier history: <code>git log</code>.</p>
+
+<h2 id="0-42-6-2026-08-11">0.42.6 — 2026-08-11</h2>
+<ul class="article-list">
+  <li><strong>feat(spawn): the launcher stamps the cell's identity into the spawned env (#360).</strong></li>
+</ul>
+  Identity failed TOWARD <code>lab-ovh</code> rather than closed. The root sat one layer above
+  the three known defaults: <code>swarph spawn</code> KNEW which cell it was creating and never
+  said so, so every cell had to INFER itself from a config file keyed on cwd — and
+  cwd is not a cell identifier (two Claude-family cells run with <code>cwd=$HOME</code>, where
+  the "project" settings file IS the user settings file). One <code>_spawn_env_base(cell)</code>
+  now performs the scrub, the spawn marker and <code>SWARPH_SELF = cell.name</code>, and all
+  five provider env builders route through it. <code>cell</code> is positional and required, so
+  a future provider's omission does not compile.
+  <strong>This is inert until <code>env.SWARPH_SELF</code> is removed from <code>~/.claude/settings.json</code>:</strong>
+  measured, Claude Code's settings env OVERRIDES the inherited process env, so the
+  package half and the config half must land together.
+<ul class="article-list">
+  <li><em></em>fix(spawn): the Windows Terminal fallback bypassed BOTH the billing scrub and the</li>
+</ul>
+  identity stamp (#360).<strong> <code>_relaunch_in_windows_terminal</code> built <code>{</strong>os.environ}</code> and
+  launched the provider binary DIRECTLY, so an <code>ANTHROPIC_BASE_URL</code> /
+  <code>ANTHROPIC_AUTH_TOKEN</code> in the operator env reached the relaunched cell untouched —
+  the adversarial-sweep CRIT, alive on the fallback path, reachable on Windows
+  whenever tmux/psmux is absent. The membrane now hands its env down through one
+  accessor, passed as a factory because grok/vibe builders create directories.
+  Found independently by Copilot in review and by path enumeration.
+<ul class="article-list">
+  <li><strong>ci(publish): the tag/version guard checked only <code>pyproject.toml</code>.</strong> A bump that</li>
+</ul>
+  missed <code>src/swarph_cli/__init__.py</code> would publish a wheel whose <code>__version__</code>
+  disagreed with its own metadata. Both declarations are now verified against the tag.
+
+<h2 id="0-42-0-2026-08-08">0.42.0 - 2026-08-08</h2>
+<ul class="article-list">
+  <li><strong>fix(waker): only addressed question DMs may create a Codex App Server turn (#199).</strong></li>
+</ul>
+  <code>answer</code> and <code>fyi</code> messages remain in the monitor ledger but cannot advance the
+  controller cursor, create an outbox authorization, or start an App Server turn.
+<ul class="article-list">
+  <li><strong>feat(waker): package the Windows Task Scheduler installer (#199).</strong> The</li>
+</ul>
+  installer creates per-peer hidden direct-executable runners, keeps the outbox
+  drainer opt-in, and exposes its installed script path through `swarph
+  codex-waker --windows-installer-path`.
+
+<h2 id="0-41-9-2026-08-07">0.41.9 — 2026-08-07</h2>
+<ul class="article-list">
+  <li><strong>fix(tokens): a NAMED cell's credential outranks the ambient one (#190).</strong> On a</li>
+</ul>
+  multi-cell host a process-global <code>MESH_GATEWAY_TOKEN</code> cannot be the credential for
+  more than one cell, so naming a cell selected an IDENTITY WITHOUT CARRYING ITS
+  CREDENTIAL. Deliberately narrow: the flip applies only when the identity is
+  EXPLICIT — a defaulted name keeps the old env-first order, so nothing changes for
+  an operator who names no cell. A named cell whose credential file exists but
+  yields no usable token now REFUSES rather than falling back to the ambient one:
+  naming a cell is a decision, not a hint.
+<ul class="article-list">
+  <li>The refusal names the file it tells you to fix. It previously rendered the path</li>
+</ul>
+    as the literal <code>(None)</code> — <code>peer_src</code> is assigned only on a successful read, and
+    that branch is reachable only when every read failed. The behaviour was correct
+    and the diagnostic was useless, which is the worse of the two to ship.
+<ul class="article-list">
+  <li>Known gap, carded not fixed (#374): presence is tested with <code>exists()</code>, so a</li>
+</ul>
+    credential that is a BROKEN SYMLINK still falls through to the ambient token
+    silently. A dead symlink is a provisioning error, not an absence.
+<ul class="article-list">
+  <li><strong>feat(waker): portable Codex App Server controller + Linux supervisor (#193, #195).</strong></li>
+</ul>
+  Merged after 0.41.8 was cut, so this is their first release.
+
+<h3 id="changelog-gap-recorded-rather-than-quietly-closed">Changelog gap, recorded rather than quietly closed</h3>
+0.41.7 and 0.41.8 shipped to PyPI with <strong>no entry here</strong>. What they contained:
+<ul class="article-list">
+  <li><strong>0.41.7</strong> — `fix: an explicit SCOPED --token-file must beat an ambient SHARED-ROOT</li>
+</ul>
+  token` (#332), a silent privilege escalation. Same family as #190 above; #190
+  generalises it from <code>--token-file</code> to peer identity.
+<ul class="article-list">
+  <li><strong>0.41.8</strong> — <code>fix(tokens): skip the POSIX mode warning on Windows</code> (#192).</li>
+</ul>
+
+<h2 id="0-41-6-2026-08-05">0.41.6 — 2026-08-05</h2>
+<ul class="article-list">
+  <li><strong>feat(board): <code>cards thread</code> + <code>cards say</code></strong> — the CLI half of card↔DM fusion.</li>
+</ul>
+  The gateway had carried <code>GET /board/cards/{id}/thread</code> and the card-gated attach
+  path since earlier the same day and <strong>nothing could reach them</strong>: no CLI verb
+  existed, so the fusion lived in the database and the OpenAPI schema — shipped,
+  deployed, migrated across ~300 cards, invisible to every human and cell. Found
+  by trying to write a finding onto a card and having to send a DM instead.
+  <code>say</code> refuses when a card has no assignee and no <code>--to</code> rather than inventing a
+  placeholder recipient: the gateway accepts an unregistered <code>to_node</code> with a 200,
+  so a placeholder is byte-identical to delivery while addressed to nobody.
+<ul class="article-list">
+  <li><strong>fix(spawn): the Windows Terminal rescue is provider-generic.</strong> It lived in</li>
+</ul>
+  <code>ClaudeMembrane.pre_launch</code> — nothing in its body was claude-specific, only its
+  <strong>call site</strong> was — so codex and antigravity never inherited it. Those were
+  exactly the two cells the operator had been launching by hand for months.
+  <code>ClaudeMembrane.pre_launch</code> is deleted; it collapsed into the base.
+<ul class="article-list">
+  <li><strong>fix(spawn): codex + antigravity now <code>chdir</code></strong> like claude/grok/vibe, and pass</li>
+</ul>
+  <code>-C .</code> / <code>--add-dir .</code> instead of the absolute cwd. Measured failure:
+  <code>swarph spawn</code> with a cwd of <code>C:/…/synced workspace/project folder</code>
+  died with an unexpected-argument error — the path re-split on
+  spaces crossing the exec boundary. Codex itself parses that path correctly;
+  the mangling was ours. Fixing by removing the dependency on quoting rather than
+  out-guessing which Windows layer re-tokenises.
+  >>> <strong>VERIFICATION LIMIT, STATED:</strong> CI is green on <code>windows-latest</code>, but the
+  suite mocks <code>_launch_via_tmux</code>, <code>_relaunch_in_windows_terminal</code> and <code>os.execve</code>
+  — the exact boundary this fixes. Windows CI proves the code imports and the
+  logic holds; it does <strong>not</strong> prove argv survives <code>execve</code>. A broken fix returns
+  the same green. Metal verification is outstanding. <<<
+<ul class="article-list">
+  <li><strong>fix(cli):</strong> bound the shared pin (<code>swarph-shared>=0.4.0,!=0.6.0,<0.7</code>) so a</li>
+</ul>
+  transitive break becomes an install-time resolver error, and <code>--help</code> shows the
+  real product surface (#308, #301).
+<ul class="article-list">
+  <li><strong>fix(monitor):</strong> land <code>TmuxNotifySink</code>, which was <em></em>uncommitted and</li>
+</ul>
+  load-bearing<em></em> on the shared editable clone (#309) — one <code>git checkout</code> from
+  deletion.
+<ul class="article-list">
+  <li><strong>note:</strong> the three fixes above had been running in production on the lab-ovh</li>
+</ul>
+  box for days via an editable clone parked on a WIP branch, and had never reached
+  <code>main</code> or PyPI. No version string showed it: <code>swarph --version</code> reported 0.41.5
+  (a claim the source makes about itself) while the installed dist-info said
+  0.41.4 and the executing code was neither.
+
+<h2 id="0-39-4-2026-07-27">0.39.4 — 2026-07-27</h2>
+<ul class="article-list">
+  <li><strong>fix(packaging):</strong> ship <code>scripts/ensure_monitor.sh</code>. 0.39.3 shipped a README</li>
+</ul>
+  telling operators to run it while the wheel <strong>did not contain it</strong> — non-<code>.py</code>
+  files must be declared in <code>[tool.setuptools.package-data]</code> and it was not.
+  twine, CI and the build all reported success; a clean-room
+  <code>pip install --no-cache-dir</code> from PyPI is what caught it.
+<ul class="article-list">
+  <li><strong>test:</strong> <code>test_packaged_artifacts_exist.py</code> — a file the docs tell operators</li>
+</ul>
+  to run must exist in the package tree <strong>and</strong> be covered by a package-data
+  pattern. Existing in <code>src/</code> is not enough; the wheel omits it silently.
+  Verified to FAIL when the declaration is removed.
+
+<h2 id="0-39-3-2026-07-27">0.39.3 — 2026-07-27</h2>
+<ul class="article-list">
+  <li><strong><code>deploy/monitor/swarph-monitor.service</code></strong> — a <strong>silent</strong> DM monitor unit. The</li>
+</ul>
+  shipped sidecar ran <code>tmux send-keys -t <pane> "check mesh" Enter</code> on every DM:
+  it typed into the cell's pane, cost a full turn per message, and worked only
+  while the pane existed. The new unit runs the monitor `--deliver pull
+  --foreground` under systemd and pokes nothing.
+<ul class="article-list">
+  <li><strong>SILENT MEANS YOU MUST PULL.</strong> Nothing will type at you any more. Wire</li>
+</ul>
+    <code>swarph monitor status</code> into a SessionStart hook (or call
+    <code>scripts/ensure_monitor.sh</code>), or a cell that relied on the <code>check mesh</code>
+    prompt to be woken will simply go quiet.
+<ul class="article-list">
+  <li><code>monitor start</code> is idempotent via pidfile, so a hook calling it is a no-op</li>
+</ul>
+    while the unit runs — they compose rather than compete.
+<ul class="article-list">
+  <li>systemd <strong>owns</strong> the process: a crash restarts within <code>RestartSec</code>. A</li>
+</ul>
+    <code>Type=oneshot</code> + timer supervisor was tried first and failed —
+    <code>KillMode=control-group</code> reaped the detached monitor one second after the
+    oneshot exited, while logging "started" as a success.
+<ul class="article-list">
+  <li><strong><code>deploy/sidecar/swarph-mesh-sidecar.service</code> — DEPRECATED IN PLACE</strong>, not</li>
+</ul>
+  removed: peers are running it and an existing install must not break.
+<ul class="article-list">
+  <li><strong><code>scripts/ensure_monitor.sh</code></strong> — check status, start if down, report pending.</li>
+</ul>
+  Never fails its caller; a hook that can block a session is worse than the
+  deafness it prevents.
+
+<h2 id="0-39-2-2026-07-26">0.39.2 — 2026-07-26</h2>
+<ul class="article-list">
+  <li><strong>fix(mesh):</strong> <code>--token-file</code> is now <strong>one parser</strong>. It previously did</li>
+</ul>
+  <code>read_text().strip()</code> and returned the ENTIRE FILE, so pointing it at an
+  env-style file — the shape the shipped systemd unit, the README and peers'
+  docs all document — put comments and unrelated variables into the
+  <code>Authorization</code> header. An em-dash in a <em>comment</em> crashed a peer's monitor
+  with a latin-1 codec error. <code>swarph daemon</code> read the same flag through a
+  different, correct parser: <strong>one flag, two parsers</strong>, diverging silently
+  where both happened to work. Now accepts env-style
+  <code>MESH_GATEWAY_TOKEN=<token></code> (quotes stripped, comments and blanks skipped,
+  unrelated keys ignored) or a bare token line, and a test asserts the two
+  readers <strong>agree</strong> so the divergence cannot recur at the next call site.
+<ul class="article-list">
+  <li>Not introduced in 0.39.1: that release added a <em>foreground</em> call site,</li>
+</ul>
+    where the same failure previously died into <code>monitor.log</code> while the parent
+    exited 0. It made a pre-existing silent failure loud.
+<ul class="article-list">
+  <li><strong>fix(mesh):</strong> a token that cannot go in an HTTP header now raises a <strong>named</strong></li>
+</ul>
+  error giving the file, line, character and codepoint, instead of a latin-1
+  traceback deep in <code>http/client.py</code> — which points the reader at the HTTP
+  layer for what is a malformed config file.
+<ul class="article-list">
+  <li><strong>test:</strong> shipped <code>*.service</code> units are now parsed in CI, and every `swarph</li>
+</ul>
+  <verb> --flags` they prescribe must exist and be accepted. Catches a shipped
+  unit invoking a verb or flag the CLI dropped — which breaks every deployment
+  using it at next restart, silently.
+
+<h2 id="0-39-1-2026-07-26">0.39.1 — 2026-07-26</h2>
+<ul class="article-list">
+  <li><strong>fix(monitor):</strong> refuse a <strong>derived</strong> identity that is not a registered peer.</li>
+</ul>
+  <code>self_name</code> falls back to the state dir BASENAME, so
+  <code>swarph monitor start --state-dir /var/lib/swarph/droplet-monitor</code> produced a
+  monitor for the peer <code>droplet-monitor</code> — which does not exist. Nothing can be
+  addressed to an unregistered peer, so it polled a nonexistent inbox, saw zero
+  DMs forever, and reported itself <strong>running and healthy</strong>. Silent deafness
+  reintroduced through <em>configuration</em> rather than code. Found by peer cell
+  <code>droplet</code> within minutes of installing 0.39.0.
+<ul class="article-list">
+  <li>Refuses only on a <strong>positive</strong> "not a peer" answer: unreachable gateway,</li>
+</ul>
+    non-200, unexpected shape and <strong>empty peer list</strong> all warn and proceed.
+    <code>start</code> must stay safe to call unconditionally from a hook, and an empty
+    list is what a half-initialised gateway returns — refusing on it would stop
+    every monitor in the fleet at once.
+<ul class="article-list">
+  <li>Only the <strong>derived</strong> path refuses. An explicit <code>--as</code> / <code>$SWARPH_SELF</code> is a</li>
+</ul>
+    deliberate claim and may be pre-staging a peer not yet registered; that
+    warns and continues.
+<ul class="article-list">
+  <li>The check runs <em>after</em> the already-running fast path, which is the hook path</li>
+</ul>
+    and must stay free and silent.
+
+<h2 id="0-39-0-2026-07-26">0.39.0 — 2026-07-26</h2>
+<ul class="article-list">
+  <li><strong><code>swarph monitor</code></strong> — pluggable DM delivery, PULL-first (card #122).</li>
+  <li><strong>The state split.</strong> An <em>observation cursor</em> (what the monitor has READ,</li>
+</ul>
+    advances on observation, never gated on anything downstream) and a
+    <em>per-sink delivery ledger</em> (advances on successful delivery, may lag
+    arbitrarily). Novelty is a property of a <strong>sink's ledger</strong>, not of the
+    cursor — so a late-attached sink replays from <code>inbox.log</code> rather than
+    finding its mail already consumed.
+<ul class="article-list">
+  <li><code>--deliver pull</code> (default; ledger advances on <strong>ACK</strong>), <code>tmux:<target></code>,</li>
+</ul>
+    <code>stdout</code>, <code>none</code>. Repeatable — several sinks, independent ledgers.
+    <code>webhook:</code> <strong>exits non-zero naming its gate</strong>; a held feature that silently
+    no-ops rots into a phantom capability someone believes is delivering.
+<ul class="article-list">
+  <li><code>start</code> is idempotent and safe to call unconditionally from a hook (quiet</li>
+</ul>
+    and fast when already running). <code>status</code> exits 0 = nothing pending,
+    1 = DMs pending, 2 = not running, so a hook can self-heal and notify in one
+    line. <code>--brief</code> prints nothing when there is nothing.
+<ul class="article-list">
+  <li>Under <code>--deliver none</code> <code>status</code> reports <strong>"unread: CANNOT REPORT"</strong>, never</li>
+</ul>
+    "0 unread" — an absence that reads as evidence is the defect being fixed.
+<ul class="article-list">
+  <li><strong>Refuses to share a state dir with a live <code>swarph daemon</code>.</strong> Both write</li>
+</ul>
+    <code>cursor.json</code> + <code>inbox.log</code>; two writers on one cursor lose or repeat DMs
+    silently. Detected by a daemon pidfile <em>and</em> by <code>tasks_snapshot</code> in the
+    cursor, which is what catches daemons already running.
+<ul class="article-list">
+  <li><code>swarph mesh sidecar</code> keeps working as a deprecated alias (notice on</li>
+</ul>
+    stderr — stdout is a sink).
+
+<ul class="article-list">
+  <li><strong>fix(mesh):</strong> the sidecar read cursor no longer shares a failure mode with</li>
+</ul>
+  wake delivery. It previously advanced only inside <code>if _tmux_wake(...)</code>, so a
+  dead tmux pane froze it forever and every poll re-selected and re-logged the
+  same messages, with no backoff and no alarm. Waking is delivery; the cursor
+  is bookkeeping. Failed wakes are now visible instead of silent.
+
+<ul class="article-list">
+  <li><strong>fix(cli):</strong> a mistyped verb errors instead of billing an LLM call.</li>
+</ul>
+  <code>swarph inbox</code> (the real verb is <code>swarph mesh inbox</code>) fell through to the
+  one-shot path as <code>prompt="inbox"</code> and paid a provider to answer a question
+  nobody asked. Close typos get suggestions; <code>swarph -- <word></code> still sends a
+  single-word prompt.
+
+<h2 id="0-38-1-2026-07-24">0.38.1 — 2026-07-24</h2>
+<ul class="article-list">
+  <li><strong>docs:</strong> README <code>swarph bench</code> section + this changelog (0.38.0 shipped the</li>
+</ul>
+  feature without them; README is the PyPI long-description, so this refreshes
+  the PyPI page). No code change.
+
+<h2 id="0-38-0-2026-07-24">0.38.0 — 2026-07-24</h2>
+<ul class="article-list">
+  <li><strong><code>swarph bench</code></strong> — a deterministic LLM benchmark-pack runner (card #101).</li>
+  <li><code>bench run</code> — N-way model showdown on a pack → confusion-matrix report</li>
+</ul>
+    (per-class hit-rates + ground-truth distance + tokens + metered-$ + latency
+    + parse-fails), ranked by (distance, cost). Credential <strong>preflight</strong> skips
+    key-less models cleanly instead of a mid-run 401; <code>--strict</code> aborts.
+<ul class="article-list">
+  <li><code>bench validate</code> — four trust gates: schema/integrity, answer-leak scan,</li>
+</ul>
+    discrimination, and context-calibration guidance.
+<ul class="article-list">
+  <li><code>bench add</code> — validates + self-registers a pack at <code>packs/<theme>.json</code></li>
+</ul>
+    from its own header (no manual name); refuses on leak/schema failure.
+<ul class="article-list">
+  <li><code>bench prices</code> — the full LiteLLM price list (~1500+ models), a shared cache.</li>
+  <li>Task types: numeric / categorical / ranking / text. Packs are data-only;</li>
+</ul>
+    the scoring engine is fixed and shared. <code>[bench]</code> extra pulls <code>google-genai</code>.
+<ul class="article-list">
+  <li>Spec + reference impl by droplet; ported into swarph-cli under review.</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#changelog-gap-recorded-rather-than-quietly-closed">Changelog gap, recorded rather than quietly closed</a></li>
+<li><a href="#0-42-9-2026-08-12">0.42.9 — 2026-08-12</a></li>
+<li><a href="#0-42-8-2026-08-12">0.42.8 — 2026-08-12</a></li>
+<li><a href="#0-42-7-2026-08-11">0.42.7 — 2026-08-11</a></li>
+<li><a href="#0-42-6-2026-08-11">0.42.6 — 2026-08-11</a></li>
+<li><a href="#0-42-0-2026-08-08">0.42.0 - 2026-08-08</a></li>
+<li><a href="#0-41-9-2026-08-07">0.41.9 — 2026-08-07</a></li>
+<li><a href="#0-41-6-2026-08-05">0.41.6 — 2026-08-05</a></li>
+<li><a href="#0-39-4-2026-07-27">0.39.4 — 2026-07-27</a></li>
+<li><a href="#0-39-3-2026-07-27">0.39.3 — 2026-07-27</a></li>
+<li><a href="#0-39-2-2026-07-26">0.39.2 — 2026-07-26</a></li>
+<li><a href="#0-39-1-2026-07-26">0.39.1 — 2026-07-26</a></li>
+<li><a href="#0-39-0-2026-07-26">0.39.0 — 2026-07-26</a></li>
+<li><a href="#0-38-1-2026-07-24">0.38.1 — 2026-07-24</a></li>
+<li><a href="#0-38-0-2026-07-24">0.38.0 — 2026-07-24</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

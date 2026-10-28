@@ -1,0 +1,820 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OKF Memory-Navigation Tool (`swarph memory`) Implementation Plan | Technical Whitepaper</title>
+  <meta name="description" content="OKF Memory-Navigation Tool (`swarph memory`) Implementation Plan — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-07-15-okf-memory-navigation-plan.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">OKF Memory-Navigation Tool (`swarph memory`) Implementation Plan</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 17 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># OKF Memory-Navigation Tool (<code>swarph memory</code>) Implementation Plan</p>
+
+<p>> <strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+
+<p><strong>Goal:</strong> Add a deterministic OKF memory-navigation verb — <code>swarph memory get/list/links</code> — plus a <code>swarph_memory_navigate</code> MCP tool, the knowledge-hemisphere counterpart to <code>swarph codegraph</code>, so an agent can fetch an EXACT canonical memory fact (not fuzzy semantic recall) when it knows it needs one.</p>
+
+<p><strong>Architecture:</strong> A new <code>memory.py</code> command talks to the running gbrain over HTTP MCP (<code>:8792/mcp</code>, Bearer token) — the exact transport <code>brain_ask.py</code> already uses — but calls the deterministic <code>get_page</code> / <code>list_pages</code> MCP tools instead of semantic <code>query</code>. Link traversal (<code>memory links</code>) parses <code>[[wiki-links]]</code> out of a page body (gbrain's <code>graph</code>/<code>backlinks</code> are CLI-only, not exposed over MCP). A single <code>swarph_memory_navigate</code> MCP tool wraps the three ops for host discoverability, mirroring <code>swarph_codegraph_query</code>. No hook is touched — this is a deliberate, agent-invoked verb, not an ambient retrieval lane.</p>
+
+<p><strong>Tech Stack:</strong> Python 3, stdlib-only (<code>urllib</code>, <code>argparse</code>, <code>re</code>, <code>json</code>) — same public-package constraint as <code>brain_ask</code>/<code>codegraph</code>. Tests via <code>venv/bin/python -m pytest</code>.</p>
+
+<h2 id="global-constraints">Global Constraints</h2>
+
+<ul class="article-list">
+  <li><strong>Stdlib-only.</strong> No new third-party dependency (swarph-cli is a public PyPI package). Reuse <code>urllib.request</code>, mirroring <code>brain_ask.py</code>.</li>
+  <li><strong>DRY the transport.</strong> Import and reuse <code>brain_ask</code>'s <code>_resolve_endpoint</code>, <code>_resolve_token</code>, <code>_self_name</code>, <code>_peer_token_path</code>, <code>_http_post</code> — do NOT duplicate endpoint/token resolution. Only the tools/call payload differs.</li>
+  <li><strong>Token model identical to <code>brain-ask</code>/<code>mesh</code>:</strong> endpoint resolved <code>GBRAIN_MCP_URL</code> > <code>SWARPH_BRAIN_MCP</code> > <code>http://127.0.0.1:8792/mcp</code>; token resolved <code>--token-file</code> > <code>GBRAIN_TOKEN</code> > <code>SWARPH_BRAIN_TOKEN</code> > mesh per-peer token (<code>~/.config/swarph/<self>.peer_token</code>).</li>
+  <li><strong>Fail-safe, read-only.</strong> Every path is read-only. Network/parse errors resolve to a clean empty result + a stderr note and a non-zero exit for the CLI; the MCP tool wrapper NEVER raises (returns <code>[]</code>/<code>{}</code>), mirroring <code>codegraph._codegraph_query</code>.</li>
+  <li><strong>Inert-safe rollout.</strong> Additive verb only. NO change to any hook, retrieval lane, or existing command behavior. Publishing to PyPI is commander-gated (out of scope for this plan — plan ends at green + PR).</li>
+  <li><strong><code>--tag</code> is more reliable than <code>--type</code>.</strong> Per <code>/home/ubuntu/tools/gbrain-api-notes.md</code>, gbrain reclassifies its own page <code>type</code> (a <code>type: project</code> page returned as <code>type: "concept"</code>). Document this in help/docstrings; do not promise exact <code>--type</code> fidelity.</li>
+  <li><strong>gbrain MCP tools available</strong> (<code>/home/ubuntu/tools/gbrain-api-notes.md</code>): <code>get_page(slug, fuzzy, include_deleted)</code>, <code>list_pages(type, tag, limit, updated_after)</code>. There is NO <code>graph</code>/<code>backlinks</code> MCP tool — <code>links</code> must parse the page body.</li>
+  <li><strong>Version bump discipline:</strong> bumping <code>swarph_cli.__version__</code> requires updating BOTH <code>pyproject.toml</code> and <code>src/swarph_cli/__init__.py</code> AND the two pin tests (<code>tests/test_brain_ask_command.py</code>, <code>tests/test_watchdog.py</code>).</li>
+  <li><strong>Routing guidance is evidence-based (#33 LOCOMO):</strong> deterministic get/list/links is for CANONICAL/exact recall (known slug, all pages of a tag, a concept's neighbors); ambient semantic <code>brain-ask</code>/hook is for fuzzy recall. #33 finding to encode in docstrings: single-hop canonical lookup is where deterministic nav is strongest; multi-hop/relational recall is the weak spot that <code>links</code> graph-traversal directly targets.</li>
+</ul>
+
+<p>---</p>
+
+<h2 id="file-structure">File Structure</h2>
+
+<ul class="article-list">
+  <li><strong>Create</strong> <code>src/swarph_cli/commands/memory.py</code> — the <code>swarph memory</code> verb (get/list/links), transport reused from <code>brain_ask</code>.</li>
+  <li><strong>Create</strong> <code>tests/test_memory_command.py</code> — unit tests (transport mocked via <code>monkeypatch</code> on the <code>_http_post</code> seam).</li>
+  <li><strong>Modify</strong> <code>src/swarph_cli/main.py</code> — register <code>"memory"</code> → <code>swarph_cli.commands.memory.run_memory</code> in the dispatch dict.</li>
+  <li><strong>Modify</strong> <code>src/swarph_cli/commands/mcp_server.py</code> — add <code>swarph_memory_navigate</code> tool + <code>_memory_navigate</code> wrapper.</li>
+  <li><strong>Modify</strong> <code>README.md</code> — add <code>### swarph memory</code> section + the AI-Router table (the deterministic-vs-ambient split).</li>
+  <li><strong>Modify</strong> <code>pyproject.toml</code>, <code>src/swarph_cli/__init__.py</code>, <code>tests/test_brain_ask_command.py</code>, <code>tests/test_watchdog.py</code> — version bump to <code>0.30.0</code>.</li>
+</ul>
+
+<p>---</p>
+
+<h3 id="task-1-swarph-memory-get-slug-deterministic-page-fetch">Task 1: <code>swarph memory get <slug></code> — deterministic page fetch</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>src/swarph_cli/commands/memory.py</code></li>
+  <li>Test: <code>tests/test_memory_command.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes (imported from <code>swarph_cli.commands.brain_ask</code>): <code>_resolve_endpoint() -> str</code>, <code>_resolve_token(token_file, self_name) -> Optional[str]</code>, <code>_self_name() -> str</code>, <code>_http_post(url, body, token, accept="application/json", timeout=...) -> str</code>.</li>
+  <li>Produces: <code>run_memory(argv: list) -> int</code>; <code>_mcp_call(url, token, tool, arguments: dict) -> object</code> (generic tools/call → parsed content); <code>get_page(url, token, slug) -> dict</code>.</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_memory_command.py
+import json
+import pytest
+from swarph_cli.commands import memory</p>
+
+<p>def _fake_post(monkeypatch, captured, response_obj):
+    """Stub brain_ask._http_post (the shared transport seam) to capture the
+    outbound MCP request and return a canned MCP tools/call envelope."""
+    def _post(url, body, token, accept="application/json", timeout=20):
+        captured["url"] = url
+        captured["body"] = body
+        captured["token"] = token
+        # gbrain MCP wraps tool output as {"result": {"content": [{"type":"text","text": <json-str>}]}}
+        return json.dumps({"result": {"content": [{"type": "text", "text": json.dumps(response_obj)}]}})
+    monkeypatch.setattr(memory.brain_ask, "_http_post", _post)</p>
+
+<p>def test_get_page_calls_get_page_tool_and_returns_dict(monkeypatch):
+    captured = {}
+    page = {"slug": "project_gbrain_shipped", "type": "project", "content": "# gbrain\n$0 memory"}
+    _fake_post(monkeypatch, captured, page)
+    monkeypatch.setattr(memory.brain_ask, "_resolve_endpoint", lambda: "http://x/mcp")
+    monkeypatch.setattr(memory.brain_ask, "_resolve_token", lambda <em>a, </em>*k: "tok")</p>
+
+<p>result = memory.get_page("http://x/mcp", "tok", "project_gbrain_shipped")</p>
+
+<p>assert result["slug"] == "project_gbrain_shipped"
+    assert captured["body"]["method"] == "tools/call"
+    assert captured["body"]["params"]["name"] == "get_page"
+    assert captured["body"]["params"]["arguments"] == {"slug": "project_gbrain_shipped"}</p>
+
+<p>def test_mcp_call_handles_sse_framing(monkeypatch):
+    """gbrain replies over SSE (data:-prefixed) — _mcp_call must unwrap it."""
+    page = {"slug": "s", "content": "x"}
+    inner = json.dumps({"result": {"content": [{"type": "text", "text": json.dumps(page)}]}})
+    sse = f"event: message\ndata: {inner}\n\n"
+    monkeypatch.setattr(memory.brain_ask, "_http_post", lambda <em>a, </em>*k: sse)
+    assert memory._mcp_call("http://x/mcp", "tok", "get_page", {"slug": "s"}) == page
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_memory_command.py::test_get_page_calls_get_page_tool_and_returns_dict -v</code>
+Expected: FAIL — <code>ModuleNotFoundError: swarph_cli.commands.memory</code> (module not created yet).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# src/swarph_cli/commands/memory.py
+"""<code></code>swarph memory<code></code> — DETERMINISTIC OKF memory navigation over gbrain.</p>
+
+<p>The knowledge-hemisphere counterpart to <code></code>swarph codegraph<code></code>. When an agent
+wants an EXACT canonical memory fact — a known page, every page of a tag, or
+a concept's neighbours — it invokes this verb. Fuzzy/semantic recall stays
+with <code></code>swarph brain-ask<code></code> and the per-prompt retrieval hook; the intent to
+consult a <em>specific</em> fact lives with the caller (see README §The AI Router).</p>
+
+<p>Routing (evidence from the #33 LOCOMO benchmark): deterministic get/list/links
+is strongest for single-hop CANONICAL lookup ("the precise page for X", "all
+<code>reference</code>-tagged pages"); relational/multi-hop recall is the weak spot that
+<code></code>links<code></code> graph-traversal targets. Reach for semantic <code></code>brain-ask<code></code> when you
+don't yet know which page you need.</p>
+
+<p>Transport mirrors <code></code>brain-ask<code></code>: HTTP MCP to gbrain (:8792/mcp, Bearer). Calls
+the deterministic <code></code>get_page<code></code> / <code></code>list_pages<code></code> MCP tools (NOT semantic
+<code></code>query<code></code>). Read-only; stdlib-only.
+"""
+from __future__ import annotations</p>
+
+<p>import argparse
+import json
+import re
+import sys</p>
+
+<p>from swarph_cli.commands import brain_ask</p>
+
+<p>def _strip_sse(raw: str) -> str:
+    """gbrain MCP may reply as SSE (<code></code>data:<code></code>-prefixed lines) OR plain JSON —
+    mirror brain_ask._parse_query_response: return the JSON payload either way."""
+    if "data:" in raw:
+        for line in raw.splitlines():
+            s = line.strip()
+            if s.startswith("data:"):
+                return s[len("data:"):].strip()
+    return raw</p>
+
+<p>def _mcp_call(url: str, token: str, tool: str, arguments: dict):
+    """Generic gbrain MCP tools/call → parsed tool output. Reuses brain_ask's
+    HTTP seam so endpoint/token behaviour stays identical across verbs. Handles
+    gbrain's SSE framing + the <code></code>result.content[].text<code></code> = JSON-string envelope."""
+    body = {
+        "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+        "params": {"name": tool, "arguments": arguments},
+    }
+    raw = brain_ask._http_post(url, body, token)  # keep _http_post's default Accept
+    # ("application/json, text/event-stream") — streamable-HTTP MCP servers 406 a
+    # JSON-only Accept; brain_ask's proven calls never narrow it.
+    envelope = json.loads(_strip_sse(raw))
+    content = (envelope.get("result") or {}).get("content") or []
+    for part in content:
+        if part.get("type") == "text":
+            try:
+                return json.loads(part["text"])
+            except (json.JSONDecodeError, TypeError):
+                return part["text"]
+    return envelope.get("result")</p>
+
+<p>def get_page(url: str, token: str, slug: str) -> dict:
+    """Fetch one page by exact slug via the <code></code>get_page<code></code> MCP tool."""
+    out = _mcp_call(url, token, "get_page", {"slug": slug})
+    return out if isinstance(out, dict) else {}</p>
+
+<p>def run_memory(argv: list) -> int:
+    parser = argparse.ArgumentParser(
+        prog="swarph memory",
+        description="Deterministic OKF memory navigation over gbrain "
+                    "(get/list/links). Fuzzy recall = <code>swarph brain-ask</code>.")
+    parser.add_argument("--token-file", default=None,
+                        help="path to a gbrain read token (else GBRAIN_TOKEN / "
+                             "SWARPH_BRAIN_TOKEN / mesh peer token)")
+    sub = parser.add_subparsers(dest="subcommand")</p>
+
+<p>p_get = sub.add_parser("get", help="read one page by exact slug")
+    p_get.add_argument("slug")
+    p_get.add_argument("--json", action="store_true", help="raw page JSON")</p>
+
+<p>args = parser.parse_args(argv)
+    url = brain_ask._resolve_endpoint()
+    token = brain_ask._resolve_token(args.token_file, brain_ask._self_name())</p>
+
+<p>if args.subcommand == "get":
+        try:
+            page = get_page(url, token, args.slug)
+        except Exception as e:  # fail-safe: never traceback at the CLI
+            print(f"swarph memory get: gbrain unreachable ({e})", file=sys.stderr)
+            return 1
+        if not page:
+            print(f"swarph memory get: no page {args.slug!r}", file=sys.stderr)
+            return 1
+        if args.json:
+            print(json.dumps(page, indent=2))
+        else:
+            print(page.get("content", "") or json.dumps(page, indent=2))
+        return 0</p>
+
+<p>parser.print_help()
+    return 0
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_memory_command.py::test_get_page_calls_get_page_tool_and_returns_dict -v</code>
+Expected: PASS.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add src/swarph_cli/commands/memory.py tests/test_memory_command.py
+git commit -m "feat(memory): swarph memory get — deterministic page fetch over gbrain MCP"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-2-swarph-memory-list-type-t-tag-t-n-n-deterministic-filter">Task 2: <code>swarph memory list [--type T] [--tag T] [-n N]</code> — deterministic filter</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>src/swarph_cli/commands/memory.py</code></li>
+  <li>Test: <code>tests/test_memory_command.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: <code>_mcp_call</code> (Task 1).</li>
+  <li>Produces: <code>list_pages(url, token, type_=None, tag=None, limit=50) -> list[dict]</code>.</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+def test_list_pages_calls_list_pages_tool_with_filters(monkeypatch):
+    captured = {}
+    pages = [{"slug": "reference_swarph_mesh", "type": "reference"},
+             {"slug": "reference_okf_google", "type": "reference"}]
+    _fake_post(monkeypatch, captured, pages)</p>
+
+<p>result = memory.list_pages("http://x/mcp", "tok", type_="reference", tag="auth", limit=25)</p>
+
+<p>assert [p["slug"] for p in result] == ["reference_swarph_mesh", "reference_okf_google"]
+    assert captured["body"]["params"]["name"] == "list_pages"
+    assert captured["body"]["params"]["arguments"] == {"type": "reference", "tag": "auth", "limit": 25}
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_memory_command.py::test_list_pages_calls_list_pages_tool_with_filters -v</code>
+Expected: FAIL — <code>AttributeError: module ... has no attribute 'list_pages'</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p>Add to <code>memory.py</code> (after <code>get_page</code>):</p>
+
+<p><code></code>`python
+def list_pages(url: str, token: str, type_: str | None = None,
+               tag: str | None = None, limit: int = 50) -> list:
+    """List pages filtered by metadata (type/tag) via <code></code>list_pages<code></code> — a
+    DETERMINISTIC filter, not semantic search. NOTE: gbrain reclassifies its
+    own page <code>type</code>, so <code>tag</code> is the reliable scope (see gbrain-api-notes)."""
+    args: dict = {"limit": limit}
+    if type_:
+        args["type"] = type_
+    if tag:
+        args["tag"] = tag
+    out = _mcp_call(url, token, "list_pages", args)
+    return out if isinstance(out, list) else (out.get("pages", []) if isinstance(out, dict) else [])
+<code></code>`</p>
+
+<p>Add a <code>list</code> subparser inside <code>run_memory</code> (after the <code>get</code> subparser block):</p>
+
+<p><code></code>`python
+    p_list = sub.add_parser("list", help="filter pages by type/tag (deterministic, not semantic)")
+    p_list.add_argument("--type", dest="type_", default=None,
+                        help="page type filter (unreliable — gbrain reclassifies type; prefer --tag)")
+    p_list.add_argument("--tag", default=None, help="tag filter (the reliable scope)")
+    p_list.add_argument("-n", "--limit", type=int, default=50)
+    p_list.add_argument("--json", action="store_true")
+<code></code>`</p>
+
+<p>Add the <code>list</code> branch inside <code>run_memory</code> (before <code>parser.print_help()</code>):</p>
+
+<p><code></code>`python
+    if args.subcommand == "list":
+        try:
+            pages = list_pages(url, token, args.type_, args.tag, args.limit)
+        except Exception as e:
+            print(f"swarph memory list: gbrain unreachable ({e})", file=sys.stderr)
+            return 1
+        if args.json:
+            print(json.dumps(pages, indent=2))
+        else:
+            for p in pages:
+                print(f"{p.get('slug','?'):40} {p.get('type','')}")
+        return 0
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_memory_command.py::test_list_pages_calls_list_pages_tool_with_filters -v</code>
+Expected: PASS.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add src/swarph_cli/commands/memory.py tests/test_memory_command.py
+git commit -m "feat(memory): swarph memory list — deterministic type/tag filter"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-3-swarph-memory-links-slug-wiki-link-traversal">Task 3: <code>swarph memory links <slug></code> — <code>[[wiki-link]]</code> traversal</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>src/swarph_cli/commands/memory.py</code></li>
+  <li>Test: <code>tests/test_memory_command.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: <code>get_page</code> (Task 1).</li>
+  <li>Produces: <code>parse_links(content: str) -> list[str]</code>; <code>links(url, token, slug) -> list[str]</code>.</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+def test_parse_links_extracts_wiki_links_dedup_ordered():
+    body = ("See [[project_gbrain_shipped]] and [[reference_okf_google]].\n"
+            "Also [[project_gbrain_shipped]] again and a [markdown](path) link.")
+    assert memory.parse_links(body) == ["project_gbrain_shipped", "reference_okf_google"]</p>
+
+<p>def test_links_reads_page_then_extracts(monkeypatch):
+    captured = {}
+    page = {"slug": "a", "content": "links to [[b]] and [[c]]"}
+    _fake_post(monkeypatch, captured, page)
+    assert memory.links("http://x/mcp", "tok", "a") == ["b", "c"]
+    assert captured["body"]["params"]["name"] == "get_page"
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_memory_command.py -k "parse_links or links_reads" -v</code>
+Expected: FAIL — <code>AttributeError: ... has no attribute 'parse_links'</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p>Add to <code>memory.py</code>:</p>
+
+<p><code></code>`python
+_WIKILINK = re.compile(r"\[\[([^\]|]+?)(?:\|[^\]]*)?\]\]")</p>
+
+<p>def parse_links(content: str) -> list:
+    """Extract <code></code>[[slug]]<code></code> wiki-links from a page body (forward links),
+    order-preserving de-dupe. Ignores standard <code></code>[text](path)<code></code> markdown links.
+    (gbrain's graph/backlinks are CLI-only, not over MCP, so v1 traverses the
+    body — the OKF memory format links concepts with [[name]].)"""
+    slugs = [m.group(1).strip() for m in _WIKILINK.finditer(content or "")]
+    return list(dict.fromkeys(slugs))</p>
+
+<p>def links(url: str, token: str, slug: str) -> list:
+    """Forward [[links]] out of a page (deterministic graph navigation)."""
+    page = get_page(url, token, slug)
+    return parse_links(page.get("content", "") if isinstance(page, dict) else "")
+<code></code>`</p>
+
+<p>Add a <code>links</code> subparser inside <code>run_memory</code>:</p>
+
+<p><code></code>`python
+    p_links = sub.add_parser("links", help="forward [[wiki-links]] out of a page")
+    p_links.add_argument("slug")
+    p_links.add_argument("--json", action="store_true")
+<code></code>`</p>
+
+<p>Add the <code>links</code> branch:</p>
+
+<p><code></code>`python
+    if args.subcommand == "links":
+        try:
+            out = links(url, token, args.slug)
+        except Exception as e:
+            print(f"swarph memory links: gbrain unreachable ({e})", file=sys.stderr)
+            return 1
+        if args.json:
+            print(json.dumps(out, indent=2))
+        else:
+            for s in out:
+                print(s)
+        return 0
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_memory_command.py -k "parse_links or links_reads" -v</code>
+Expected: PASS (2 tests).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add src/swarph_cli/commands/memory.py tests/test_memory_command.py
+git commit -m "feat(memory): swarph memory links — [[wiki-link]] graph traversal"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-4-register-memory-in-the-cli-dispatch-no-subcommand-help">Task 4: Register <code>memory</code> in the CLI dispatch + no-subcommand help</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>src/swarph_cli/main.py</code></li>
+  <li>Test: <code>tests/test_memory_command.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: <code>run_memory</code> (Task 1).</li>
+  <li>Produces: <code>swarph memory ...</code> reachable through the top-level CLI.</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+def test_memory_registered_in_dispatch():
+    from swarph_cli import main as m
+    # the dispatch table maps the verb to the dotted run_ path
+    table = getattr(m, "COMMANDS", None) or getattr(m, "_COMMANDS", None) or getattr(m, "DISPATCH", None)
+    assert table is not None, "locate the dispatch dict in main.py and update this test's accessor"
+    assert table["memory"] == "swarph_cli.commands.memory.run_memory"
+<code></code>`</p>
+
+<p>Note to implementer: open <code>src/swarph_cli/main.py</code>, find the dispatch dict (the one containing <code>"board": "swarph_cli.commands.board.run_board"</code>), and set the test's accessor to that dict's actual name.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_memory_command.py::test_memory_registered_in_dispatch -v</code>
+Expected: FAIL — <code>KeyError: 'memory'</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p>In <code>src/swarph_cli/main.py</code>, add to the dispatch dict (next to the <code>"board"</code> entry):</p>
+
+<p><code></code>`python
+    "memory": "swarph_cli.commands.memory.run_memory",
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_memory_command.py::test_memory_registered_in_dispatch -v</code>
+Expected: PASS.</p>
+
+<p>Then smoke the wiring end-to-end (no gbrain needed — just that the verb resolves and prints help):</p>
+
+<p>Run: <code>venv/bin/python -m swarph_cli memory --help</code>
+Expected: prints the <code>swarph memory</code> help with get/list/links subcommands (exit 0).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add src/swarph_cli/main.py tests/test_memory_command.py
+git commit -m "feat(memory): register <code>swarph memory</code> verb in CLI dispatch"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-5-swarph-memory-navigate-mcp-tool">Task 5: <code>swarph_memory_navigate</code> MCP tool</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>src/swarph_cli/commands/mcp_server.py</code></li>
+  <li>Test: <code>tests/test_memory_command.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: <code>memory.get_page</code>, <code>memory.list_pages</code>, <code>memory.links</code> (Tasks 1-3); <code>brain_ask._resolve_endpoint</code>, <code>brain_ask._resolve_token</code>, <code>brain_ask._self_name</code>.</li>
+  <li>Produces: <code>_memory_navigate(op, slug=None, type=None, tag=None, limit=20) -> object</code>; a registered <code>swarph_memory_navigate</code> FastMCP tool.</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+def test_memory_navigate_dispatches_and_is_failsafe(monkeypatch):
+    from swarph_cli.commands import mcp_server
+    monkeypatch.setattr(mcp_server.brain_ask, "_resolve_endpoint", lambda: "http://x/mcp")
+    monkeypatch.setattr(mcp_server.brain_ask, "_resolve_token", lambda <em>a, </em>*k: "tok")
+    monkeypatch.setattr(mcp_server.brain_ask, "_self_name", lambda: "lab-ovh")
+    monkeypatch.setattr(mcp_server.memory, "get_page", lambda u, t, s: {"slug": s, "content": "hi"})</p>
+
+<p>assert mcp_server._memory_navigate("get", slug="foo")["slug"] == "foo"</p>
+
+<p># fail-safe: an unexpected op or an exploding backend NEVER raises
+    def boom(<em>a, </em>*k):
+        raise RuntimeError("gbrain down")
+    monkeypatch.setattr(mcp_server.memory, "list_pages", boom)
+    assert mcp_server._memory_navigate("list", tag="auth") == []
+    assert mcp_server._memory_navigate("bogus") == []
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_memory_command.py::test_memory_navigate_dispatches_and_is_failsafe -v</code>
+Expected: FAIL — <code>AttributeError: module 'mcp_server' has no attribute '_memory_navigate'</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p>In <code>src/swarph_cli/commands/mcp_server.py</code>, add the import near the existing <code>from swarph_cli.commands import codegraph</code>:</p>
+
+<p><code></code>`python
+from swarph_cli.commands import brain_ask, memory
+<code></code>`</p>
+
+<p>Add the wrapper function (near <code>_codegraph_query</code>):</p>
+
+<p><code></code>`python
+def _memory_navigate(op: str, slug: str | None = None, type: str | None = None,
+                     tag: str | None = None, limit: int = 20):
+    """Deterministic OKF memory navigation — the knowledge-hemisphere twin of
+    swarph_codegraph_query. Ops: 'get' (exact page by slug), 'list' (type/tag
+    filter — deterministic, NOT semantic), 'links' (a page's [[wiki-links]]).</p>
+
+<p>Use this when you need an EXACT/canonical memory fact you can name; use the
+    ambient semantic recall (the retrieval hook / brain-ask) when you don't yet
+    know which page you need. (#33 LOCOMO: deterministic nav is strongest for
+    single-hop canonical lookup; 'links' targets the relational/multi-hop case.)</p>
+
+<p>Fail-safe: any backend/parse error resolves to [] or {} — never raises."""
+    try:
+        url = brain_ask._resolve_endpoint()
+        token = brain_ask._resolve_token(None, brain_ask._self_name())
+        if op == "get" and slug:
+            return memory.get_page(url, token, slug)
+        if op == "list":
+            return memory.list_pages(url, token, type, tag, limit)
+        if op == "links" and slug:
+            return memory.links(url, token, slug)
+        return []
+    except Exception:
+        return []
+<code></code>`</p>
+
+<p>Register the tool alongside the existing <code>swarph_codegraph_query</code> registration (inside the same builder that does <code>def swarph_codegraph_query(...)</code>):</p>
+
+<p><code></code>`python
+    @mcp.tool()
+    def swarph_memory_navigate(op: str, slug: str = "", tag: str = "",
+                               type: str = "", limit: int = 20):
+        """Deterministic OKF memory navigation over gbrain: op='get'|'list'|'links'.
+        Exact canonical recall (a named page, a tag's pages, a concept's links) —
+        the counterpart to swarph_codegraph_query for the knowledge hemisphere.
+        For fuzzy recall use semantic search instead."""
+        return _memory_navigate(op, slug=slug or None, type=type or None,
+                                tag=tag or None, limit=limit)
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_memory_command.py::test_memory_navigate_dispatches_and_is_failsafe -v</code>
+Expected: PASS.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add src/swarph_cli/commands/mcp_server.py tests/test_memory_command.py
+git commit -m "feat(memory): swarph_memory_navigate MCP tool (deterministic OKF nav)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-6-readme-memory-the-ai-router-doc-version-bump-to-0-30-0">Task 6: README §memory + The AI Router doc + version bump to 0.30.0</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>README.md</code></li>
+  <li>Modify: <code>pyproject.toml</code>, <code>src/swarph_cli/__init__.py</code></li>
+  <li>Modify: <code>tests/test_brain_ask_command.py</code>, <code>tests/test_watchdog.py</code> (version pins)</li>
+</ul></p>
+
+<p><strong>Interfaces:</strong> none (docs + version constants).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Update the version pin tests first (write the failing assertion)</strong></li>
+</ul>
+
+<p>Find the pin assertions and bump them to <code>0.30.0</code>. In <code>tests/test_brain_ask_command.py</code> and <code>tests/test_watchdog.py</code>, locate the test that asserts the version (grep: <code>grep -rn "0.29.2" tests/</code>) and change <code>"0.29.2"</code> → <code>"0.30.0"</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run to verify they fail</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_brain_ask_command.py tests/test_watchdog.py -k version -v</code>
+Expected: FAIL — the code still reports <code>0.29.2</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Bump the version constants</strong></li>
+</ul>
+
+<p>In <code>pyproject.toml</code>: <code>version = "0.30.0"</code>.
+In <code>src/swarph_cli/__init__.py</code>: <code>__version__ = "0.30.0"</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run to verify they pass</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest tests/test_brain_ask_command.py tests/test_watchdog.py -k version -v</code>
+Expected: PASS.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Add the README section</strong></li>
+</ul>
+
+<p>In <code>README.md</code>, after the <code>### swarph brain-ask</code> section, add:</p>
+
+<p><code></code><code></code>markdown
+<h3 id="swarph-memory-v0-30-0"><code>swarph memory</code> (v0.30.0)</h3></p>
+
+<p><strong>Deterministic</strong> OKF memory navigation over gbrain — the knowledge-hemisphere twin of <code>swarph codegraph</code>. When you want an EXACT canonical fact you can name, you invoke it; fuzzy recall stays with <code>swarph brain-ask</code>.</p>
+
+<p><code></code>`
+swarph memory get <slug>                 # read one page by exact slug
+swarph memory list [--tag T] [--type T]  # filter pages (deterministic — --tag is the reliable scope)
+swarph memory links <slug>               # a concept's forward [[wiki-links]]
+<code></code>`</p>
+
+<p>Same token model as <code>swarph brain-ask</code> (<code>GBRAIN_MCP_URL</code>/<code>SWARPH_BRAIN_MCP</code> endpoint; <code>--token-file</code> > <code>GBRAIN_TOKEN</code> > <code>SWARPH_BRAIN_TOKEN</code> > mesh peer token). Add <code>--json</code> for the raw payload. Read-only. Also exposed to any MCP host as the <code>swarph_memory_navigate</code> tool.</p>
+
+<p>> Note: gbrain reclassifies its own page <code>type</code>, so <code>--tag</code> is more reliable than <code>--type</code> for scoping.</p>
+
+<h4 id="the-ai-router-why-a-tool-not-a-hook">The AI Router (why a tool, not a hook)</h4>
+
+<p>The modern memory stack routes a request between <strong>ambient semantic recall</strong> (wide/fuzzy) and <strong>deterministic canonical lookup</strong> (exact). swarph's router is not a classifier box — it's the agent choosing, because intent lives with the caller:</p>
+
+<p>| path | when | swarph surface |
+|---|---|---|
+| <strong>ambient / semantic</strong> | "surface anything relevant" (you don't know the page) | the per-prompt retrieval hook + <code>swarph brain-ask</code> |
+| <strong>deterministic / canonical</strong> — code | "where is X defined / what calls it" | <code>swarph codegraph</code> / <code>swarph_codegraph_query</code> |
+| <strong>deterministic / canonical</strong> — knowledge | "the exact page for X / all <code>auth</code>-tagged / X's neighbours" | <strong><code>swarph memory</code> / <code>swarph_memory_navigate</code></strong> |</p>
+
+<p>Evidence (#33 LOCOMO benchmark): deterministic navigation is strongest for single-hop canonical lookup; relational/multi-hop recall is the weak spot <code>memory links</code> graph-traversal targets. Reach for semantic recall when you can't name the page yet.
+<code></code><code></code></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 6: Run the FULL suite (no regressions)</strong></li>
+</ul>
+
+<p>Run: <code>venv/bin/python -m pytest -q</code>
+Expected: all pass, including the new <code>tests/test_memory_command.py</code> and the bumped pins.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 7: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add README.md pyproject.toml src/swarph_cli/__init__.py tests/test_brain_ask_command.py tests/test_watchdog.py
+git commit -m "docs(memory): README §memory + AI-Router doc; bump 0.30.0"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="self-review">Self-Review</h2>
+
+<p><strong>1. Spec coverage</strong> (<code>2026-07-14-okf-rag-router-design.md</code>):
+<ul class="article-list">
+  <li><code>swarph memory get <slug></code> → Task 1 ✓</li>
+  <li><code>swarph memory list --type/--tag</code> → Task 2 ✓ (with the type-reliability caveat surfaced)</li>
+  <li><code>swarph memory links <slug></code> (<code>[[links]]</code> traversal) → Task 3 ✓ (body-parse, since gbrain graph is CLI-only — a faithful realization of the spec's intent within the available MCP surface)</li>
+  <li><code>swarph_memory_navigate</code> MCP tool → Task 5 ✓</li>
+  <li>README §memory + name-the-router table → Task 6 ✓</li>
+  <li>"Ship inert-safe (additive verb; no hook touch)" → no hook file is in any task's file list ✓</li>
+  <li>"build ranking/scope AFTER #33's number" → #33 routing guidance encoded in docstrings + README (Tasks 1, 5, 6) ✓</li>
+  <li>Deferred in spec (temporal hemisphere / reserved-name index synthesis) → correctly OUT of scope, not planned ✓</li>
+</ul></p>
+
+<p><strong>2. Placeholder scan:</strong> no TBD/TODO; every code step has complete code. Task 4's dispatch-dict accessor is the one spot requiring the implementer to read <code>main.py</code> for the dict's actual name — called out explicitly with the grep to run, not left vague.</p>
+
+<p><strong>3. Type consistency:</strong> <code>get_page → dict</code>, <code>list_pages → list</code>, <code>links → list[str]</code>, <code>parse_links → list[str]</code>, <code>_mcp_call → object</code>, <code>_memory_navigate → object</code>, <code>run_memory → int</code>. The MCP envelope shape (<code>result.content[].text</code> = JSON string) is used identically in Task 1's <code>_mcp_call</code> and the test stub <code>_fake_post</code>. <code>brain_ask._http_post</code> signature <code>(url, body, token, accept=, timeout=)</code> matches the stub and the real call.</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#task-1-swarph-memory-get-slug-deterministic-page-fetch">Task 1: `swarph memory get <slug>` — deterministic page fetch</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-2-swarph-memory-list-type-t-tag-t-n-n-deterministic-filter">Task 2: `swarph memory list [--type T] [--tag T] [-n N]` — deterministic filter</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-3-swarph-memory-links-slug-wiki-link-traversal">Task 3: `swarph memory links <slug>` — `[[wiki-link]]` traversal</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-4-register-memory-in-the-cli-dispatch-no-subcommand-help">Task 4: Register `memory` in the CLI dispatch + no-subcommand help</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-5-swarph-memory-navigate-mcp-tool">Task 5: `swarph_memory_navigate` MCP tool</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-6-readme-memory-the-ai-router-doc-version-bump-to-0-30-0">Task 6: README §memory + The AI Router doc + version bump to 0.30.0</a></li>
+<li style="margin-left: 0.8rem;"><a href="#swarph-memory-v0-30-0">`swarph memory` (v0.30.0)</a></li>
+<li><a href="#global-constraints">Global Constraints</a></li>
+<li><a href="#file-structure">File Structure</a></li>
+<li><a href="#self-review">Self-Review</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

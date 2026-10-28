@@ -1,0 +1,579 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Federation C4/Structurizr Model Implementation Plan | Technical Whitepaper</title>
+  <meta name="description" content="Federation C4/Structurizr Model Implementation Plan — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-07-17-federation-c4-structurizr-plan.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Federation C4/Structurizr Model Implementation Plan</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 12 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Federation C4/Structurizr Model Implementation Plan</p>
+
+<p>> <strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+
+<p><strong>Goal:</strong> Auto-generate an interactive C4/Structurizr model of the swarph federation from the CodeGraph fleet index, replacing today's flat Mermaid view — with two privacy-scoped views (full + public).</p>
+
+<p><strong>Architecture:</strong> A new stdlib emitter (<code>structurizr_emit.py</code>) consumes <code>swarph_fed.py</code>'s existing cross-repo DAG derivation (<code>discover_repos</code>/<code>ground</code>/<code>build_effective_dag</code>/<code>reconcile</code>) plus fleet-index visibility, and writes two Structurizr DSL workspaces (<code>full.dsl</code>, <code>public.dsl</code>). <code>fed_refresh.sh</code> regenerates them nightly. A self-hosted Structurizr Lite renders the full model (commander-gated deploy).</p>
+
+<p><strong>Tech Stack:</strong> Python 3.11 stdlib only (<code>sqlite3</code>, <code>os</code>), Structurizr DSL, pytest. No new Python dependencies.</p>
+
+<h2 id="global-constraints">Global Constraints</h2>
+
+<ul class="article-list">
+  <li><strong>stdlib-only.</strong> No new Python dependencies in <code>structurizr_emit.py</code>.</li>
+  <li><strong>Deterministic.</strong> Same inputs → byte-identical <code>.dsl</code> output. All iteration over dicts/sets is <code>sorted()</code>.</li>
+  <li><strong>Reuse <code>swarph_fed.py</code>.</strong> Do NOT reimplement repo discovery, DAG building, grounding, or reconciliation. Consume its <code>Repo</code> objects + <code>build_effective_dag</code> + <code>reconcile</code>.</li>
+  <li><strong>Two views, fail-closed privacy.</strong> <code>public_only=True</code> output must contain NO reference (name/container/edge) to any repo whose visibility is not exactly <code>"public"</code>. A repo absent from the visibility map defaults to <code>"private"</code> (excluded from public).</li>
+  <li><strong>Additive.</strong> <code>viz.py</code> (Mermaid) is untouched; <code>structurizr_emit.py</code> is a sibling. <code>swarph_fed.py</code>'s public functions are unchanged.</li>
+  <li><strong>Size buckets (exact):</strong> <code>size-S</code> < 300, <code>size-M</code> 300–1499, <code>size-L</code> 1500–4999, <code>size-XL</code> ≥ 5000 (symbol/<code>cg_nodes</code> count). Grounded in current partitions: swarph-shared 211=S, mesh-gateway 1239=M, swarph-cli 2885=L, hedge-fund-mcp 8810=XL.</li>
+  <li><strong>Branch:</strong> <code>feat/federation-c4-structurizr</code> in <code>/home/ubuntu/swarph-codegraph-fed</code>. Tests: <code>python3 -m pytest</code>.</li>
+</ul>
+
+<h2 id="existing-api-this-plan-consumes-from-swarph-fed-py-import-as-import-swarph-fed-as-fed">Existing API this plan consumes (from <code>swarph_fed.py</code>, import as <code>import swarph_fed as fed</code>)</h2>
+
+<ul class="article-list">
+  <li><code>fed.Repo</code> dataclass fields: <code>name: str</code>, <code>path: str</code>, <code>deps: list[str]</code> (declared intra-stack dist-names), <code>dynamic_deps: bool</code>, <code>cg_nodes: int</code>, <code>cg_edges: int</code>, <code>provides: set[str]</code>, <code>import_sites: dict[str, list]</code> (owner-repo-name → observed sites).</li>
+  <li><code>fed.discover_repos(paths: list[str]) -> list[fed.Repo]</code></li>
+  <li><code>fed.ground(repos: list[fed.Repo]) -> None</code> — mutates in place (sets cg_nodes/cg_edges/provides/import_sites).</li>
+  <li><code>fed.build_effective_dag(repos) -> dict[str, list[str]]</code> — <code>name -> sorted(deps ∪ import_sites.keys())</code>; every value is a repo name in the same set.</li>
+  <li><code>fed.reconcile(repos) -> list[tuple[str, str, str, str]]</code> — <code>(kind, repo, owner, message)</code>, <code>kind ∈ {"MISSING_DECLARED_DEP", "DEAD_DEP"}</code>.</li>
+</ul>
+
+<h2 id="file-structure">File Structure</h2>
+
+<ul class="article-list">
+  <li><strong>Create</strong> <code>structurizr_emit.py</code> — the emitter: <code>to_structurizr()</code> (pure), <code>_read_visibility()</code>, <code>emit_workspaces()</code> (orchestration), a <code>__main__</code> CLI. One responsibility: fleet DAG → Structurizr DSL.</li>
+  <li><strong>Create</strong> <code>test_structurizr_emit.py</code> — offline tests (no Lite, no real repos; in-memory <code>fed.Repo</code> fixtures + a temp SQLite fleet index).</li>
+  <li><strong>Modify</strong> <code>fed_refresh.sh</code> — after the existing <code>swarph_fed.py</code> report run, invoke <code>structurizr_emit.py</code> to write <code>full.dsl</code> + <code>public.dsl</code>.</li>
+  <li><strong>Deploy (commander-gated, described in Tasks 4–5, not built here):</strong> <code>deploy/swarph-federation-c4.service</code> (systemd) + swarph-desktop Federation-tab edit.</li>
+</ul>
+
+<p>---</p>
+
+<h3 id="task-1-to-structurizr-the-deterministic-dsl-emitter">Task 1: <code>to_structurizr()</code> — the deterministic DSL emitter</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>structurizr_emit.py</code></li>
+  <li>Test: <code>test_structurizr_emit.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: <code>fed.Repo</code> (fields above), <code>effective_dag: dict[str, list[str]]</code>, <code>reconcile: list[tuple[str,str,str,str]]</code>.</li>
+  <li>Produces: <code>to_structurizr(repos, effective_dag, reconcile, *, visibility: dict[str,str], groups: dict[str,str]=GROUPS, public_only: bool=False) -> str</code>. Also module constants <code>GROUPS: dict[str,str]</code>, <code>_size_tag(cg_nodes:int)->str</code>, <code>_id(name:str)->str</code>.</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing tests</strong></li>
+</ul>
+
+<p><code></code>`python
+# test_structurizr_emit.py
+import swarph_fed as fed
+import structurizr_emit as se</p>
+
+<p>def _repo(name, cg_nodes=100, deps=None, provides=None, import_sites=None):
+    r = fed.Repo(name=name, path=f"/x/{name}")
+    r.cg_nodes = cg_nodes
+    r.deps = deps or []
+    r.provides = provides or {name.replace("-", "_")}
+    r.import_sites = import_sites or {}
+    return r</p>
+
+<p>def test_size_buckets_map_to_tags():
+    assert se._size_tag(211) == "size-S"
+    assert se._size_tag(300) == "size-M"
+    assert se._size_tag(1239) == "size-M"
+    assert se._size_tag(1500) == "size-L"
+    assert se._size_tag(2885) == "size-L"
+    assert se._size_tag(5000) == "size-XL"
+    assert se._size_tag(8810) == "size-XL"</p>
+
+<p>def test_output_is_deterministic():
+    repos = [_repo("swarph-cli", 2885, deps=["swarph-shared"]), _repo("swarph-shared", 211)]
+    dag = {"swarph-cli": ["swarph-shared"], "swarph-shared": []}
+    vis = {"swarph-cli": "public", "swarph-shared": "public"}
+    a = se.to_structurizr(repos, dag, [], visibility=vis)
+    b = se.to_structurizr(repos, dag, [], visibility=vis)
+    assert a == b</p>
+
+<p>def test_reconciliation_edges_are_tagged():
+    repos = [_repo("a", deps=["b"], import_sites={"c": [1]}), _repo("b"), _repo("c")]
+    dag = {"a": ["b", "c"], "b": [], "c": []}
+    vis = {n: "public" for n in ("a", "b", "c")}
+    # a imports c but never declared it -> MISSING; a declares b but never imports -> DEAD
+    recon = [("MISSING_DECLARED_DEP", "a", "c", "msg"), ("DEAD_DEP", "a", "b", "msg")]
+    out = se.to_structurizr(repos, dag, recon, visibility=vis)
+    assert '-> c "imports" "missing-decl"' in out
+    assert '-> b "imports" "dead-dep"' in out</p>
+
+<p>def test_public_view_excludes_private_repo_by_name_failclosed():
+    # THE load-bearing test: a private repo, and a repo with NO visibility entry
+    # (fail-closed -> private), must be wholly absent from the public workspace.
+    repos = [_repo("swarph-cli", deps=["hedge-fund-mcp", "ghost"]),
+             _repo("hedge-fund-mcp"), _repo("ghost")]
+    dag = {"swarph-cli": ["hedge-fund-mcp", "ghost"], "hedge-fund-mcp": [], "ghost": []}
+    vis = {"swarph-cli": "public", "hedge-fund-mcp": "private"}  # "ghost" absent -> private
+    pub = se.to_structurizr(repos, dag, [], visibility=vis, public_only=True)
+    assert "hedge-fund-mcp" not in pub
+    assert "ghost" not in pub
+    assert "swarph-cli" in pub
+    # and no dangling edge to the excluded repos
+    assert "-> hedge_fund_mcp" not in pub and "-> ghost" not in pub</p>
+
+<p>def test_full_view_includes_private_and_groups():
+    repos = [_repo("swarph-cli"), _repo("hedge-fund-mcp")]
+    dag = {"swarph-cli": [], "hedge-fund-mcp": []}
+    vis = {"swarph-cli": "public", "hedge-fund-mcp": "private"}
+    groups = {"swarph-cli": "lab-ovh", "hedge-fund-mcp": "droplet"}
+    out = se.to_structurizr(repos, dag, [], visibility=vis, groups=groups)
+    assert 'group "lab-ovh"' in out and 'group "droplet"' in out
+    assert "hedge-fund-mcp" in out  # private IS in full view
+    assert '"size-S,private"' in out or '"size-S,public"' in out  # tags present</p>
+
+<p>def test_output_is_well_formed_dsl():
+    repos = [_repo("swarph-cli")]
+    out = se.to_structurizr(repos, {"swarph-cli": []}, [], visibility={"swarph-cli": "public"})
+    assert out.count("{") == out.count("}")   # balanced braces
+    for block in ("workspace {", "model {", "softwareSystem", "views {", "styles {"):
+        assert block in out
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run tests to verify they fail</strong></li>
+</ul>
+
+<p>Run: <code>cd /home/ubuntu/swarph-codegraph-fed && python3 -m pytest test_structurizr_emit.py -q</code>
+Expected: FAIL — <code>ModuleNotFoundError: No module named 'structurizr_emit'</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write <code>structurizr_emit.py</code> (the emitter)</strong></li>
+</ul>
+
+<p><code></code>`python
+# structurizr_emit.py
+"""Federation C4/Structurizr emitter — sibling of viz.py. Turns swarph_fed's cross-repo
+DAG + reconciliation + fleet-index visibility into a Structurizr DSL workspace.
+Deterministic (same inputs -> byte-identical output), stdlib-only. Two views:
+<code>full</code> (all repos) and <code>public</code> (public repos only, fail-closed on unknown visibility)."""
+from __future__ import annotations
+from collections import OrderedDict</p>
+
+<p># repo-name -> hosting cell (Structurizr group boundary). Small, stable, hand-maintained.
+GROUPS = {
+    "swarph-cli": "lab-ovh", "swarph-shared": "lab-ovh", "swarph-mesh": "lab-ovh",
+    "mesh-gateway": "lab-ovh", "lab-orchestrator": "lab-ovh", "meta-edge-auth": "lab-ovh",
+    "swarph-desktop": "lab-ovh", "gridiron": "lab-ovh",
+    "gridiron-science-pipeline": "lab-ovh", "openclaw": "lab-ovh",
+    "hedge-fund-mcp": "droplet",
+}</p>
+
+<p>def _id(name: str) -> str:
+    """Structurizr identifier: alnum + underscore only (no hyphens/dots)."""
+    return name.replace("-", "_").replace(".", "_")</p>
+
+<p>def _size_tag(cg_nodes: int) -> str:
+    if cg_nodes >= 5000:
+        return "size-XL"
+    if cg_nodes >= 1500:
+        return "size-L"
+    if cg_nodes >= 300:
+        return "size-M"
+    return "size-S"</p>
+
+<p>def to_structurizr(repos, effective_dag, reconcile, *, visibility, groups=GROUPS,
+                   public_only=False) -> str:
+    """Render a Structurizr DSL workspace. <code>visibility</code>: repo-name -> 'public'|'private'
+    (missing -> 'private', fail-closed). <code>reconcile</code>: list of (kind, repo, owner, msg)."""
+    recon = {(rp, ow): kind for (kind, rp, ow, _msg) in reconcile}</p>
+
+<p>def vis(name):
+        return visibility.get(name, "private")</p>
+
+<p>selected = [r for r in repos if not (public_only and vis(r.name) != "public")]
+    selected_names = {r.name for r in selected}</p>
+
+<p>by_group = OrderedDict()
+    for r in sorted(selected, key=lambda x: x.name):
+        by_group.setdefault(groups.get(r.name, "unknown"), []).append(r)</p>
+
+<p>L = ["workspace {", "  model {", '    swarph = softwareSystem "Swarph Federation" {']
+    for group in sorted(by_group):
+        L.append(f'      group "{group}" {{')
+        for r in by_group[group]:
+            tags = f"{_size_tag(r.cg_nodes)},{vis(r.name)}"
+            desc = " ".join(sorted(r.provides)) if r.provides else r.name
+            L.append(f'        {_id(r.name)} = container "{r.name}" "{desc}" "python" "{tags}"')
+        L.append("      }")
+    for src in sorted(effective_dag):
+        if src not in selected_names:
+            continue
+        for dst in sorted(effective_dag[src]):
+            if dst not in selected_names or dst == src:
+                continue
+            kind = recon.get((src, dst))
+            reltag = ' "missing-decl"' if kind == "MISSING_DECLARED_DEP" else (
+                     ' "dead-dep"' if kind == "DEAD_DEP" else "")
+            L.append(f'      {_id(src)} -> {_id(dst)} "imports"{reltag}')
+    L += ["    }", "  }", "  views {",
+          "    systemContext swarph { include * autolayout lr }",
+          "    container swarph { include * autolayout lr }",
+          "    styles {",
+          '      element "size-S" { width 200 height 120 }',
+          '      element "size-M" { width 320 height 190 }',
+          '      element "size-L" { width 460 height 270 }',
+          '      element "size-XL" { width 640 height 380 }',
+          '      element "public" { background #1168bd color #ffffff }',
+          '      element "private" { background #6b6b6b color #ffffff }',
+          '      relationship "missing-decl" { color #d9534f style dashed }',
+          '      relationship "dead-dep" { color #999999 style dotted }',
+          "    }", "  }", "}"]
+    return "\n".join(L) + "\n"
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run tests to verify they pass</strong></li>
+</ul>
+
+<p>Run: <code>cd /home/ubuntu/swarph-codegraph-fed && python3 -m pytest test_structurizr_emit.py -q</code>
+Expected: PASS (6 tests). Output pristine.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+cd /home/ubuntu/swarph-codegraph-fed
+git add structurizr_emit.py test_structurizr_emit.py
+git commit -m "feat: structurizr emitter core (deterministic, two-view, reconciliation tags)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-2-visibility-resolver-orchestration-cli">Task 2: Visibility resolver + orchestration + CLI</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>structurizr_emit.py</code> (add <code>_read_visibility</code>, <code>emit_workspaces</code>, <code>__main__</code> CLI)</li>
+  <li>Test: <code>test_structurizr_emit.py</code> (add cases)</li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: Task 1's <code>to_structurizr</code>; <code>fed.discover_repos</code>/<code>fed.ground</code>/<code>fed.build_effective_dag</code>/<code>fed.reconcile</code>.</li>
+  <li>Produces: <code>_read_visibility(index_path: str) -> dict[str, str]</code> (fail-safe → <code>{}</code> on any error); <code>emit_workspaces(repo_paths: list[str], index_path: str, out_dir: str) -> None</code> (writes <code>full.dsl</code> + <code>public.dsl</code> atomically); CLI <code>python3 structurizr_emit.py --out DIR --index PATH <repo_path> ...</code>.</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing tests</strong></li>
+</ul>
+
+<p><code></code>`python
+# append to test_structurizr_emit.py
+import os
+import sqlite3</p>
+
+<p>def test_read_visibility_from_fleet_index(tmp_path):
+    db = tmp_path / "index.db"
+    c = sqlite3.connect(str(db))
+    c.execute("CREATE TABLE repos(name TEXT, slug TEXT, path TEXT, visibility TEXT, indexed_at TEXT)")
+    c.execute("INSERT INTO repos VALUES('swarph-cli','o/r','/p','public','t')")
+    c.execute("INSERT INTO repos VALUES('hedge-fund-mcp','o/r','/p','private','t')")
+    c.commit(); c.close()
+    vis = se._read_visibility(str(db))
+    assert vis == {"swarph-cli": "public", "hedge-fund-mcp": "private"}</p>
+
+<p>def test_read_visibility_failsafe_on_missing_index(tmp_path):
+    # a missing/broken index -> {} (so the emitter defaults every repo to private)
+    assert se._read_visibility(str(tmp_path / "nope.db")) == {}</p>
+
+<p>def test_emit_workspaces_writes_both_files(tmp_path, monkeypatch):
+    # stub the fed pipeline so the test is offline (no real repos / codegraph)
+    r1 = _repo("swarph-cli", 2885, deps=["swarph-shared"])
+    r2 = _repo("swarph-shared", 211)
+    monkeypatch.setattr(se.fed, "discover_repos", lambda paths: [r1, r2])
+    monkeypatch.setattr(se.fed, "ground", lambda repos: None)
+    monkeypatch.setattr(se.fed, "build_effective_dag",
+                        lambda repos: {"swarph-cli": ["swarph-shared"], "swarph-shared": []})
+    monkeypatch.setattr(se.fed, "reconcile", lambda repos: [])
+    monkeypatch.setattr(se, "_read_visibility",
+                        lambda idx: {"swarph-cli": "public", "swarph-shared": "public"})
+    out = tmp_path / "ws"
+    se.emit_workspaces(["/x/swarph-cli", "/x/swarph-shared"], "/idx", str(out))
+    full = (out / "full.dsl").read_text()
+    public = (out / "public.dsl").read_text()
+    assert "swarph-cli" in full and "swarph-shared" in full
+    assert "swarph-cli" in public
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run tests to verify they fail</strong></li>
+</ul>
+
+<p>Run: <code>python3 -m pytest test_structurizr_emit.py -q</code>
+Expected: FAIL — <code>AttributeError: module 'structurizr_emit' has no attribute '_read_visibility'</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Implement <code>_read_visibility</code>, <code>emit_workspaces</code>, CLI</strong></li>
+</ul>
+
+<p><code></code>`python
+# add near the top of structurizr_emit.py
+import argparse
+import os
+import sqlite3
+import swarph_fed as fed</p>
+
+<p>def _read_visibility(index_path: str) -> dict:
+    """repo-name -> 'public'|'private' from the fleet index <code>repos</code> table. Fail-safe:
+    ANY error (missing file, no table, bad rows) -> {} so the emitter defaults every
+    repo to 'private' (fail-closed for the public view)."""
+    try:
+        c = sqlite3.connect(f"file:{index_path}?mode=ro", uri=True)
+        rows = c.execute("SELECT name, visibility FROM repos").fetchall()
+        c.close()
+        return {n: v for (n, v) in rows if n and v}
+    except Exception:
+        return {}</p>
+
+<p>def _atomic_write(path: str, text: str) -> None:
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
+        f.write(text)
+    os.replace(tmp, path)</p>
+
+<p>def emit_workspaces(repo_paths, index_path, out_dir) -> None:
+    """Full pipeline: discover -> ground -> effective DAG -> reconcile -> emit both views."""
+    os.makedirs(out_dir, exist_ok=True)
+    repos = fed.discover_repos(repo_paths)
+    fed.ground(repos)
+    dag = fed.build_effective_dag(repos)
+    recon = fed.reconcile(repos)
+    vis = _read_visibility(index_path)
+    _atomic_write(os.path.join(out_dir, "full.dsl"),
+                  to_structurizr(repos, dag, recon, visibility=vis, public_only=False))
+    _atomic_write(os.path.join(out_dir, "public.dsl"),
+                  to_structurizr(repos, dag, recon, visibility=vis, public_only=True))</p>
+
+<p>def _main(argv=None) -> int:
+    p = argparse.ArgumentParser(prog="structurizr_emit")
+    p.add_argument("repo_paths", nargs="+")
+    p.add_argument("--out", required=True, help="workspace dir for full.dsl + public.dsl")
+    p.add_argument("--index", default=os.path.expanduser("~/.swarph/codegraph/index.db"))
+    a = p.parse_args(argv)
+    emit_workspaces(a.repo_paths, a.index, a.out)
+    print(f"wrote {a.out}/full.dsl + {a.out}/public.dsl")
+    return 0</p>
+
+<p>if __name__ == "__main__":
+    raise SystemExit(_main())
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run tests to verify they pass</strong></li>
+</ul>
+
+<p>Run: <code>python3 -m pytest test_structurizr_emit.py -q</code>
+Expected: PASS (9 tests total). Then run the whole suite: <code>python3 -m pytest -q</code> — Expected: all pass (existing <code>test_fed.py</code>/<code>test_matrix.py</code>/<code>test_seam.py</code>/<code>test_loop.py</code> untouched).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add structurizr_emit.py test_structurizr_emit.py
+git commit -m "feat: visibility resolver + emit_workspaces orchestration + CLI"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-3-fed-refresh-sh-extension-regenerate-the-dsl-nightly">Task 3: <code>fed_refresh.sh</code> extension — regenerate the DSL nightly</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>fed_refresh.sh</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: Task 2's CLI <code>python3 structurizr_emit.py --out DIR --index PATH <repo_paths></code>.</li>
+  <li>Produces: <code>full.dsl</code> + <code>public.dsl</code> in <code>$WS_DIR</code> on every refresh.</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Add the emit step to <code>fed_refresh.sh</code></strong></li>
+</ul>
+
+<p>Insert, after the existing <code>swarph_fed.py</code> report block (after the <code>} > "<span class="math-inline">\(OUT.tmp" && mv "\)</span>OUT.tmp" "<span class="math-inline">\(OUT"</code> line), this block. Use the SAME <code>\)</span>REPOS</code> set the report uses so the two stay consistent:</p>
+
+<p><code></code>`bash
+# --- Structurizr workspace (federation C4 model) ---
+WS_DIR="${FED_WS_DIR:-/home/ubuntu/.swarph/codegraph/structurizr}"
+INDEX="/home/ubuntu/.swarph/codegraph/index.db"
+if PYTHONPATH=/home/ubuntu/swarph-codegraph-index:/home/ubuntu/swarph-codegraph-fed \
+     python3 "<span class="math-inline">\(FED/structurizr_emit.py" --out "\)</span>WS_DIR" --index "<span class="math-inline">\(INDEX"\)</span>REPOS; then
+  echo "[fed-refresh] <span class="math-inline">\((date -u +%FT%TZ) wrote\)</span>WS_DIR/{full,public}.dsl"
+else
+  echo "[fed-refresh] WARNING: structurizr emit failed (rc=$?) — kept previous .dsl" >&2
+fi
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Verify the emit step runs end-to-end against the real repos + index</strong></li>
+</ul>
+
+<p>Run:
+<code></code>`bash
+cd /home/ubuntu/swarph-codegraph-fed && bash fed_refresh.sh
+ls -l /home/ubuntu/.swarph/codegraph/structurizr/full.dsl /home/ubuntu/.swarph/codegraph/structurizr/public.dsl
+head -20 /home/ubuntu/.swarph/codegraph/structurizr/full.dsl
+<code></code>`
+Expected: both <code>.dsl</code> files exist; <code>full.dsl</code> opens with <code>workspace {</code> … <code>softwareSystem "Swarph Federation"</code> and contains the 4 packaged repos (swarph-cli/mesh/shared/mesh-gateway); <code>public.dsl</code> excludes any repo the fleet index marks <code>private</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Verify the public view leaks no private repo (real data)</strong></li>
+</ul>
+
+<p>Run:
+<code></code>`bash
+python3 - <<'PY'
+import sqlite3, os
+idx=os.path.expanduser("~/.swarph/codegraph/index.db")
+priv=[n for (n,v) in sqlite3.connect(f"file:{idx}?mode=ro",uri=True).execute("SELECT name,visibility FROM repos") if v!="public"]
+pub=open(os.path.expanduser("~/.swarph/codegraph/structurizr/public.dsl")).read()
+leaks=[n for n in priv if n in pub]
+print("private repos:", priv)
+print("LEAKS in public.dsl:", leaks)
+assert not leaks, "PRIVATE REPO LEAKED INTO PUBLIC VIEW"
+print("OK — public view is clean")
+PY
+<code></code>`
+Expected: <code>LEAKS in public.dsl: []</code> and <code>OK — public view is clean</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add fed_refresh.sh
+git commit -m "feat: fed_refresh.sh emits full.dsl + public.dsl each refresh"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-4-commander-gated-do-not-deploy-in-this-plan-run-structurizr-lite-service">Task 4 (COMMANDER-GATED — do NOT deploy in this plan run): Structurizr Lite service</h3>
+
+<p>Not built/executed here — deployment (a new self-hosted service) is commander-gated per the lab charter. Documented so the plan is complete:</p>
+
+<ul class="article-list">
+  <li>Add <code>deploy/swarph-federation-c4.service</code> (systemd): runs <code>docker run --rm --name swarph-fed-c4 -p <TAILSCALE_IP>:<PORT>:8080 -v /home/ubuntu/.swarph/codegraph/structurizr:/usr/local/structurizr structurizr/lite</code>. <strong>Bind to the tailscale IP only</strong> (never <code>0.0.0.0</code>) so the FULL model is unreachable off-tailnet.</li>
+  <li><code>structurizr/lite</code> serves <code>/usr/local/structurizr/workspace.dsl</code>; symlink <code>workspace.dsl -> full.dsl</code> in <code>$WS_DIR</code> (the full model is the tailnet-gated one).</li>
+  <li>Restart-on-failure; enable after <code>docker.service</code>.</li>
+  <li>Acceptance: browse the tailnet URL, confirm the System Context view, drill into a Container → Component view, confirm size/color styling and red/dashed <code>missing-decl</code> edges render.</li>
+</ul>
+
+<h3 id="task-5-commander-gated-swarph-desktop-federation-tab-integration">Task 5 (COMMANDER-GATED): swarph-desktop Federation tab integration</h3>
+
+<p>Not built here (commander-gated: a new exposed surface). Documented:</p>
+
+<ul class="article-list">
+  <li><code>swarph-desktop/web/app.js</code> (~line 530, the <code>federation</code> renderer): replace the Mermaid block with a link/iframe to the tailnet Lite URL for the full interactive model.</li>
+  <li>The desktop daemon's <code>/federation</code> endpoint additionally serves the <strong>public</strong> model only (a rendered export of <code>public.dsl</code> via <code>structurizr-cli export</code>, or a separate public Lite instance) for any shareable surface — never the full model.</li>
+</ul>
+
+<p>---</p>
+
+<h2 id="follow-up-note-only-not-part-of-this-plan">Follow-up (note only — NOT part of this plan)</h2>
+
+<p><code>openclaw</code> is omitted from the fleet index because CodeGraph walked its <code>node_modules</code> and timed out. Before openclaw appears as a real node: add <code>"node_modules/<em>"</code>, <code>"</em>/node_modules/*"</code> to <code>fleet.DEFAULT_EXCLUDES</code> in <code>swarph-codegraph-index/codegraph_index/fleet.py</code> and re-index. Tracked separately; do not build here.</p>
+
+<h2 id="self-review">Self-Review</h2>
+
+<ul class="article-list">
+  <li><strong>Spec coverage:</strong> emitter core + two-view privacy (Task 1) ✓; visibility resolver + groups + CLI (Task 2) ✓; refresh (Task 3) ✓; Lite service (Task 4, gated) ✓; desktop integration (Task 5, gated) ✓; size buckets/reconciliation tags/groups all in Task 1 ✓; openclaw follow-up noted ✓.</li>
+  <li><strong>Placeholder scan:</strong> none — every code step has complete code; every command has expected output.</li>
+  <li><strong>Type consistency:</strong> <code>to_structurizr</code> signature identical across Tasks 1–2; <code>_read_visibility -> dict</code>, <code>emit_workspaces</code> params match the CLI; <code>reconcile</code> consumed as <code>list[(kind,repo,owner,msg)]</code> exactly as <code>fed.reconcile</code> returns; <code>_size_tag</code>/<code>_id</code> names stable.</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#task-1-to-structurizr-the-deterministic-dsl-emitter">Task 1: `to_structurizr()` — the deterministic DSL emitter</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-2-visibility-resolver-orchestration-cli">Task 2: Visibility resolver + orchestration + CLI</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-3-fed-refresh-sh-extension-regenerate-the-dsl-nightly">Task 3: `fed_refresh.sh` extension — regenerate the DSL nightly</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-4-commander-gated-do-not-deploy-in-this-plan-run-structurizr-lite-service">Task 4 (COMMANDER-GATED — do NOT deploy in this plan run): Structurizr Lite service</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-5-commander-gated-swarph-desktop-federation-tab-integration">Task 5 (COMMANDER-GATED): swarph-desktop Federation tab integration</a></li>
+<li><a href="#global-constraints">Global Constraints</a></li>
+<li><a href="#existing-api-this-plan-consumes-from-swarph-fed-py-import-as-import-swarph-fed-as-fed">Existing API this plan consumes (from `swarph_fed.py`, import as `import swarph_fed as fed`)</a></li>
+<li><a href="#file-structure">File Structure</a></li>
+<li><a href="#follow-up-note-only-not-part-of-this-plan">Follow-up (note only — NOT part of this plan)</a></li>
+<li><a href="#self-review">Self-Review</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

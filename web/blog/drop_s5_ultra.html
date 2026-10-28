@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Drop_S5_Ultra | Technical Whitepaper</title>
+  <meta name="description" content="Drop_S5_Ultra — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/drop_s5_ultra.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Drop_S5_Ultra</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 29 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <h2 id="5-security-model-ultra-adversarial-pass-drop-on-meta-edge-seat-b-security-lane">§5 Security model — ULTRA adversarial pass (drop-on-meta-edge, seat-B / security lane)</h2>
+
+<p>@lab — here is the §5 ultra-security pass you asked for. Method: 7 attack lenses → bypass-verify (each first-draft hardening re-attacked) → synthesis. <strong>Every one of the six v0 hypotheses broke (holds=false), and so did the first-draft hardening of each.</strong></p>
+
+<h3 id="headline">Headline</h3>
+The v0 §5 bar is DIRECTIONALLY right but materially under-specified, and adversarial-verify broke EVERY one of the six v0 controls AND every reviewer's first-draft hardening — all six lenses returned holds=false. The bar's load-bearing error is that it aims containment at the hypervisor boundary (gVisor vs Firecracker) when the binding risk has moved OFF the kernel boundary and ONTO two channels the bar is silent on: the test-result trust oracle and the collect/filesystem exit path. SINGLE MOST IMPORTANT HARDENING: make "host-side enforcement" (§3.1c) a per-control PROPERTY — invert the env-var allowlist into a deny-by-default FILESYSTEM allowlist over the guest's RESOLVED MOUNT NAMESPACE, because the creds-never-bind-mounted promise is a 3-dir denylist that a parent-dir mount defeats. SINGLE SHARPEST HOLE: a prompt-injected guest never escapes the kernel — it reads /home/ubuntu/.config/swarph/drop-on-meta-edge.peer_token (verified, 0600, sibling of the repo checkout under one $HOME) off the mount and AUTHENTICATES AS THAT MESH PEER to the gateway. Identity forge, not OAuth leak — strictly worse than the credential-bleed the allowlist was built to stop.
+
+<h3 id="5-1-gvisor-vs-microvm-ruling-gates-4-3-oq1">§5.1 gVisor-vs-microVM ruling (gates §4.3 / OQ1)</h3>
+RULING (§5-item-1 / §7-OQ1, falsifiable): gVisor-on-lab (Systrap platform) CLEARS the v0 bar for the STATED threat model — OUR-OWN agent-authored code, buggy or prompt-injected-hostile, time-boxed by timeout_ms on a disposable clean-snapshot guest, with NO live-internet research loop and NO 0-day supply. Firecracker is correctly DEFERRED today. The honest half: a two-link chain (compromise the memory-safe Go Sentry via a netstack/host-FFI logic bug, THEN defeat the host-side seccomp-bpf cage confining the Sentry to ~68 host syscalls with execve/open/socket denied) is not a credible single-shot for an agent that cannot author a novel chained gVisor 0-day inside one timeout window. Accepting gVisor's single shared-kernel boundary HERE is a sound, bounded risk.
+
+<p>TWO CORRECTIONS THE RFC MUST FOLD (§4.3/§5.1 are imprecise): (1) "gVisor-on-lab is weaker because no KVM" is FALSE. On a no-KVM host gVisor runs the SYSTRAP platform (seccomp-trap + SIGSYS + shared-mem, designed to run without hardware virt); the containment boundary (the Sentry's ~68-syscall seccomp cage) is platform-INDEPENDENT. "No KVM" changes interception mechanism/perf, NOT the escape surface. gVisor's real weakness vs Firecracker is the shared-kernel single-boundary FACT, not KVM-absence. (2) The "~24-syscall passthrough" figure in §4.3 is FIRECRACKER JAILER's VMM seccomp filter, NOT a gVisor host count — the seed conflates them; gVisor's relevant number is ~68, and neither is a guest->host "passthrough."</p>
+
+<p>WHEN FIRECRACKER REGISTERS (host-side, falsifiable triggers — register the instant ANY trips): T1 a guest gets a real outbound network research loop / live internet (egress widened beyond a fixed package mirror) -> adversary gains 0-day supply + exfil channel, single-boundary no longer adequate. T2 the membrane runs code that is NOT our-own-agent-authored (third-party PRs, internet-submitted snippets, any multi-tenant guest) -> the own-code-disposable limit that carries the ruling evaporates. T3 a guest needs a host-syscall the ~68-cage denies (GPU/CUDA passthrough, raw devices, nested containers) forcing --network=host or runsc passthrough flags -> the seccomp cage is being widened; kill it, go own-kernel. T4 two correlated gVisor Sentry/netstack CVEs land in one cycle (chainability signal). T5 (added by adversarial-verify) a workload genuinely requires PR-authored harness/workflow control (cannot run under a host-pinned harness) -> the test-trust oracle is no longer host-reconstructable and the own-code framing weakens. PLUS a co-location corollary: gVisor-on-lab is sound ONLY under a dedicated UNPRIVILEGED service user with NO read access to the orchestrator user's $HOME, and ONLY if the PSI/pressure monitor + out-of-band kill clock live OFF the gVisor box (on the orchestrator or a third tiny watcher) — co-tenancy with the credential-bearing user, not kernel-sharing, is the actual DoS/exfil hole. If commander insists on one box at v0, label it DIAGNOSTIC / NON-HOSTILE-ONLY and forbid unreviewed agent code on it until the monitor is off-host — matching §4.3's own "lab is orchestrator, never hypervisor" line that the co-location violates.</p>
+
+<h3 id="must-have-isolation-bar-the-bar-that-survived-verify">Must-have isolation bar (the bar that survived verify)</h3>
+1. H1' TRUST ORACLE (survived verify, replaces the broken H1): host-PIN the execution harness, not just the transport. The .github/workflows/*.yml that invokes pytest (windows-cloud) and the guest entrypoint/runner spec (gVisor) are HOST-AUTHORED, pinned to a host-controlled ref; the PR/agent supplies CODE UNDER TEST, never the RUNNER SPEC. continue-on-error / <code>|| true</code> / post-step exit-rewriting forbidden in the pinned harness.
+2. H1'-VERDICT IS A FIXED-ARITY NUMERIC TUPLE, never a document or a single guest-chosen scalar: collect() reduces the run to {exit_code:int, passed/failed/skipped/errored:4 ints, duration:float} on the HOST side and DISCARDS the source JUnit. Distrust artifact pass/fail AND exit code AND job conclusion equally — all are guest-semantically-determined. The green/red bit is 5 integers and cannot carry 16KB of base64. Failure detail (free-text leaves) goes to a quarantined NON-mesh-readable access-gated store with explicit human-unseal, never auto-surfaced.
+3. H1'-REQUIRED-NODE-ID FLOOR: the host holds an expected floor of load-bearing node-ids — the 0.9.5 ctypes/CreateToolhelp32Snapshot ancestry-walk test and the PR#46 session-UUID-on-cwd-change test — which MUST appear by node-id in the collected+executed set, zero xfail/skip masking on those IDs, tests-collected >= a host-known minimum. Green-but-named-Windows-tests-not-executed = collect-suspect, NEVER silent-green (extends §3.1a collect-failed to collect-FORGED).
+4. H1'-FORBID AGENT AUTHORSHIP OF THE HARNESS LAYER: a diff touching .github/workflows/*.yml, conftest.py collection hooks, sitecustomize.py, or pytest.ini/addopts in the host-pinned harness path is collect-suspect + escalate (same posture H3 takes toward runsc-flag widening — harness-widening is a trigger, not a config knob).
+5. FILESYSTEM ALLOWLIST, deny-by-default, over the guest's RESOLVED MOUNT NAMESPACE (survived verify, replaces the broken 3-dir creds-denylist): the guest sees ONLY (a) the ref under test, (b) a tmpfs scratch, (c) read-only runtime PATH dirs, (d) explicitly declared test-input paths. EVERYTHING under <span class="math-inline">\(HOME denied unless declared, EXCLUDING the next\)</span>HOME secret that ships after this RFC. Enforced host-side at provision (runsc config.json mounts / Firecracker drive list), ancestor-aware: reject any mount source that IS or is a PARENT of a secret-bearing path. Membrane REFUSES provision of any non-local env whose resolved mount set exceeds the allowlist.
+6. PIN gVisor PLATFORM + NETWORK MODE HOST-SIDE (H2, survived verify): backend launcher hard-codes --platform=systrap, FORBIDS --network=host (netstack only), rejects any cell/env_config attempt to set runsc flags, capabilities, or --network from the guest-controlled spec. Network mode is a host-side constant, never a cell-supplied value.
+7. HOST-ENFORCED DEFAULT-DENY EGRESS as a structural boundary the guest cannot reach (NOT a flag, NOT in-guest config — SWARPH_SKIP_NETWORK is a voluntary pytest.mark.skipif, verified ci.yml:20/22-24, and is no control): dedicated netns + nftables drop-all-egress, allow only to a host-controlled CONTENT-LOGGING + rate/volume-capped forward proxy; DNS pinned to a host resolver answering only allowlisted names and logging every query (kills label-encoded DNS exfil); package-pull served ONLY from a host-side hash-pinned mirror fed an offline-resolved lockfile.
+8. BUILD-ISOLATION (the cliff network-deny cannot cover): install must use --only-binary=:all: / pre-built hash-pinned wheels — NO setup.py/PEP517 build-hook execution under guest-controllable manifests; the lockfile is re-resolved ONLY by a host process on a REVIEWED manifest diff, never auto-regenerated from agent-mutable pyproject.toml on the run path (a manifest change with no reviewed lock-bump is refuse-to-provision).
+9. DoS host-side five-pillar set, REFINED: reap on CAUSATION not footprint — sample per-cgroup PSI deltas and reap the highest pressure-CONTRIBUTION slope, with the killer-app CI tagged class=protected and reaped LAST; bound the Sentry/gofer host-process class explicitly (same accounting cgroup as the guest, FD+thread caps, SAME oom_score band so OOM reaps guest+delegates atomically); per-veth/netns HTB + conntrack rate-limit so gVisor's internal netstack cannot hide per-sandbox attribution; add blkio/disk QUOTA + INODE cap + PID-creation RATE limit (§5#4 names only CPU/mem/pids).
+10. PRISTINE = host-pinned-immutable BASE + host-rebuilt-or-hash-verified CACHE + per-run host-owned STAGING triple, not the VM image alone: content-addressed sha256-pinned read-only base, COW overlay destroyed on teardown and never promoted back; warm-pool = DISCARD-not-reset; cross-run caches (actions/cache, pip cache) DISABLED or host-content-verified, never workflow-honor-system-scrubbed; the pinned-digest allowlist + dependency-hash lockfile in HOST-ONLY custody (signed/off-repo), mutable only via the same authenticated path as the sweeper's scoped credential — never an in-repo frozenset the agent can PR.
+11. SWEEPER + AT-REST: pause/warm memory snapshots encrypted-at-rest with a host-held key, off guest-reachable paths, reader-authz to the backend daemon, TTL-bound (reaper destroys stale snapshots too); sweeper authenticates SCOPED destroy calls (past-lease-only) to the control plane against a HOST-SIGNED lease stamp (not guest/cell-supplied), runs supervised/restart-on-death with a heartbeat-absence alert; collect-before-teardown completes to the durable sink BEFORE any sweeper destroy, keyed by a host-minted run-nonce the guest never sees so a forged green cannot suppress a host-observed egress-block.
+12. COMPOSE: a billed provider nucleus is NEVER spawned inside an untrusted guest (nucleus host-side, reaches in over collect/RPC only); enforced at spawn_agent as a MEMBRANES<->VALID_PROVIDERS-style lockstep refusal, generalized to 'no host-identity secret reachable in-guest'.
+13. BACKEND ISOLATION-CLASS as a first-class host-validated registry property (parallel to VALID_ENVIRONMENTS lockstep): each backend declares {egress: host-enforced|best-effort|none, teardown: host-sweeper|provider-auto, code-exec: contained|honor-system}; the membrane REFUSES to dispatch an unreviewed/hostile-flagged ref to any backend whose row is not all-host-enforced. GitHub-hosted windows-cloud is honestly classed {egress: best-effort/none, teardown: provider-auto, code-exec: honor-system}.
+
+<h3 id="named-exfil-paths-sharpest-first">Named exfil paths (sharpest first)</h3>
+1. SHARPEST (critical) — MESH-IDENTITY FORGE via filesystem mount: a prompt-injected guest never escapes the kernel. It reads /home/ubuntu/.config/swarph/drop-on-meta-edge.peer_token (verified 0600, 43B, a LIVE mesh bearer secret; sibling of the repo checkout under one <span class="math-inline">\(HOME) off whatever host path the runtime mount namespace exposes, then POSTs it to mesh-gateway and AUTHENTICATES AS THAT PEER (mint-once, gateway stores only sha256, _authorize resolves token->peer => 200). This defeats the §7.3 identity-privacy-IN boundary — the FIRST direction of the very principle the RFC calls the third direction of. The guest never needed claude OAuth; it forges a NODE IDENTITY. The env allowlist never sees it (it is a file, not an env var); the egress default-deny never fires if the gateway is an allowlisted hop or co-resident. HOST-SIDE FIX: deny-by-default FILESYSTEM allowlist over the guest's RESOLVED MOUNT NAMESPACE (guest sees only {ref-under-test, tmpfs scratch, read-only runtime, declared test inputs}); enforce at provision in the runsc/Firecracker mount spec; ANCESTOR-AWARE refusal — reject any mount source that is, or is a PARENT of, any secret-bearing path; membrane refuses provision when the resolved mount set exceeds the allowlist. This excludes the next\)</span>HOME secret that ships after this RFC, which a named 3-dir denylist (the first-draft 'creds never bind-mounted') would miss — verified: 7 peer_tokens + ~/.gemini/antigravity-cli/antigravity-oauth-token (nested 2 deep) + ~/.ssh/id_ed25519_{teleport,gridiron_ws} + ~/.kaggle/access_token + ~/.docker/.token_seed + slapshotscience-pipeline/.claude/.mesh_token all live OUTSIDE the 3 dirs.
+2. COLLECT-CHANNEL via JUnit free-text leaves (critical, backend-INDEPENDENT — defeats both gVisor and windows-cloud, and the original 'structured schema can't smuggle base64' claim): JUnit XML is an agent-AUTHORED document; testcase@name, failure@message, failure@type, the <failure>/<error> #text traceback and system-out/err are free-text strings the test code writes. <code>def test_chunk_N(): assert False, base64_chunk_N(open(SECRET).read())</code> produces a STRUCTURALLY VALID JUnit doc; collect() parses '37 failures' (schema satisfied) AND §3.1(a) REQUIRES the failure detail be carried to the host-side durable, mesh-readable sink so a human can read WHY it failed — the base64 rides out inside legitimately-structured failure detail the RFC's own rule mandates surfacing. 12KB creds ~ 16KB base64, trivially under any sane artifact cap; a tight cap just means re-running the re-runnable suite N times. HOST-SIDE FIX: verdict is a FIXED-ARITY NUMERIC TUPLE {exit_code, passed/failed/skipped/errored, duration}, host-parsed and the source document DISCARDED before anything reaches a mesh-readable sink; NO attacker-authored free-text leaf transits to the durable sink; failure detail (if needed for triage) goes to a quarantined NON-mesh-readable access-gated store with explicit human-unseal. The green/red bit is 5 integers and cannot carry 16KB. If a deployment insists on surfacing messages, add a host-side per-leaf byte cap (<=256B) + Shannon-entropy/base64/hex detector with redact-or-quarantine on hit — enforced at the LEAF, where the smuggle lives, not at the document.
+3. DISPATCH-PATH GitHub-side (high) on windows-cloud, which ships FIRST: the agent authors the very PR under test, so a hostile workflow file / conftest.py on the agent ref echoes ${{ secrets.<em> }} or the OIDC token (ACTIONS_ID_TOKEN_REQUEST_</em>) into the JUnit artifact or stdout — and since 'free for OSS = public repo', the JUnit artifact + full job logs are WORLD-VISIBLE (ci.yml has no log redaction), so the guest exfiltrates by simply PRINTING to stdout, which §3.1(a)'s durable-sink collect faithfully captures and publishes. The network egress boundary is irrelevant when the sanctioned output channel is itself public. HOST-SIDE FIX: dispatch a host-PINNED workflow from a protected ref (not the agent ref's .github/workflows), run PR test code as DATA under permissions: contents:read + id-token NEVER write + secrets:{} + forbidden-by-default egress; pair with the windows-cloud honesty gate (reviewed-ref-only) since the runner host is not mesh-owned.
+
+<h3 id="surviving-holes-named-not-all-closeable-in-membrane">Surviving holes (named, not all closeable in-membrane)</h3>
+1. WINDOWS-CLOUD IS THE V0 MARQUEE AND IT IS GUEST-HONOR-SYSTEM (the primary hole). §6 ships v0 = browser + windows-cloud; gVisor/microVM are all v1+/deferred, so at v0 NONE of the kernel/cgroup/host-egress controls exist on the path that actually ships. On GitHub-hosted windows-latest the mesh owns NO host: no netns/nftables (egress), no sweeper (teardown — GitHub destroys the runner), no cgroup hierarchy. <code>pip install -e .[dev]</code> runs the ref's build backend and pytest auto-loads the ref's conftest.py/pytest11 plugins — agent-authored code detonates on the runner with the runner's token before a single assertion. 'Execute the ref as DATA' is a category error for a CI-validation workload. HONESTY GATE (the only fix that holds): windows-cloud(GitHub-hosted) accepts ONLY refs git-ancestry-pinned to a human/CI-reviewed commit (default branch / signed tag) — never a raw agent-proposed branch HEAD; unreviewed agent code requires a mesh-OWNED isolation host (self-hosted runner inside gVisor/Firecracker, e2b self-hosted, or cloud VM in a mesh-owned VPC with host-set default-deny egress). This removes the hostility rather than pretending to contain it — matching §5's honest own-reviewed-code threat model.
+2. SUPPLY-CHAIN-OF-TEST (R1, no containment layer closes it): host-observed exit codes + required-node-id floor prove the suite RAN and PASSED, not that the suite was HONEST. A guest that poisons the BINARY UNDER TEST (not the XML or the exit code) ships a subtly-wrong 'validated' artifact. Needs reproducible-build / pinned-test-ref discipline, out of membrane scope — but the RFC must NAME it so the PR#46/0.9.5 validation oracle is not over-trusted.
+3. DISPATCH-TOKEN CUSTODY on the orchestrator (uncovered second exfil surface on the path that ships first): windows-cloud provision/collect uses the orchestrator's gh oauth_token (verified ~/.config/gh/hosts.yml, darw007d). It never enters a guest, so no guest-mount/service-user control touches it, yet it runs the whole windows-cloud lifecycle. Fix: a least-privilege FINE-GRAINED PAT scoped to workflow-dispatch + actions-read on the single swarph-cli repo, NEVER the broad user-scoped token; every dispatched workflow runs permissions: contents:read, id-token NEVER write, secrets:{}, pull_request_target forbidden.
+4. ALLOWLISTED-SINK COVERT CHANNEL (residual after host-deny egress, narrows not closes): the pinned mirror MUST stay reachable for install; data rides request paths/headers/POST bodies/timing to any sanctioned destination — the proxy mediates DESTINATION not CONTENT. Bound by content-logging + per-run rate/volume caps + anomaly-review; an anomalous volume to the mirror is a collect-failed verdict. DNS-label exfil killed by the pinned resolver; in-band covert channel survives as bounded residual.
+5. gVISOR SYSCALL-AMPLIFICATION (intrinsic residual): a syscall-storm costs more host-CPU per guest-syscall than native, so a fully-capped guest near its cpu limit imposes higher real host load than the cap implies (Sentry overhead leaks out of guest-attributed CPU). The hard ceiling needs the deferred Firecracker/KVM backend off the orchestrator box — this is the DoS-side argument coupling the egress fix to the gVisor-vs-microVM ruling. PSI-pressure reaping can also be gamed by a guest oscillating just under the pressure threshold (slow-burn vs spike); bounded by per-cgroup pressure-INTEGRAL budgets, not eliminated.
+6. AT-REST MEMORY SNAPSHOT (§5#6): warm-pool/pause = full memory dump carries whatever the guest touched, in cleartext guest RAM at pause time, readable by the backend daemon itself. Encryption-at-rest limits blast radius but does not make the dump safe to leak; the upstream fix is the §7-OQ4 compose resolution ensuring no credential ever enters guest memory. A leaked snapshot is a leak regardless of backend.
+7. TEMPLATE-BUILD PROVENANCE (R1 on the snapshot axis): sha256-pinning proves the base image didn't change AFTER build, not that it was clean AT build. Because the §1 killer-app means agent-authored code influences the thing under test (swarph-cli itself), a poisoned dependency can be baked into the 'known-good' digest before pinning. Needs SLSA-style build-time provenance / reproducible builds — out of this RFC's scope but must be named as the new single trust root.
+
+<h3 id="7-oq4-compose-trace-provider-environment">§7-OQ4 compose trace (Provider × Environment)</h3>
+§7-OQ4 verdict: the double-scrub DOES create a gap, and it is critical. TRACE: (1) A provider nucleus does NOT authenticate by env var — subprocess_env.py is by its own docstring (lines 14-15) a "denylist not allowlist by design" that strips <em>_API_KEY/</em>_AUTH_TOKEN/*_BASE_URL precisely because subscription billing comes from a credential FILE on disk: <code>claude -p</code> reads ~/.claude/.credentials.json (verified, 12544B, 0600), codex ~/.codex/auth.json, gemini ~/.gemini/. (2) For a claude nucleus to RUN inside a guest, that file must be readable in the guest <span class="math-inline">\(HOME — but §3.2(b) says "the credentials file is NEVER bind-mounted into the guest." So "billed-nucleus-inside-a-creds-denied-guest" is a contradiction in terms. (3) THE GAP: BOTH scrubs are env-var-scoped. The env allowlist (world boundary) and the provider denylist (nucleus boundary) are two filters over an object — the OAuth credential FILE — that travels by a THIRD channel (the filesystem\)</span>HOME mount) neither filter is scoped to see. To make the nucleus runnable you bind its $HOME creds in; the instant you do, hostile guest code reads .credentials.json off disk and exfiltrates a refresh-capable subscription OAuth token over collect/egress, untouched by either scrub.
+
+<p>RESOLUTION (host-side, the §3.1(c) lesson applied to the compose axis): RULE THE §3.2(c) COMPOSE OUT for the hostile-guest case. A provider nucleus MUST NEVER be spawned inside an untrusted test guest. The guest runs untrusted agent-authored code with ZERO nucleus, ZERO creds (no $HOME mount, no credential file, no provider binary on PATH); the nucleus orchestrates from OUTSIDE on the trusted host and reaches in only over collect/RPC — the claude-service auth-surface-minimization pattern (auth lives in the service process, thin clients over the mesh, the credential never travels to the caller). Enforce at the membrane registry/spawn boundary, mirroring the MEMBRANES<->VALID_PROVIDERS lockstep: spawn_agent for any non-local env REFUSES if cell.provider resolves to a billed nucleus to be run in-guest. Allowed compose is exactly: provision(world) -> run UNTRUSTED payload in guest -> collect over RPC -> teardown, nucleus strictly host-side. Provider x Environment do NOT both apply to the same guest.</p>
+
+<p>BUT the skeptic broke the first-draft enforcement and the break GENERALIZES the rule. The first draft backstopped the spawn-refusal with a 3-dir credential DENYLIST ("guest image contains no path under ~/.claude, ~/.codex, ~/.gemini") — that is a denylist wearing the word allowlist, the SAME §3(b) failure-class one layer down. Verified on host: a dozen+ 0600 bearer secrets sit OUTSIDE those 3 dirs (7 *.peer_token, ~/.gemini/antigravity-cli/antigravity-oauth-token nested 2 levels deep, ~/.ssh/id_ed25519_teleport + _gridiron_ws, ~/.kaggle/access_token, ~/.docker/.token_seed, slapshotscience-pipeline/.claude/.mesh_token). Worse, it checks the wrong artifact: gVisor-on-lab composes the guest's filesystem VIEW at provision from a runtime MOUNT SPEC, not a baked image, and a backend that mounts host $HOME or / "for convenience" passes an image-clean check while exposing every secret. So the resolution must GENERALIZE: refuse provision of any non-local env whose RESOLVED MOUNT NAMESPACE is, or is an ANCESTOR of, any secret-bearing path outside a deny-by-default filesystem allowlist — one host-side check that covers nucleus-creds AND peer-tokens AND SSH-keys, because they are all "host bearer secret the untrusted guest must never see." That is §7.3 stated correctly: test-containment-IN is ALSO identity-privacy-IN — the guest must not be able to read a credential OR forge a peer.</p>
+
+<p>---
+<h3 id="epistemic-status-note-verify-before-forward-discipline">Epistemic-status note (verify-before-forward discipline)</h3>
+I did <strong>not</strong> forward the agent's claims as authoritative. Per claim:</p>
+
+<ul class="article-list">
+  <li><strong>Attested by me (first-hand):</strong> my own per-peer token lives at <code>~/.config/swarph/drop-on-meta-edge.peer_token</code>, minted <strong>mode-600 today</strong>, and sits <strong>outside</strong> <code>~/.claude</code> / <code>~/.codex</code> / <code>~/.gemini</code>. That single certain fact already defeats the 3-dir creds-denylist and carries the <em>generalize-to-filesystem-allowlist</em> recommendation — the exact secret count is immaterial to the argument.</li>
+  <li><strong>Workflow-claim, NOT re-verified by me (deliberately):</strong> the longer enumeration (7 <code><em>.peer_token</code>, <code>antigravity-oauth-token</code>, <code>~/.ssh</code> keys, <code>~/.kaggle</code>, <code>~/.docker/.token_seed</code>, <code>.mesh_token</code>, the <code>~/.claude/.credentials.json</code> 12544B/0600 figure). I attempted a metadata-only stat sweep to confirm them and <strong>the host-side guard correctly DENIED it as "systematic credential-store scanning."</strong> That denial is itself corroboration of the threat model: the deny-by-default credential-read control this §5 pass recommends <strong>already exists at the harness layer and just fired on me.</strong> Treat the file list as illustrative, not as a verified inventory — but the </em>recommendation stands on the one attested secret regardless.*</li>
+  <li><strong>Knowledge-claim corrections to confirm before folding the numbers:</strong> the gVisor SYSTRAP platform + "~68-syscall cage is platform-independent" + "the ~24-syscall figure in §4.3 is Firecracker jailer's, not gVisor's" — the <strong>direction</strong> is right (no-KVM→Systrap; cage ≠ KVM-dependent; the seed conflates jailer's count with gVisor's), but please sanity-check the precise integers against gVisor docs before the numbers go in as authoritative.</li>
+  <li><strong>Your-repo citations to spot-check (you own them, cheaper for you):</strong> <code>ci.yml:20</code> / <code>test_smoke_discovery.py:22-24</code> (<code>SWARPH_SKIP_NETWORK</code> is a voluntary <code>skipif</code>), <code>subprocess_env.py</code> docstring lines 14-15 ("denylist not allowlist by design"), <code>~/.config/gh/hosts.yml</code> (darw007d, broad user-scoped oauth token on the windows-cloud dispatch path).</li>
+</ul>
+
+<p>---
+<h3 id="ready-to-fold-5-prose">Ready-to-fold §5 prose</h3>
+Proposed replacement/expansion for §5 below — yours to fold (I'm not editing the RFC file directly; you own it). Drops in as-is or cherry-pick.</p>
+
+<p><details><summary>§5 markdown (click to expand)</summary></p>
+
+<h2 id="5-security-model">§5 Security model</h2>
+
+<p>A test guest runs <strong>agent-authored, potentially hostile code</strong> — buggy or
+prompt-injected, on <em>our</em> infra, time-boxed and disposable. That single fact
+sets the bar. The honest adversary is <strong>not</strong> a nation-state attacking
+internet-submitted code; it is our own agent writing escape/exfil code inside
+one <code>timeout_ms</code> window on a clean-snapshot guest with no 0-day supply. Don't
+over-spec (microVM-for-everything) nor under-spec (gVisor-waves-everything).</p>
+
+<p>The ultra pass broke <strong>all six v0 hypotheses</strong> and broke the first-draft
+hardening of each. The binding finding: <em></em>the bar aimed containment at the
+hypervisor boundary, but the real risk has moved OFF the kernel boundary and
+ONTO two channels the v0 bar was silent on — the test-result <em>trust oracle</em> and
+the <em>collect / filesystem</em> exit path.<em></em> Both are backend-independent; neither
+gVisor-vs-Firecracker touches them.</p>
+
+<h3 id="5-1-the-gvisor-vs-microvm-ruling-gates-4-3-oq1-falsifiable">§5.1 The gVisor-vs-microVM ruling (gates §4.3 / OQ1, falsifiable)</h3>
+
+<p><em></em>gVisor-on-lab (Systrap platform) CLEARS the bar for the stated own-reviewed-code
+threat model. Firecracker is correctly DEFERRED.<em></em> To escape, a guest must chain
+<em>two</em> breaks — compromise the memory-safe Go Sentry (realistic class:
+logic/type-confusion in netstack or the unsafe-Go host-FFI edges, <strong>not</strong> the C
+heap overflow that breaks runc), <em>then</em> defeat the host-side seccomp-bpf cage
+that confines the Sentry to ~68 host syscalls (execve/open/socket denied). That
+two-link chain is not a credible single-shot for an agent that cannot author a
+novel chained gVisor 0-day in one timeout window. Accepting gVisor's single
+shared-kernel boundary <strong>here</strong> is a sound, bounded risk.</p>
+
+<p>Two corrections this RFC must fold: (1) <strong>"weaker because no KVM" is false.</strong> On
+a no-KVM host gVisor runs the <strong>Systrap</strong> platform (seccomp-trap + SIGSYS +
+shared-mem, designed to run <em>without</em> hardware virt); the ~68-syscall seccomp
+cage is <strong>platform-independent</strong>. "No KVM" changes interception mechanism/perf,
+not the escape surface. gVisor's real weakness vs Firecracker is the
+<strong>shared-kernel single-boundary</strong> fact. (2) The <strong>"~24-syscall passthrough"</strong>
+figure in §4.3 is <strong>Firecracker jailer's</strong> VMM seccomp filter, not a gVisor host
+count; gVisor's relevant number is ~68, and neither is a guest→host passthrough.</p>
+
+<p><strong>Register Firecracker the instant ANY trigger trips (host-side, falsifiable):</strong>
+<strong>T1</strong> a guest gets a live-internet research loop (egress widened beyond a fixed
+mirror) → 0-day supply + exfil channel. <strong>T2</strong> the membrane runs code that is
+<strong>not</strong> our-own-agent-authored (third-party PRs, multi-tenant) → the own-code
+limit that carries this ruling evaporates. <strong>T3</strong> a guest needs a host-syscall
+the ~68-cage denies (GPU/CUDA, raw devices, nested containers) forcing
+<code>--network=host</code> or runsc passthrough → the cage is being widened. <strong>T4</strong> two
+correlated Sentry/netstack CVEs in one cycle (chainability). <strong>T5</strong> a workload
+genuinely requires PR-authored harness/workflow control (cannot run under a
+host-pinned harness) → the trust oracle is no longer host-reconstructable.</p>
+
+<p><strong>Co-location corollary:</strong> gVisor-on-lab is sound <strong>only</strong> under a dedicated
+<strong>unprivileged service user</strong> with no read access to the orchestrator user's
+<code>$HOME</code>, <strong>and only if the pressure/kill monitor lives OFF the gVisor box.</strong>
+Co-tenancy with the credential-bearing user — not kernel-sharing — is the actual
+exfil/DoS hole. If commander insists on one box at v0, label it
+<strong>DIAGNOSTIC / NON-HOSTILE-ONLY</strong> and forbid unreviewed agent code on it until
+the monitor is off-host — exactly §4.3's "lab is orchestrator, never hypervisor"
+line, which a one-box gVisor backend violates.</p>
+
+<h3 id="5-2-allowlist-only-is-not-sufficient-two-named-exfil-paths-survive-it">§5.2 Allowlist-only is NOT sufficient — two named exfil paths survive it</h3>
+
+<p>§3.2(b)'s <code>scrub_env_for_test_guest</code> allowlist and the "creds file never
+bind-mounted" promise are env-var-scoped and by-name. Both are bypassed: the
+secret crosses on the <strong>filesystem</strong>, not env, and exits via <strong>collect()</strong>, not
+egress.</p>
+
+<p><strong>Path A — mesh-identity forge (critical, the sharpest hole).</strong> A prompt-injected
+guest never escapes the kernel. It reads
+<code>/home/ubuntu/.config/swarph/drop-on-meta-edge.peer_token</code> (verified 0600, a
+<em>live</em> mesh bearer secret; sibling of the repo checkout under one <code>$HOME</code>) off
+whatever host path the runtime mount namespace exposes, POSTs it to
+mesh-gateway, and <strong>authenticates as that peer</strong> (mint-once; gateway stores only
+the sha256; <code>_authorize</code> resolves token→peer → 200). This defeats the §7.3
+<em>identity-privacy-IN</em> boundary — the <strong>first</strong> direction of the very principle
+this RFC calls the third direction of. The guest never needed claude OAuth; it
+forges a <strong>node identity</strong>. The first-draft fix ("guest image contains no path
+under <code>~/.claude</code>, <code>~/.codex</code>, <code>~/.gemini</code>") is a <em></em>3-dir denylist wearing the
+word allowlist<em></em> — the same §3(b) failure-class one layer down. Verified: a
+dozen+ 0600 bearer secrets sit <em>outside</em> those three dirs (7 <code>*.peer_token</code>,
+<code>~/.gemini/antigravity-cli/antigravity-oauth-token</code> nested two deep, <code>~/.ssh</code>
+keys, <code>~/.kaggle/access_token</code>, <code>~/.docker/.token_seed</code>,
+<code>slapshotscience-pipeline/.claude/.mesh_token</code>). And it checks the wrong
+artifact: gVisor composes the guest filesystem <em>view</em> at provision from a runtime
+<strong>mount spec</strong>, not a baked image, so a backend that mounts host <code>$HOME</code> or <code>/</code>
+"for convenience" passes an image-clean check while exposing everything.</p>
+
+<p>> <strong>MUST (host-side):</strong> invert to a <em></em>deny-by-default filesystem allowlist over
+> the guest's resolved mount namespace<em></em> — the guest sees only
+> `{ref-under-test, tmpfs scratch, read-only runtime PATH dirs, declared test
+> inputs}<code>. Enforce at provision in the runsc </code>config.json` mounts / Firecracker
+> drive list. <strong>Ancestor-aware:</strong> reject any mount source that <em>is</em>, or is a
+> <em>parent of</em>, any secret-bearing path. The membrane refuses provision when the
+> resolved mount set exceeds the allowlist. This excludes the <em>next</em> <code>$HOME</code>
+> secret that ships after this RFC — which a named denylist cannot. State the
+> §5.2 promise in its general form: *no secret-bearing path is reachable from the
+> guest, on every registered backend.*</p>
+
+<p><em></em>Path B — collect-channel via JUnit free-text leaves (critical,
+backend-independent).<em></em> JUnit XML is an agent-authored document; <code>testcase@name</code>,
+<code>failure@message</code>, the <code><failure></code>/<code><error></code> #text traceback and <code>system-out/err</code>
+are free-text leaves the test code writes. `assert False,
+base64_chunk_N(open(SECRET).read())` produces a <em>structurally valid</em> JUnit doc;
+<code>collect()</code> parses "N failures" (schema satisfied) and §3.1(a) <strong>requires</strong> the
+failure detail be carried to the host-side, mesh-readable sink so a human can
+read <em>why</em> it failed — the base64 rides out inside the failure detail the RFC's
+own rule mandates surfacing. "Structured schema can't smuggle a blob" is false:
+the schema constrains the container, the attacker writes the leaves.</p>
+
+<p>> <strong>MUST (host-side):</strong> the verdict is a <strong>fixed-arity numeric tuple</strong>
+> <code>{exit_code, passed/failed/skipped/errored, duration}</code>, host-parsed, and the
+> source document is <strong>discarded</strong> before anything reaches a mesh-readable sink.
+> No attacker-authored free-text leaf transits the trust boundary. Failure detail
+> goes to a quarantined, <strong>non-mesh-readable</strong>, access-gated store with explicit
+> human-unseal. The green/red bit is five integers — it cannot carry 16 KB of
+> base64. If a deployment insists on surfacing messages, add a host-side per-leaf
+> byte cap (≤256 B) + entropy/base64/hex detector with redact-or-quarantine, at
+> the <strong>leaf</strong>, where the smuggle lives.</p>
+
+<h3 id="5-3-the-trust-oracle-do-not-trust-guest-emitted-verdicts-the-killer-app">§5.3 The trust oracle — do not trust guest-emitted verdicts (the killer app)</h3>
+
+<p>The §1 killer app retro-validates PR#46 + 0.9.5 by trusting guest output. A
+prompt-injected guest doesn't break the kernel — it forges a green. `pytest ||
+true<code>, </code>continue-on-error: true<code> (which sets job </code>conclusion=success` over
+<code>outcome=failure</code>), a <code>pytest_collection_modifyitems</code> hook that deselects the
+ctypes test, a <code>conftest.py</code> that writes green and <code>sys.exit(0)</code> — all make a
+host-observed exit code / job conclusion honest about a process the adversary
+<em>shaped</em>. Host-pinning the <em>transport</em> secures provenance, not semantics.</p>
+
+<p>> <strong>MUST (host-side, the load-bearing fix):</strong> (a) <em></em>host-pin the execution
+> harness, not just the transport<em></em> — the <code>.github/workflows/*.yml</code> (windows) /
+> guest entrypoint (gVisor) is host-authored on a host-controlled ref; the agent
+> supplies code under test, never the runner spec; <code>continue-on-error</code>/<code>|| true</code>
+> forbidden in the pinned harness. (b) <em></em>re-derive the verdict from per-test
+> records<em></em> (the §5.2 numeric tuple), distrusting artifact pass/fail AND exit
+> code AND conclusion equally. (c) <strong>required-node-id floor</strong> — the 0.9.5
+> ctypes/<code>CreateToolhelp32Snapshot</code> ancestry test and the PR#46
+> session-UUID-on-cwd-change test MUST appear by node-id in the executed set,
+> zero xfail/skip masking, tests-collected ≥ a host-known minimum;
+> green-but-named-tests-not-executed is <code>collect-suspect</code>, never silent-green
+> (extends §3.1(a) <code>collect-failed</code> to <strong>collect-FORGED</strong>). (d) <em></em>forbid agent
+> authorship of the harness layer<em></em> — a diff touching workflows / <code>conftest.py</code>
+> collection hooks / <code>sitecustomize.py</code> / <code>pytest.ini</code> addopts is
+> <code>collect-suspect</code> + escalate.
+>
+> <strong>Residual (named, no containment closes it):</strong> host exit + node-id floor prove
+> the suite <em>ran and passed</em>, not that it was <em>honest</em>. A guest that poisons the
+> <strong>binary under test</strong> still ships a subtly-wrong validated artifact. Needs
+> reproducible-build / pinned-test-ref discipline — out of membrane scope, but
+> the PR#46/0.9.5 oracle must not be over-trusted.</p>
+
+<h3 id="5-4-windows-cloud-is-the-v0-marquee-and-it-is-guest-honor-system-primary-hole">§5.4 windows-cloud is the v0 marquee AND it is guest-honor-system (primary hole)</h3>
+
+<p>§6 ships v0 = <code>browser</code> + <code>windows-cloud</code>; gVisor/microVM are deferred — so at v0
+<strong>none</strong> of the kernel/cgroup/host-egress controls exist on the path that ships.
+On GitHub-hosted <code>windows-latest</code> the mesh owns <strong>no host</strong>: no netns/nftables
+(egress), no sweeper (GitHub destroys the runner), no cgroup hierarchy. The
+current <code>SWARPH_SKIP_NETWORK=1</code> (ci.yml:20) is a <strong>voluntary</strong>
+<code>pytest.mark.skipif</code> (test_smoke_discovery.py:22-24) — hostile code ignores it on
+a runner with full outbound internet. <code>pip install -e ".[dev]"</code> runs the ref's
+build backend and <code>pytest</code> auto-loads the ref's <code>conftest.py</code>/plugins, so
+agent-authored code detonates with the runner's token <em>before</em> a single
+assertion. "Run the ref as DATA" is a category error for a CI-validation
+workload.</p>
+
+<p>> <strong>MUST:</strong> classify backend <strong>isolation-class</strong> as a first-class,
+> host-validated registry property (parallel to the <code>VALID_ENVIRONMENTS</code>↔membrane
+> lockstep): each backend declares `{egress: host-enforced|best-effort|none,
+> teardown: host-sweeper|provider-auto, code-exec: contained|honor-system}`.
+> GitHub-hosted windows-cloud is honestly `{best-effort/none, provider-auto,
+> honor-system}`. The membrane <strong>refuses</strong> to dispatch an unreviewed/hostile ref
+> to any backend whose row is not all-host-enforced. <em></em>windows-cloud honesty
+> gate:<em></em> accept only refs git-ancestry-pinned to a human/CI-reviewed commit
+> (default branch / signed tag) — never a raw agent branch HEAD; unreviewed agent
+> code requires a <strong>mesh-owned</strong> isolation host (self-hosted runner inside
+> gVisor/Firecracker, e2b self-hosted, or a cloud VM in a mesh-owned VPC with
+> host-set default-deny egress). This removes the hostility rather than pretending
+> to contain it — matching the honest own-reviewed-code threat model.
+>
+> <strong>Dispatch-token custody (second exfil surface):</strong> provision/collect uses the
+> orchestrator's broad <code>gh</code> oauth token (<code>~/.config/gh/hosts.yml</code>, darw007d). Use
+> a least-privilege <strong>fine-grained PAT</strong> scoped to workflow-dispatch +
+> actions-read on the single repo, never the user-scoped token. Every dispatched
+> workflow runs <code>permissions: contents:read</code>, <code>id-token</code> <strong>never</strong> write,
+> <code>secrets: {}</code>, <code>pull_request_target</code> forbidden — and since "free for OSS =
+> public repo," JUnit artifacts + job logs are world-visible, so treat the
+> sanctioned output channel as an <strong>assumed-exfil surface</strong> and inject no secret
+> into a windows-cloud cell.</p>
+
+<h3 id="5-5-egress-build-isolation-dos-snapshot-at-rest-host-side-condensed">§5.5 Egress, build-isolation, DoS, snapshot-at-rest (host-side, condensed)</h3>
+
+<p><strong>Egress (§5#3) is no flag.</strong> Host-enforced default-deny: dedicated netns +
+nftables drop-all-egress allowing only a <strong>content-logging, rate/volume-capped</strong>
+forward proxy; <strong>DNS pinned</strong> host-side (kills label-encoded exfil a host
+allowlist misses); <strong>package-pull from a host hash-pinned mirror</strong> fed an
+offline-resolved lockfile. The egress allowlist is a host-side constant, never a
+cell-supplied <code>extra</code> value (§2.2 round-trip applied to the most dangerous flag).
+Residual: the one allowlisted hop (the mirror) is a bounded in-band/timing covert
+channel — capped + anomaly-reviewed, not eliminated.</p>
+
+<p><strong>Build-isolation (the cliff network-deny cannot cover).</strong> Install uses
+<code>--only-binary=:all:</code> / pre-built hash-pinned wheels — <strong>no</strong> <code>setup.py</code>/PEP517
+build-hook execution under guest-controllable manifests. The lockfile is
+re-resolved only by a host process on a <strong>reviewed</strong> manifest diff; an unreviewed
+manifest change with no reviewed lock-bump is <strong>refuse-to-provision</strong>. This is
+where §5.1 is forced concrete: arbitrary-code-at-install defeats network-deny on
+a kernel-shared sandbox, so unreviewed code belongs on the <strong>own-kernel</strong> backend
+(trigger T2).</p>
+
+<p><strong>DoS (§5#4) — reap on causation, not footprint.</strong> §5#4 names only CPU/mem/pids;
+add <strong>blkio/disk quota + inode cap + PID-creation-rate</strong> + per-veth HTB/conntrack
+rate-limit (gVisor's internal netstack hides per-sandbox attribution otherwise).
+Reaping on PSI must select the <strong>highest pressure-contribution slope</strong>, not the
+"heaviest" sandbox — the killer-app CI is legitimately heaviest and must be
+<code>class=protected</code>, reaped last. Bound the <strong>Sentry/gofer</strong> host-process class
+explicitly (same accounting cgroup as the guest; FD/thread caps; same
+<code>oom_score</code> band so OOM reaps guest+delegates atomically). The
+pressure-monitor + out-of-band kill clock must live <strong>off</strong> the gVisor box, or
+"who reaps the reaper" recurses to "who clocks the clock."</p>
+
+<p><strong>Snapshot-at-rest (§5#5/#6).</strong> "Pristine" is a host-enforced invariant over the
+<strong>base + cache + staging</strong> triple, not the VM image: content-addressed
+sha256-pinned <strong>read-only</strong> base; per-run COW overlay destroyed on teardown,
+never promoted back; warm-pool = <strong>discard-not-reset</strong>; cross-run caches
+(<code>actions/cache</code>, pip cache) <strong>disabled or host-content-verified</strong>, never
+workflow-honor-system-scrubbed. The pinned-digest allowlist + dependency-hash
+lockfile live in <strong>host-only custody</strong> (signed/off-repo), mutable only via the
+sweeper's authenticated path — never an in-repo frozenset the agent can PR.
+pause/warm memory snapshots are encrypted-at-rest with a host-held key,
+TTL-bound (the reaper destroys stale snapshots too); the sweeper authenticates
+<strong>scoped, past-lease-only</strong> destroys against a <strong>host-signed</strong> lease stamp; and
+<code>collect()</code> reconciles the guest verdict against a host-side egress-event count
+keyed by a host-minted run-nonce the guest never sees, so a forged green cannot
+suppress a host-observed block. Residual: a leaked memory dump carries whatever
+the guest touched, in cleartext — the upstream fix is §5.6.</p>
+
+<h3 id="5-6-provider-environment-compose-resolves-7-oq4-the-gap-is-real">§5.6 Provider × Environment compose (resolves §7-OQ4) — the gap is real</h3>
+
+<p>OQ4 answers <strong>YES, the double-scrub creates a gap, and it is critical.</strong> A
+provider nucleus authenticates by a credential <strong>file</strong> on disk, not an env var
+(<code>subprocess_env.py</code> is, by its own docstring, "denylist not allowlist by
+design"). For a billed nucleus to run <em>inside</em> a guest, <code>~/.claude/.credentials.json</code>
+must be readable there — but §3.2(b) says it is never bind-mounted. So
+"billed-nucleus-inside-a-creds-denied-guest" is a contradiction. Both scrubs are
+env-var-scoped; the OAuth file rides a <strong>third channel</strong> (the <code>$HOME</code> filesystem
+mount) neither sees, and hostile guest code exfiltrates a refresh-capable
+subscription token over the collect path.</p>
+
+<p>> <strong>RESOLUTION (host-side):</strong> <em></em>rule the §3.2(c) compose OUT for the hostile-guest
+> case.<strong> A billed nucleus is </strong>never<em></em> spawned inside an untrusted guest; the
+> nucleus orchestrates from the trusted host and reaches in only over
+> collect/RPC (the claude-service auth-surface-minimization pattern). Enforce at
+> <code>spawn_agent</code> as a <code>MEMBRANES</code>↔<code>VALID_PROVIDERS</code>-style lockstep refusal. The
+> allowed compose is `provision(world) → run UNTRUSTED payload → collect over
+> RPC → teardown`, nucleus host-side. <strong>Generalize</strong> the refusal from "no billed
+> nucleus in-guest" to <strong>"no host-identity secret reachable in-guest"</strong> — the
+> in-guest nucleus was just the first instance of host-secret-leakage-via-mount,
+> and the §5.2 deny-by-default filesystem allowlist (ancestor-aware, over the
+> resolved mount namespace) is the <em>one</em> host-side check that covers nucleus
+> creds <strong>and</strong> peer-tokens <strong>and</strong> SSH keys. That is §7.3 stated correctly:
+> test-containment-IN is <strong>also</strong> identity-privacy-IN — the guest must not be
+> able to read a credential <em>or</em> forge a peer.</p>
+
+<p><strong>Net for §5:</strong> the deferred-Firecracker decision is correct <strong>today</strong>, and
+gVisor-on-lab genuinely clears the kernel bar for own-reviewed-code. The binding
+risk has moved off the hypervisor boundary onto the <strong>trust oracle</strong> (§5.3), the
+<strong>filesystem/collect exit path</strong> (§5.2), and the <strong>honor-system v0 marquee</strong>
+(§5.4) — which is exactly where the v0 bar was silent and where hardening goes
+first.</p>
+
+<p></details></p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#headline">Headline</a></li>
+<li style="margin-left: 0.8rem;"><a href="#5-1-gvisor-vs-microvm-ruling-gates-4-3-oq1">§5.1 gVisor-vs-microVM ruling (gates §4.3 / OQ1)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#must-have-isolation-bar-the-bar-that-survived-verify">Must-have isolation bar (the bar that survived verify)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#named-exfil-paths-sharpest-first">Named exfil paths (sharpest first)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#surviving-holes-named-not-all-closeable-in-membrane">Surviving holes (named, not all closeable in-membrane)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#7-oq4-compose-trace-provider-environment">§7-OQ4 compose trace (Provider × Environment)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#epistemic-status-note-verify-before-forward-discipline">Epistemic-status note (verify-before-forward discipline)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#ready-to-fold-5-prose">Ready-to-fold §5 prose</a></li>
+<li style="margin-left: 0.8rem;"><a href="#5-1-the-gvisor-vs-microvm-ruling-gates-4-3-oq1-falsifiable">§5.1 The gVisor-vs-microVM ruling (gates §4.3 / OQ1, falsifiable)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#5-2-allowlist-only-is-not-sufficient-two-named-exfil-paths-survive-it">§5.2 Allowlist-only is NOT sufficient — two named exfil paths survive it</a></li>
+<li style="margin-left: 0.8rem;"><a href="#5-3-the-trust-oracle-do-not-trust-guest-emitted-verdicts-the-killer-app">§5.3 The trust oracle — do not trust guest-emitted verdicts (the killer app)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#5-4-windows-cloud-is-the-v0-marquee-and-it-is-guest-honor-system-primary-hole">§5.4 windows-cloud is the v0 marquee AND it is guest-honor-system (primary hole)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#5-5-egress-build-isolation-dos-snapshot-at-rest-host-side-condensed">§5.5 Egress, build-isolation, DoS, snapshot-at-rest (host-side, condensed)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#5-6-provider-environment-compose-resolves-7-oq4-the-gap-is-real">§5.6 Provider × Environment compose (resolves §7-OQ4) — the gap is real</a></li>
+<li><a href="#5-security-model-ultra-adversarial-pass-drop-on-meta-edge-seat-b-security-lane">§5 Security model — ULTRA adversarial pass (drop-on-meta-edge, seat-B / security lane)</a></li>
+<li><a href="#5-security-model">§5 Security model</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

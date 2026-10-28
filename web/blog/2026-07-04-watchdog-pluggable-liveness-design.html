@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pluggable liveness for `swarph watchdog` — design | Technical Whitepaper</title>
+  <meta name="description" content="Pluggable liveness for `swarph watchdog` — design — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-07-04-watchdog-pluggable-liveness-design.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Pluggable liveness for `swarph watchdog` — design</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Pluggable liveness for <code>swarph watchdog</code> — design</p>
+
+<p><strong>Date:</strong> 2026-07-04
+<strong>Component:</strong> <code>swarph-cli</code> — <code>src/swarph_cli/commands/watchdog.py</code>
+<strong>Status:</strong> design approved; plan + implementation to follow on branch <code>feat/watchdog-pluggable-liveness</code>.</p>
+
+<h2 id="problem">Problem</h2>
+
+<p><code>swarph watchdog --check</code> recovers a cell that has gone dormant or throttle-stranded: a stale cursor plus a <em>live</em> session triggers an A1 <code>tmux send-keys</code> wake; a stale cursor plus a <em>dead</em> session triggers the destructive A2 respawn (<code>swarph spawn <role></code>, which kills the tmux session and respawns from cell-yaml).</p>
+
+<p>The liveness decision is made by <code>_process_alive(tmux_session)</code> (<code>watchdog.py:583</code>), which runs <code>pgrep -f "claude"</code> and keeps only PIDs descending from the session's panes (<code>_pid_under</code>). <strong>The process name <code>"claude"</code> is hardcoded.</strong></p>
+
+<p>Consequence for non-Claude cells:</p>
+
+<ul class="article-list">
+  <li><code>gpt-ops</code> runs <code>node</code> (codex), <code>grok-researcher</code> runs <code>grok</code>. Neither has a <code>claude</code> process under its panes.</li>
+  <li>Whenever such a cell's cursor is stale — the <em>only</em> moment recovery matters — <code>_process_alive</code> returns <code>False</code>, so the watchdog takes the A2 "process dead" branch.</li>
+  <li>Under <code>--no-respawn</code> that branch is inert: it returns exit 2 and does nothing (fake coverage — logs <code>a2_dry_run</code> every 5 minutes but never wakes the cell).</li>
+  <li><em>Without</em> <code>--no-respawn</code> it is destructive: it kills the live <code>grok</code>/<code>node</code> session and respawns from cell-yaml.</li>
+</ul>
+
+<p>Measured 2026-07-04: gridiron (Claude) <code>--check</code> exited 0 (healthy); gpt-ops and grok-researcher both exited 2 (<code>a2_respawn_process_dead</code> under <code>--no-respawn</code>). Confirmed no existing override flag (<code>--model-rung</code>/<code>--no-model-rung</code>/<code>--stable-model</code> are the only liveness-adjacent flags, all Claude-specific).</p>
+
+<p>There is a second, related coupling: <code>_resolve_send_target(name)</code> (<code>watchdog.py:641</code>) picks <em>where</em> the A1 wake lands by preferring a pane whose current command looks like <code>node</code>/<code>claude</code> — so even a cell that passes liveness could have its wake mis-land on a bash/log pane.</p>
+
+<h2 id="goal">Goal</h2>
+
+<p>Let an operator tell the watchdog what "alive" means for a given cell, so the watchdog can recover a non-Claude cell's dormancy without the Claude-coupling — while leaving every existing Claude cron byte-for-byte unchanged.</p>
+
+<h2 id="design">Design</h2>
+
+<h3 id="two-new-check-flags-mutually-exclusive">Two new <code>--check</code> flags (mutually exclusive)</h3>
+
+<ul class="article-list">
+  <li><strong><code>--process-name NAME</code></strong> <em>(default <code>"claude"</code>)</em> — the string handed to <code>pgrep -f</code>, still scoped to the session's pane PIDs via the existing <code>_pid_under</code>. The default preserves today's behavior exactly.</li>
+  <li><strong><code>--liveness-cmd CMD</code></strong> — an escape hatch for the rare cell whose liveness a process name cannot express. Run <code>CMD</code>; <strong>exit 0 = alive</strong>, non-zero = dead.</li>
+  <li><strong>On timeout / <code>OSError</code> → assume alive.</strong> This preserves <code>_process_alive</code>'s existing fail-safe (a broken detector must never false-fire the destructive A2) and honors the standing heuristic <em>never gate a destructive or blocking action on an uncertain probe</em>.</li>
+  <li>Runs with a bounded timeout (the module's existing 5s subprocess pattern).</li>
+</ul>
+
+<p>The two flags are an argparse <strong>mutually-exclusive group</strong> — passing both is a usage error (fail-fast; no ambiguous precedence to reason about).</p>
+
+<h3 id="thread-the-process-identity-into-both-coupling-points">Thread the process identity into both coupling points</h3>
+
+<p>Two functions carry the Claude assumption; both take exactly one caller, so threading a parameter through is contained:</p>
+
+<ul class="article-list">
+  <li><code>_process_alive(tmux_session, process_name="claude")</code> — the <code>pgrep -f</code> string.</li>
+  <li><code>_resolve_send_target(name, process_name="claude")</code> — the preferred-pane-command match honors <code>process_name</code>, so the A1 wake lands on the agent pane (not a bash/log pane) for a non-Claude cell too. When <code>--liveness-cmd</code> is used there is no process name, so send-target keeps today's <code>node</code>/<code>claude</code> + active-pane heuristic.</li>
+</ul>
+
+<p>The <code>--check</code> handler resolves the liveness signal:</p>
+
+<p><code></code>`
+if args.liveness_cmd:      liveness = (run args.liveness_cmd, rc == 0, assume-alive on error)
+else:                      liveness = _process_alive(tmux_session, args.process_name)
+send_target                = _resolve_send_target(session, args.process_name)   # default "claude" under --liveness-cmd
+<code></code>`</p>
+
+<p>Everything downstream of the liveness boolean (the A1/A2 decision matrix, markers, respawn) is unchanged.</p>
+
+<h3 id="backward-compatibility-the-load-bearing-invariant">Backward compatibility — the load-bearing invariant</h3>
+
+<p>Default <code>process_name="claude"</code> and no <code>--liveness-cmd</code> → the four live crons (<code>lab</code>, <code>drop-on-meta-edge</code>, <code>science-claude</code>, <code>gridiron</code>) are unaffected. A test locks the default <code>pgrep</code> argument as <code>"claude"</code> so a future refactor cannot silently change it.</p>
+
+<h2 id="testing-tdd">Testing (TDD)</h2>
+
+<p>Extend the existing watchdog suite (<code>tests/test_watchdog.py</code>; the suite already establishes the subprocess-mock pattern):</p>
+
+<ul class="article-list">
+  <li><strong>Compat lock:</strong> default (no new flags) → <code>_process_alive</code> issues <code>pgrep -f claude</code>.</li>
+  <li><strong><code>--process-name grok</code></strong> → <code>_process_alive</code> issues <code>pgrep -f grok</code>.</li>
+  <li><strong><code>--liveness-cmd</code> semantics:</strong> rc 0 → alive; rc 1 → dead; timeout / <code>OSError</code> → alive (fail-safe).</li>
+  <li><strong>Mutual exclusion:</strong> <code>--process-name</code> + <code>--liveness-cmd</code> together → <code>SystemExit</code> (argparse usage error).</li>
+  <li><strong>Send-target:</strong> <code>_resolve_send_target</code> with <code>process_name="grok"</code> prefers the <code>grok</code> pane over a bash pane.</li>
+</ul>
+
+<h2 id="ship-rollout">Ship & rollout</h2>
+
+<ul class="article-list">
+  <li>Version bump <code>0.24.0 → 0.25.0</code>; document both flags in <code>watchdog --help</code> and the changelog.</li>
+  <li>swarph-cli is <strong>public PyPI</strong> — synthetic test fixtures only, no cell-private data.</li>
+  <li>After publish, re-wire the two crons removed on 2026-07-04:</li>
+  <li><code>grok-researcher</code> → add <code>--process-name grok</code></li>
+  <li><code>gpt-ops</code> → add <code>--process-name node</code></li>
+</ul>
+  (exact per-cell string chosen at rollout; <code>_pid_under</code> scoping keeps a generic name like <code>node</code> correct because only PIDs under that cell's panes count.)
+<ul class="article-list">
+  <li><strong>Publish and cron re-wire are commander-gated.</strong></li>
+</ul>
+
+<h2 id="out-of-scope-yagni">Out of scope (YAGNI)</h2>
+
+<ul class="article-list">
+  <li><strong>Cell-yaml auto-resolution</strong> of the process name (the watchdog reading a cell's spawn config to infer its process). A future DRY consolidation; the CLI flag matches today's cron config surface.</li>
+  <li>The A2 respawn mechanism itself (<code>_spawn_via_swarph</code>) — unchanged.</li>
+  <li>Option (b), the model-agnostic <strong>sidecar-wake-with-verify</strong> fix (C-u clear-input + turn-marker verify). That addresses doorbell-on-DM delivery, a <em>different</em> case than dormancy recovery, and is tracked separately.</li>
+</ul>
+
+<h2 id="invariants-preserved">Invariants preserved</h2>
+
+<ul class="article-list">
+  <li>Liveness stays a <strong>real probe</strong>, never a stale-cursor proxy, for the destructive A2 gate.</li>
+  <li>A broken/uncertain detector <strong>fails toward "alive"</strong> (no false-positive respawn).</li>
+  <li>Default behavior is <strong>unchanged</strong> for every currently-wired Claude cell.</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#two-new-check-flags-mutually-exclusive">Two new `--check` flags (mutually exclusive)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#thread-the-process-identity-into-both-coupling-points">Thread the process identity into both coupling points</a></li>
+<li style="margin-left: 0.8rem;"><a href="#backward-compatibility-the-load-bearing-invariant">Backward compatibility — the load-bearing invariant</a></li>
+<li><a href="#problem">Problem</a></li>
+<li><a href="#goal">Goal</a></li>
+<li><a href="#design">Design</a></li>
+<li><a href="#testing-tdd">Testing (TDD)</a></li>
+<li><a href="#ship-rollout">Ship & rollout</a></li>
+<li><a href="#out-of-scope-yagni">Out of scope (YAGNI)</a></li>
+<li><a href="#invariants-preserved">Invariants preserved</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Authoring bundle | Technical Whitepaper</title>
+  <meta name="description" content="Authoring bundle — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/authoring-bundle.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Authoring bundle</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Authoring bundle</p>
+
+<p>Onboarding and diagrams: [<code>../README.md</code>](../README.md).</p>
+
+<p>Per-type file layouts for tasks under <code>application/tasks/<task-name>/</code>.
+Part of [task-spec README](../README.md) <strong>Step 2</strong>. Per-type <strong>diagrams</strong> are in each
+type README ([survey](../survey/README.md), [chatbot](../chatbot/README.md),
+[web](../web/README.md), [os-app](../os-app/README.md)).</p>
+
+<p>Each runnable task lives under <code>application/tasks/<task-name>/</code> and always
+includes <code>instruction.md</code>, <code>task.toml</code>, <code>tests/</code>, <code>reporting.json</code>, and
+<code>persona_strategy.json</code> (target cohort / Playground sampling defaults).
+Supplementary files differ by application type:</p>
+
+<h3 id="survey">Survey</h3>
+
+<p><code></code>`text
+instruction.md                 # short scenario / requirements
+reporting.json                 # batch aggregation policy (contextRules)
+persona_strategy.json          # target cohort + Playground sampling defaults
+input/
+  context.md                   # product concept (optional)
+  questionnaire.yaml           # questions + askRationale / askConfidence
+<code></code>`</p>
+
+<p>Do <strong>not</strong> add <code>input/output_schema.md</code>. The platform derives the answer
+envelope from <code>questionnaire.yaml</code> and writes <code>survey_result.json</code>.</p>
+
+<h3 id="chatbot">Chatbot</h3>
+
+<p><code></code>`text
+instruction.md                 # conversation goal
+reporting.json                 # batch aggregation policy (contextRules)
+persona_strategy.json          # target cohort + Playground sampling defaults
+input/
+  context.md                   # application background (optional)
+  protocol.md                  # chat API / MCP contract (optional)
+  chatbot.yaml                 # runtime connection metadata
+  self_report_schema.yaml      # user_feedback.json
+<code></code>`</p>
+
+<p>Platform-managed harness artifacts (<code>transcript.json</code>,
+<code>application_result.json</code>) are documented in
+[<code>eval_artifacts.md</code>](eval_artifacts.md), not in per-task files.</p>
+
+<h3 id="web-os-app">Web / OS-app</h3>
+
+<p><code></code>`text
+instruction.md                 # task goal, steps, optional submission JSON schema
+reporting.json                 # batch aggregation policy (contextRules)
+persona_strategy.json          # target cohort + Playground sampling defaults
+input/
+  context.md                   # scenario / product background (optional)
+  self_report_schema.yaml      # user_feedback.json (optional)
+<code></code>`</p>
+
+<p>Prefer verifying from browser/OS traces and final state. When state is hard to
+read, an agent submission schema may still live inline in <code>instruction.md</code>.
+Persona self-report uses the same <code>input/self_report_schema.yaml</code> convention as
+chatbot tasks.</p>
+
+<h3 id="quick-reference">Quick reference</h3>
+
+<p>| Concern | survey | chatbot | web / os-app |
+|---|---|---|---|
+| Scenario | <code>instruction.md</code> | <code>instruction.md</code> | <code>instruction.md</code> |
+| Background context | <code>input/context.md</code> | <code>input/context.md</code> | <code>input/context.md</code> (optional) |
+| Structured input | <code>input/questionnaire.yaml</code> | <code>input/chatbot.yaml</code>, optional <code>protocol.md</code> | — |
+| Objective evidence | platform <code>survey_result.json</code> | platform harness artifacts | trace/state (optional agent submission) |
+| Persona self-report | — | <code>input/self_report_schema.yaml</code> | <code>input/self_report_schema.yaml</code> |
+| Batch reporting policy | <code>reporting.json</code> | <code>reporting.json</code> | <code>reporting.json</code> |
+| Target cohort / sampling | <code>persona_strategy.json</code> | <code>persona_strategy.json</code> | <code>persona_strategy.json</code> |</p>
+
+<h3 id="persona-strategy-json"><code>persona_strategy.json</code></h3>
+
+<p>Lives at the <strong>task root</strong> next to <code>reporting.json</code>. Most tasks declare a
+<strong>target cohort</strong> with <code>dimensionFilters</code> (and/or <code>cohortId</code>). Field values may
+use defaults; the file itself and a cohort declaration are checked in CI.</p>
+
+<p>Playground uses this for Random / Stratified (and optional Quick pick) defaults.</p>
+
+<p><code></code>`json
+{
+  "schemaVersion": "1.0",
+  "defaultMode": "stratified",
+  "pool": "persona/datasets/matraix-persona-dev-sample",
+  "sources": ["Nemotron"],
+  "dimensionFilters": {
+    "age_bracket": ["25-34", "35-44"],
+    "region": ["North America"]
+  },
+  "stratifyFields": ["age_bracket", "region"],
+  "sampleSizePerValueGroup": 2,
+  "cohortId": null
+}
+<code></code>`</p>
+
+<p>| Field | Notes |
+|---|---|
+| <code>schemaVersion</code> | Use <code>"1.0"</code> |
+| <code>defaultMode</code> | <code>single</code> \| <code>random</code> \| <code>stratified</code> |
+| <code>dimensionFilters</code> / <code>cohortId</code> | Non-empty filters and/or a saved <code>cohortId</code> — who this task is for |
+| <code>sources</code> | Optional source allow-list |
+| <code>stratifyFields</code> | Needed when <code>defaultMode</code> is <code>stratified</code>. <strong>Every</strong> stratify field must also appear under <code>dimensionFilters</code> with allowed values (so cell coverage is well-defined). |
+| <code>sampleSizePerValueGroup</code> | <strong>Stratified strategy A (per-cell):</strong> take <strong>N per combination</strong>. Total = <code>N × (# cells)</code>. <strong>Do not also set <code>sampleSize</code>.</strong> |
+| <code>sampleSize</code> | Random: hard sample count. <strong>Stratified strategy B (total N):</strong> spread as <code>ceil(sampleSize / #cells)</code> then clip to <code>sampleSize</code>. Must be <strong>≥ # cells</strong>. <strong>Do not also set <code>sampleSizePerValueGroup</code>.</strong> |
+| <code>cohortId</code> | Optional saved cohort under <code>persona/datasets/cohorts/</code> |
+| <code>pool</code> | Defaults to matraix-persona-dev-sample |</p>
+
+<p><strong>Stratified sampling — two mutually exclusive strategies:</strong></p>
+
+<p>| Strategy | Set this | Omit this | Cohort size |
+|---|---|---|---|
+| Per-cell | <code>sampleSizePerValueGroup</code> | <code>sampleSize</code> | <code>N × #cells</code> |
+| Total N | <code>sampleSize</code> | <code>sampleSizePerValueGroup</code> | exactly <code>sampleSize</code> |</p>
+
+<p>1. Thin / missing cells → sample from <code>matraix-persona-1m</code>, widen
+   <code>dimensionFilters</code> / sources, or use a saved cohort — sampling never
+   synthesizes personas.
+2. Per-cell: guarantee N in each cell; total follows from the grid.
+3. Total N: guarantee <code>ceil(sampleSize / #cells)</code> capacity per cell, sample,
+   clip to <code>sampleSize</code>. Author <code>sampleSize</code> ≥ # cells.
+4. Setting <strong>both</strong> fields is invalid (CI / Playground reject the strategy).</p>
+
+<p>Playground turns on <strong>Task default strategy</strong> from this file (filters / mode /
+per-cell N / sampleSize locked to the file). Operators can turn that switch off
+to edit filters themselves, then turn it back on to re-apply the task default.</p>
+
+<h3 id="ensuring-pool-coverage">Ensuring pool coverage</h3>
+
+<p><code>persona/datasets/matraix-persona-dev-sample/</code> is a small ~200-persona fixture for
+smoke and local UI work. Narrow <code>dimensionFilters</code> (and stratified cells) often
+undershoot it.</p>
+
+<p><strong>When coverage fails</strong>, do one of:</p>
+
+<p>1. Sample from production: set <code>"pool"</code> to <code>persona/datasets/matraix-persona-1m</code>
+   (or choose that pool in Playground).
+2. Widen <code>dimensionFilters</code> / <code>sources</code> until the fixture (or 1M) has enough matches.
+3. Use a saved cohort under <code>persona/datasets/cohorts/</code> that already has enough
+   personas.</p>
+
+<p>Playground / job launch <strong>does not</strong> auto-synthesize <code>_generated</code> pools. Thin
+coverage raises an error with the same recovery hint.</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#survey">Survey</a></li>
+<li style="margin-left: 0.8rem;"><a href="#chatbot">Chatbot</a></li>
+<li style="margin-left: 0.8rem;"><a href="#web-os-app">Web / OS-app</a></li>
+<li style="margin-left: 0.8rem;"><a href="#quick-reference">Quick reference</a></li>
+<li style="margin-left: 0.8rem;"><a href="#persona-strategy-json">`persona_strategy.json`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#ensuring-pool-coverage">Ensuring pool coverage</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

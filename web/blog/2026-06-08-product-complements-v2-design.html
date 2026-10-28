@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Design — Produits complémentaires v2 (ancrage taxonomie famille) | Technical Whitepaper</title>
+  <meta name="description" content="Design — Produits complémentaires v2 (ancrage taxonomie famille) — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-06-08-product-complements-v2-design.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Design — Produits complémentaires v2 (ancrage taxonomie famille)</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 6 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Design — Produits complémentaires v2 (ancrage taxonomie famille)</p>
+
+<p><strong>Date</strong> : 2026-06-08
+<strong>Auteur</strong> : Pierre Samson + Claude
+<strong>Périmètre</strong> : refonte de la brique « Compléments IA » suite au rejet métier de la v1
+<strong>Statut</strong> : méthode validée en Q&R (Pierre, 2026-06-08), spec à relire</p>
+
+<p>---</p>
+
+<h2 id="1-contexte-pourquoi-une-v2">1. Contexte & pourquoi une v2</h2>
+
+<p>La <strong>v1</strong> (<code>exports/complements_ia_FR_2026-06-04_d90.xlsx</code>) typait chaque produit
+par IA <strong>depuis le titre SAP abrégé</strong>, puis croisait avec les ventes. Rejetée par
+le métier : liens faux (« dérouleur scotch ⇄ papier toilette »). <strong>Cause racine</strong> :
+un titre cryptique (<code>LYRECO MINI TAPE DISPENSER 19MMX33</code>) mal typé (« dérouleur
+bobine ») → lien plausible mais faux. L'IA <strong>devinait</strong> la catégorie.</p>
+
+<p><strong>Découverte clé qui débloque la v2</strong> : les produits se joignent à 100 % à
+<code>ecom_products</code> (postgres :5433), qui est bien plus riche que le titre du CSV :
+<ul class="article-list">
+  <li><strong>hiérarchie catégorie authoritative</strong> : `section_code → family_code →</li>
+</ul>
+  category_code → subcategory_code<code> + </code>world<code> (via </code>section_taxonomy`) ;
+<ul class="article-list">
+  <li><strong>descriptions riches</strong> : <code>web_title</code>, <code>web_description</code>, <code>key_selling_point1/2/3</code>,</li>
+</ul>
+  <code>key_words</code>, <code>product_group_description</code> ;
+<ul class="article-list">
+  <li><strong>identité fournisseur</strong> : <code>brand</code>, <code>manufacturer</code>, <code>supplier_product_reference</code>,</li>
+</ul>
+  <code>product_type_code</code>, <code>lyreco_brand</code>.</p>
+
+<p>⇒ On <strong>n'infère plus</strong> la catégorie : elle est <strong>donnée</strong> par le warehouse. C'est
+le levier qui fiabilise les liens.</p>
+
+<p><strong>Volumétrie taxonomie</strong> : <strong>206 familles</strong>, 21 sections. Gérable pour un
+raisonnement IA au niveau famille.</p>
+
+<p>---</p>
+
+<h2 id="2-d-cisions-verrouill-es-q-r-2026-06-08">2. Décisions verrouillées (Q&R 2026-06-08)</h2>
+
+<p>| Décision | Choix |
+|---|---|
+| Nature des liens | <strong>C = A + B</strong> (A consommables/nécessaires + B compléments larges) |
+| Fiabilité A | <code>brand</code> + <code>manufacturer</code> + <code>supplier_product_reference</code> + <code>product_type_code</code> (+ GTIN du CSV Marie) → compatibilité exacte |
+| Fiabilité B | <strong>famille ↔ famille</strong> (hiérarchie warehouse) dans un même univers d'usage ; l'IA raisonne sur la <strong>catégorie réelle</strong>, jamais sur le titre |
+| Règles famille↔famille | <strong>proposées par l'IA, relues par Pierre/Marie</strong> sur les 20 lignes, puis étendues |
+| Profondeur | <strong>1 saut</strong> validé d'abord ; multi-saut (café→filtre→détartrant→poubelle) en v2 |
+| Sorties | <strong>3 onglets</strong> <code>A — consommables</code> · <code>B — compléments larges</code> · <code>Mix (A+B)</code> <strong>+ README</strong> |
+| Validation | <strong>20 premiers produits ancres</strong> du fichier source (= CAFETERIA : cafés + biscuits) |
+| Statut des compléments proposés | uniquement <strong>actifs</strong> (<code>status</code> ≠ <code>Delisted</code>/<code>New Product Delisted</code>) |
+| Format | <strong>large</strong> : 1 ligne / ancre, jusqu'à <strong>20 blocs</strong> <code>[Consumable Web · Local SAP Description · Local Status Current Year · Display Sequence]</code> |</p>
+
+<p>---</p>
+
+<h2 id="3-donn-es">3. Données</h2>
+
+<h3 id="3-1-fichier-source-associations-existantes-baseline">3.1 Fichier source (associations existantes = baseline)</h3>
+<code>imports/lucas/20260608_094900_Produits_comple_mentaires_20260526_1.xlsx</code>
+<ul class="article-list">
+  <li>Importé en table postgres <strong><code>product_complements</code></strong> par</li>
+</ul>
+  <code>scripts/import_product_complements.py</code> : <strong>10 665 paires · 5 458 ancres</strong>,
+  ~2 compléments/ancre (max 20), statuts <code>Continued</code> 9036 / <code>New</code> 1235 /
+  <code>Delisted</code> 151 / vide 240.
+<ul class="article-list">
+  <li>Layout : col0 = ancre SAP, col1 = description, puis <strong>20 blocs de 4</strong></li>
+</ul>
+  <code>[code complément, description, statut, display_sequence]</code>.
+<ul class="article-list">
+  <li>Sert de <strong>baseline</strong> (associations actuelles du site) pour comparer notre</li>
+</ul>
+  proposition. C'est le format de sortie cible.
+
+<h3 id="3-2-catalogue-enrichi">3.2 Catalogue enrichi</h3>
+<code>ecom_products</code> (FR) — clé <code>product_reference</code> (18 digits zéro-paddés ; les codes
+SAP du fichier sont paddés via <code>zfill(18)</code>, déjà fait à l'import). Fournit
+catégorie, descriptions riches, marque/fabricant, <code>status_code</code>, flags
+<code>not_salable_flag</code> / <code>not_visible_flag</code>.
+
+<h3 id="3-3-libell-s-de-famille-d-river-pas-de-libell-propre">3.3 Libellés de famille (à dériver — pas de libellé propre)</h3>
+<code>product_group_description</code> n'est PAS un libellé de famille (c'est la description
+d'un produit). Il faut <strong>dériver un libellé lisible par famille</strong> depuis un
+échantillon de produits (web_title + descriptions), une fois, caché.
+
+<p>---</p>
+
+<h2 id="4-m-thode-1-saut-offline-validation-20-ancres">4. Méthode (1 saut, offline, validation 20 ancres)</h2>
+
+<h3 id="phase-1-anchors-enrichissement">Phase 1 — Anchors & enrichissement</h3>
+Lire les <strong>20 premières ancres</strong> du fichier source (ordre du fichier). Pour
+chacune : récupérer dans <code>ecom_products</code> sa famille, son world, sa marque, son
+fabricant, ses descriptions riches.
+
+<h3 id="phase-2-profils-de-famille-ia-cach">Phase 2 — Profils de famille (IA, caché)</h3>
+Pour chaque famille impliquée (familles des 20 ancres + familles candidates
+voisines dans le même world), construire un <strong>profil</strong> : échantillon de ~12
+produits (<code>web_title</code>/<code>product_description</code>) → l'IA renvoie un <strong>libellé court</strong> +
+une phrase « ce que contient cette famille ». Caché par <code>family_code</code>.
+
+<h3 id="phase-3-graphe-de-compl-ments-famille-familles-ia-relu">Phase 3 — Graphe de compléments <strong>famille → familles</strong> (IA, relu)</h3>
+Pour la famille de chaque ancre, l'IA propose les <strong>familles complémentaires</strong>
+(choisies dans la liste réelle des 206 familles, profils fournis), chacune
+classée :
+<ul class="article-list">
+  <li><strong>A</strong> (relation <code>consommable-de</code> / <code>recharge-de</code> / <code>accessoire-de</code>) =</li>
+</ul>
+  nécessaire pour utiliser/consommer l'ancre (ex. café → filtres, gobelets) ;
+<ul class="article-list">
+  <li><strong>B</strong> (relation <code>complément-usage</code> / <code>même-contexte</code>) = acheté dans le même</li>
+</ul>
+  contexte sans être nécessaire (ex. café → biscuits, nettoyage cafétéria) ;
+avec <code>force</code> (0-1) et <code>justification</code>. <strong>Relu par Pierre/Marie</strong> sur les 20 lignes.
+> Resserrage A par compatibilité exacte : quand l'ancre est un <strong>durable</strong>
+> (imprimante, étiqueteuse…), un lien A n'est retenu que si un produit de la
+> famille candidate partage <code>manufacturer</code>/<code>brand</code> compatible (+ GTIN si dispo).
+> Pour les ancres « consommables » (café/biscuits) A reste sémantique (filtres…).
+
+<h3 id="phase-4-expansion-famille-sku">Phase 4 — Expansion famille → SKU</h3>
+Pour chaque arête famille retenue, choisir les <strong>SKU concrets</strong> à afficher :
+produits <strong>actifs</strong> de la famille complément (statut Continued/New, non
+<code>not_salable</code>/<code>not_visible</code>), classés par <strong>ventes</strong> (réutiliser le compteur de
+co-achat / volume des paniers FR), top-N pour remplir jusqu'à 20.
+
+<h3 id="phase-5-assemblage-des-3-vues-display-sequence">Phase 5 — Assemblage des 3 vues + Display Sequence</h3>
+<ul class="article-list">
+  <li><strong>A</strong> : seulement les arêtes classées A, dépliées en SKU.</li>
+  <li><strong>B</strong> : seulement les arêtes classées B.</li>
+  <li><strong>Mix</strong> : A puis B, <code>display_sequence</code> = 1..20 (A en tête, puis B par force ×</li>
+</ul>
+  ventes décroissantes), plafonné à 20 compléments/ancre.
+
+<h3 id="phase-6-sorties">Phase 6 — Sorties</h3>
+XLSX <code>exports/product_complements_v2_FR_<date>.xlsx</code> :
+<ul class="article-list">
+  <li><strong>README</strong> (méthode + lecture), <strong>A — consommables</strong>, <strong>B — compléments larges</strong>,</li>
+</ul>
+  <strong>Mix (A+B)</strong> — chacun au <strong>format large</strong> (col0 SAP ancre, col1 description,
+  puis 20 blocs `[Consumable Web = code SAP complément · Local SAP Description ·
+  Local Status Current Year · Display Sequence]`).
+<ul class="article-list">
+  <li>Une feuille <strong>Baseline (site actuel)</strong> optionnelle : les compléments existants</li>
+</ul>
+  de <code>product_complements</code> pour ces 20 ancres, pour comparaison.
+<ul class="article-list">
+  <li>Snapshot JSON associé.</li>
+</ul>
+
+<p>---</p>
+
+<h2 id="5-architecture-isolation">5. Architecture & isolation</h2>
+
+<ul class="article-list">
+  <li><code>core/complement_families.py</code> — <strong>fonctions pures</strong> : dérivation profil famille</li>
+</ul>
+  (assemblage de l'échantillon), classification A/B des arêtes, expansion
+  famille→SKU (tri ventes + filtre statut), assemblage Display Sequence,
+  construction du format large. Testables (TDD), aucun I/O.
+<ul class="article-list">
+  <li>Réutiliser <code>core/ai_typing.py</code> (backend injectable <code>get_llm_backend</code>,</li>
+</ul>
+  cache incrémental, modèle Haiku/Sonnet) pour les appels IA (profils + graphe
+  famille). Aucun appel réseau en test (llm_call stubbé).
+<ul class="article-list">
+  <li><code>scripts/refresh_product_complements_v2.py</code> — orchestration : lecture 20 ancres</li>
+</ul>
+  → enrichissement (postgres) → profils familles (IA) → graphe famille (IA) →
+  expansion SKU → 3 vues → XLSX. CLI `--n-anchors 20 --model sonnet
+  --llm-backend cli|api --depth 1`.
+<ul class="article-list">
+  <li><code>tests/test_complement_families.py</code> — TDD, IA stubbée.</li>
+</ul>
+
+<p>---</p>
+
+<h2 id="6-risques-garde-fous">6. Risques & garde-fous</h2>
+
+<ul class="article-list">
+  <li><strong>Qualité des liens B = enjeu n°1.</strong> Mitigations : ancrage famille (pas titre),</li>
+</ul>
+  profils famille relus, l'IA choisit dans la <strong>liste réelle</strong> des familles, et
+  Pierre/Marie relisent les 20 lignes avant extension.
+<ul class="article-list">
+  <li><strong>A peut être clairsemé</strong> pour des ancres « consommables » (un sachet de café</li>
+</ul>
+  n'a pas de consommable propre) — c'est <strong>attendu</strong> et ça valide la séparation
+  A/B. A est riche surtout pour les <strong>durables</strong>.
+<ul class="article-list">
+  <li><strong>Libellés de famille dérivés</strong> (pas natifs) : risque d'imprécision sur une</li>
+</ul>
+  famille fourre-tout → on échantillonne assez de produits + on relit.
+<ul class="article-list">
+  <li><strong>Statut</strong> : ne jamais proposer un complément <code>Delisted</code> (filtre dur).</li>
+  <li><strong>Multi-saut hors périmètre v1</strong> (chaînage A) — prévu v2.</li>
+  <li><strong>Ne casse pas</strong> la table <code>product_complements</code> (baseline en lecture seule) ni</li>
+</ul>
+  la v1.
+
+<p>---</p>
+
+<h2 id="7-hors-p-rim-tre-v1-de-cette-refonte">7. Hors périmètre (v1 de cette refonte)</h2>
+
+<ul class="article-list">
+  <li>Multi-saut / chaînage transitif (café→filtre→détartrant→poubelle).</li>
+  <li>Génération sur tout le catalogue (on valide 20 ancres d'abord).</li>
+  <li>Écriture en base / branchement panel — snapshot XLSX/JSON seulement.</li>
+  <li>GB.</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#3-1-fichier-source-associations-existantes-baseline">3.1 Fichier source (associations existantes = baseline)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#3-2-catalogue-enrichi">3.2 Catalogue enrichi</a></li>
+<li style="margin-left: 0.8rem;"><a href="#3-3-libell-s-de-famille-d-river-pas-de-libell-propre">3.3 Libellés de famille (à dériver — pas de libellé propre)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#phase-1-anchors-enrichissement">Phase 1 — Anchors & enrichissement</a></li>
+<li style="margin-left: 0.8rem;"><a href="#phase-2-profils-de-famille-ia-cach">Phase 2 — Profils de famille (IA, caché)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#phase-3-graphe-de-compl-ments-famille-familles-ia-relu">Phase 3 — Graphe de compléments **famille → familles** (IA, relu)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#phase-4-expansion-famille-sku">Phase 4 — Expansion famille → SKU</a></li>
+<li style="margin-left: 0.8rem;"><a href="#phase-5-assemblage-des-3-vues-display-sequence">Phase 5 — Assemblage des 3 vues + Display Sequence</a></li>
+<li style="margin-left: 0.8rem;"><a href="#phase-6-sorties">Phase 6 — Sorties</a></li>
+<li><a href="#1-contexte-pourquoi-une-v2">1. Contexte & pourquoi une v2</a></li>
+<li><a href="#2-d-cisions-verrouill-es-q-r-2026-06-08">2. Décisions verrouillées (Q&R 2026-06-08)</a></li>
+<li><a href="#3-donn-es">3. Données</a></li>
+<li><a href="#4-m-thode-1-saut-offline-validation-20-ancres">4. Méthode (1 saut, offline, validation 20 ancres)</a></li>
+<li><a href="#5-architecture-isolation">5. Architecture & isolation</a></li>
+<li><a href="#6-risques-garde-fous">6. Risques & garde-fous</a></li>
+<li><a href="#7-hors-p-rim-tre-v1-de-cette-refonte">7. Hors périmètre (v1 de cette refonte)</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,1102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FR EPI « White Space » Implementation Plan | Technical Whitepaper</title>
+  <meta name="description" content="FR EPI « White Space » Implementation Plan — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-05-29-fr-epi-whitespace.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">FR EPI « White Space » Implementation Plan</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 19 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># FR EPI « White Space » Implementation Plan</p>
+
+<p>> <strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+
+<p><strong>Goal:</strong> Build <code>scripts/analyze_fr_epi_whitespace.py</code> — a dual-DB analysis that finds FR sectors that <em>should</em> buy EPI (workwear, section 003) but under-buy, lists the concrete white-space accounts ranked by an opportunity score, profiles their digital behaviour, and writes a 5-sheet Excel workbook to <code>exports/</code>.</p>
+
+<p><strong>Architecture:</strong> Pure-logic functions (KPI aggregation, scoring, tiering, sector resolution, latency) are factored so they unit-test with in-memory data — Docker DBs are offline at authoring time ("à l'aveugle"), so all math is TDD'd now and the DB/Excel/wiring layers are validated live later (Task 9). DB access reuses <code>database.crm_db.CRMDatabase</code> (PG :5433) and <code>database.timeseries_db.TimeseriesDatabase</code> (TS :5434); cross-DB work is always 2-step (pull IDs in one DB → <code>ANY(%s)</code> in the other).</p>
+
+<p><strong>Tech Stack:</strong> Python 3.12 (<code>venv/Scripts/python.exe</code>), psycopg2, openpyxl, pytest 9. Run scripts with <code>PYTHONIOENCODING=utf-8</code>.</p>
+
+<p><strong>Spec:</strong> <code>docs/superpowers/specs/2026-05-29-fr-epi-whitespace-design.md</code></p>
+
+<p>---</p>
+
+<h2 id="file-structure">File structure</h2>
+
+<p>| File | Responsibility |
+|---|---|
+| <code>scripts/analyze_fr_epi_whitespace.py</code> | The whole pipeline: module constants, pure-logic functions, DB query functions, Excel writer, <code>main()</code>. Pure functions have <strong>no import-time side effects</strong> (DB objects are only instantiated inside <code>main()</code>), so the test file can import them with Docker off. |
+| <code>tests/test_fr_epi_whitespace.py</code> | Unit tests for every pure-logic function, using hand-built in-memory rows. No DB. |</p>
+
+<p><strong>Module constants (defined in Task 1, referenced everywhere):</strong>
+<ul class="article-list">
+  <li><code>COUNTRY = "FR"</code></li>
+  <li><code>EPI_SECTION = "003"</code></li>
+  <li><code>YTD_START = "2026-01-01"</code>, <code>YTD_END = "2026-05-29"</code></li>
+  <li><code>ACTIVE_MIN_ORDERS = 3</code>, <code>ACTIVE_MIN_REVENUE = 500.0</code></li>
+  <li><code>SHOULD_BUY_LIFT = 1.0</code></li>
+</ul></p>
+
+<p>---</p>
+
+<h2 id="task-1-scaffold-script-constants">Task 1: Scaffold script + constants</h2>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>scripts/analyze_fr_epi_whitespace.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the module skeleton</strong></li>
+</ul>
+
+<p><code></code>`python
+"""FR EPI ("workwear", section 003) white-space analysis.</p>
+
+<p>Finds FR sectors (US SIC 1987, community-level) whose EPI conversion-rate
+exceeds the FR baseline ("should buy"), lists active accounts in those sectors
+with zero EPI spend ("white space"), scores them by opportunity, profiles their
+digital behaviour, and writes a 5-sheet Excel workbook to exports/.</p>
+
+<p>Window: volume KPIs = YTD 2026 (2026-01-01..2026-05-29). Time-to-EPI latency =
+all-time (option b in the spec). Workwear = section_code='003' (W1), active
+catalogue only. Sector = account -> firmographic community -> dominant US SIC
+-> meta sector (A1). Source of truth = ecom_invoice_lines (billed = real).</p>
+
+<p>See docs/superpowers/specs/2026-05-29-fr-epi-whitespace-design.md</p>
+
+<p>Run
+---
+    PYTHONIOENCODING=utf-8 ./venv/Scripts/python.exe scripts/analyze_fr_epi_whitespace.py
+"""
+from __future__ import annotations</p>
+
+<p>import logging
+import statistics
+import sys
+from collections import defaultdict
+from datetime import datetime
+from pathlib import Path</p>
+
+<p>from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.utils import get_column_letter</p>
+
+<p>_REPO = Path(__file__).resolve().parent.parent
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))</p>
+
+<p>from database.crm_db import CRMDatabase
+from database.timeseries_db import TimeseriesDatabase</p>
+
+<p>logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+log = logging.getLogger("analyze_fr_epi_whitespace")</p>
+
+<p># --- Parameters (see spec) -------------------------------------------------
+COUNTRY = "FR"
+EPI_SECTION = "003"
+YTD_START = "2026-01-01"
+YTD_END = "2026-05-29"
+ACTIVE_MIN_ORDERS = 3
+ACTIVE_MIN_REVENUE = 500.0
+SHOULD_BUY_LIFT = 1.0</p>
+
+<p># --- Excel styling ---------------------------------------------------------
+HEADER_FILL = PatternFill("solid", fgColor="0B5394")
+HEADER_FONT = Font(bold=True, color="FFFFFF")
+TIER_A_FILL = PatternFill("solid", fgColor="FFF2CC")
+CENTER = Alignment(horizontal="center", vertical="center")
+WRAP = Alignment(wrap_text=True, vertical="top")
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Verify the module imports cleanly (no DB connection at import)</strong></li>
+</ul>
+
+<p>Run: <code>PYTHONIOENCODING=utf-8 ./venv/Scripts/python.exe -c "import scripts.analyze_fr_epi_whitespace as m; print('ok', m.EPI_SECTION, m.YTD_START)"</code>
+Expected: <code>ok 003 2026-01-01</code> (no connection error — DB classes imported but not instantiated).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add scripts/analyze_fr_epi_whitespace.py
+git commit -m "feat(fr-epi): scaffold white-space analysis script + constants"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="task-2-pure-logic-per-account-kpi-aggregation">Task 2: Pure logic — per-account KPI aggregation</h2>
+
+<p>The DB rolls invoice <strong>lines → orders</strong> in SQL (Task 6); this function rolls <strong>orders → account</strong> in Python, so it stays light and testable. Each order row is <code>{"invoice_number", "order_rev", "n_skus", "epi_rev"}</code>.</p>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>scripts/analyze_fr_epi_whitespace.py</code></li>
+  <li>Test: <code>tests/test_fr_epi_whitespace.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+import math
+import pytest
+from scripts.analyze_fr_epi_whitespace import account_kpis</p>
+
+<p>def _order(inv, rev, n_skus, epi_rev=0.0):
+    return {"invoice_number": inv, "order_rev": rev, "n_skus": n_skus, "epi_rev": epi_rev}</p>
+
+<p>def test_account_kpis_basic_aggregation():
+    rows = [_order("A", 100.0, 3), _order("B", 300.0, 5, epi_rev=40.0)]
+    k = account_kpis(rows)
+    assert k["n_orders"] == 2
+    assert k["total_rev"] == 400.0
+    assert k["avg_basket"] == 200.0
+    assert k["avg_skus_per_order"] == 4.0
+    assert k["epi_rev"] == 40.0
+    assert k["epi_n_orders"] == 1</p>
+
+<p>def test_account_kpis_empty_is_zero_safe():
+    k = account_kpis([])
+    assert k == {"n_orders": 0, "total_rev": 0.0, "avg_basket": 0.0,
+                 "avg_skus_per_order": 0.0, "epi_rev": 0.0, "epi_n_orders": 0}
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>PYTHONIOENCODING=utf-8 ./venv/Scripts/python.exe -m pytest tests/test_fr_epi_whitespace.py -q</code>
+Expected: FAIL with <code>ImportError: cannot import name 'account_kpis'</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+def account_kpis(order_rows: list[dict]) -> dict:
+    """Aggregate order-level rows into one account's KPI dict.</p>
+
+<p>order_rows: each {"invoice_number", "order_rev", "n_skus", "epi_rev"}.
+    """
+    n_orders = len(order_rows)
+    if n_orders == 0:
+        return {"n_orders": 0, "total_rev": 0.0, "avg_basket": 0.0,
+                "avg_skus_per_order": 0.0, "epi_rev": 0.0, "epi_n_orders": 0}
+    total_rev = sum(float(o["order_rev"] or 0) for o in order_rows)
+    epi_rev = sum(float(o["epi_rev"] or 0) for o in order_rows)
+    epi_n_orders = sum(1 for o in order_rows if float(o["epi_rev"] or 0) > 0)
+    avg_skus = sum(int(o["n_skus"] or 0) for o in order_rows) / n_orders
+    return {
+        "n_orders": n_orders,
+        "total_rev": total_rev,
+        "avg_basket": total_rev / n_orders,
+        "avg_skus_per_order": avg_skus,
+        "epi_rev": epi_rev,
+        "epi_n_orders": epi_n_orders,
+    }
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>PYTHONIOENCODING=utf-8 ./venv/Scripts/python.exe -m pytest tests/test_fr_epi_whitespace.py -q</code>
+Expected: PASS (2 passed).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add scripts/analyze_fr_epi_whitespace.py tests/test_fr_epi_whitespace.py
+git commit -m "feat(fr-epi): account_kpis order->account aggregation + tests"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="task-3-pure-logic-active-white-space-digital-intent-tier-score">Task 3: Pure logic — active / white-space / digital intent / tier / score</h2>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>scripts/analyze_fr_epi_whitespace.py</code></li>
+  <li>Test: <code>tests/test_fr_epi_whitespace.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing tests</strong></li>
+</ul>
+
+<p><code></code>`python
+from scripts.analyze_fr_epi_whitespace import (
+    is_active, is_whitespace, digital_intent_boost, assign_tier, opportunity_score,
+)</p>
+
+<p>def test_is_active_by_orders_or_revenue():
+    assert is_active({"n_orders": 3, "total_rev": 0.0}) is True      # >= 3 orders
+    assert is_active({"n_orders": 1, "total_rev": 500.0}) is True    # >= 500 EUR
+    assert is_active({"n_orders": 2, "total_rev": 499.99}) is False</p>
+
+<p>def test_is_whitespace_zero_epi():
+    assert is_whitespace({"epi_rev": 0.0}) is True
+    assert is_whitespace({"epi_rev": -5.0}) is True                  # credit note still = no EPI
+    assert is_whitespace({"epi_rev": 0.01}) is False</p>
+
+<p>def test_digital_intent_boost_levels():
+    assert digital_intent_boost(viewed_epi=True, searched_epi=True) == 1.0
+    assert digital_intent_boost(viewed_epi=True, searched_epi=False) == 1.0
+    assert digital_intent_boost(viewed_epi=False, searched_epi=True) == 0.5
+    assert digital_intent_boost(viewed_epi=False, searched_epi=False) == 0.0</p>
+
+<p>def test_assign_tier():
+    assert assign_tier(viewed_epi=True) == "A"
+    assert assign_tier(viewed_epi=False) == "B"</p>
+
+<p>def test_opportunity_score():
+    # sector_pen 0.4, CA 1000, intent 0.5 -> 0.4 <em> 1000 </em> 1.5 = 600
+    assert opportunity_score(0.4, 1000.0, 0.5) == 600.0
+    assert opportunity_score(0.0, 1000.0, 1.0) == 0.0
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>PYTHONIOENCODING=utf-8 ./venv/Scripts/python.exe -m pytest tests/test_fr_epi_whitespace.py -q</code>
+Expected: FAIL with <code>ImportError</code> on the new names.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+def is_active(k: dict) -> bool:
+    return k["n_orders"] >= ACTIVE_MIN_ORDERS or k["total_rev"] >= ACTIVE_MIN_REVENUE</p>
+
+<p>def is_whitespace(k: dict) -> bool:
+    return float(k["epi_rev"]) <= 0.0</p>
+
+<p>def digital_intent_boost(viewed_epi: bool, searched_epi: bool) -> float:
+    if viewed_epi:
+        return 1.0
+    if searched_epi:
+        return 0.5
+    return 0.0</p>
+
+<p>def assign_tier(viewed_epi: bool) -> str:
+    return "A" if viewed_epi else "B"</p>
+
+<p>def opportunity_score(sector_pen: float, account_ca: float, intent: float) -> float:
+    return sector_pen <em> account_ca </em> (1.0 + intent)
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>PYTHONIOENCODING=utf-8 ./venv/Scripts/python.exe -m pytest tests/test_fr_epi_whitespace.py -q</code>
+Expected: PASS.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add scripts/analyze_fr_epi_whitespace.py tests/test_fr_epi_whitespace.py
+git commit -m "feat(fr-epi): active/whitespace/intent/tier/score pure logic + tests"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="task-4-pure-logic-sector-resolution-cr-lift">Task 4: Pure logic — sector resolution + CR/lift</h2>
+
+<p><code>resolve_sector</code> maps a community id to a meta sector via two lookups built in <code>main()</code>: <code>comm_to_sic</code> (community_id → dominant US SIC code) and <code>sic_to_meta</code> (2-digit US SIC → meta sector). US SIC major group = first 2 chars of the code.</p>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>scripts/analyze_fr_epi_whitespace.py</code></li>
+  <li>Test: <code>tests/test_fr_epi_whitespace.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing tests</strong></li>
+</ul>
+
+<p><code></code>`python
+from scripts.analyze_fr_epi_whitespace import resolve_sector, sector_cr, lift</p>
+
+<p>def test_resolve_sector_uses_first_two_digits():
+    comm_to_sic = {7: "8011", 9: "1731"}          # 80 = health, 17 = construction
+    sic_to_meta = {"80": "Healthcare & Social Care", "17": "Construction"}
+    assert resolve_sector(7, comm_to_sic, sic_to_meta) == "Healthcare & Social Care"
+    assert resolve_sector(9, comm_to_sic, sic_to_meta) == "Construction"</p>
+
+<p>def test_resolve_sector_unknowns():
+    assert resolve_sector(99, {}, {}) == "Unknown"            # no community mapping
+    assert resolve_sector(1, {1: "9999"}, {}) == "Other"      # mapped SIC, no meta -> Other</p>
+
+<p>def test_sector_cr_and_lift():
+    # 4 active accounts, 1 has an EPI order -> CR 0.25
+    accts = [{"epi_n_orders": 1}, {"epi_n_orders": 0}, {"epi_n_orders": 0}, {"epi_n_orders": 0}]
+    assert sector_cr(accts) == 0.25
+    assert sector_cr([]) == 0.0
+    assert lift(0.5, 0.25) == 2.0
+    assert lift(0.5, 0.0) == 0.0
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>PYTHONIOENCODING=utf-8 ./venv/Scripts/python.exe -m pytest tests/test_fr_epi_whitespace.py -q</code>
+Expected: FAIL with <code>ImportError</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+def resolve_sector(community_id, comm_to_sic: dict, sic_to_meta: dict) -> str:
+    sic = comm_to_sic.get(community_id)
+    if not sic:
+        return "Unknown"
+    major = str(sic)[:2]
+    return sic_to_meta.get(major, "Other")</p>
+
+<p>def sector_cr(active_accounts: list[dict]) -> float:
+    if not active_accounts:
+        return 0.0
+    buyers = sum(1 for k in active_accounts if k["epi_n_orders"] > 0)
+    return buyers / len(active_accounts)</p>
+
+<p>def lift(sector_cr_value: float, base_cr: float) -> float:
+    return sector_cr_value / base_cr if base_cr else 0.0
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>PYTHONIOENCODING=utf-8 ./venv/Scripts/python.exe -m pytest tests/test_fr_epi_whitespace.py -q</code>
+Expected: PASS.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add scripts/analyze_fr_epi_whitespace.py tests/test_fr_epi_whitespace.py
+git commit -m "feat(fr-epi): sector resolution + CR/lift pure logic + tests"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="task-5-pure-logic-time-to-epi-latency">Task 5: Pure logic — time-to-EPI latency</h2>
+
+<p><code>time_to_epi</code> is the all-time latency (option b): days between an account's first-ever order and its first-ever EPI order. <code>median_or_none</code> aggregates per sector, dropping accounts that never bought EPI.</p>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>scripts/analyze_fr_epi_whitespace.py</code></li>
+  <li>Test: <code>tests/test_fr_epi_whitespace.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing tests</strong></li>
+</ul>
+
+<p><code></code>`python
+from datetime import date
+from scripts.analyze_fr_epi_whitespace import time_to_epi, median_or_none</p>
+
+<p>def test_time_to_epi_days():
+    assert time_to_epi(date(2025, 1, 1), date(2025, 1, 31)) == 30
+    assert time_to_epi(date(2025, 1, 1), None) is None        # never bought EPI
+    assert time_to_epi(None, date(2025, 1, 31)) is None        # no first order (shouldn't happen)</p>
+
+<p>def test_median_or_none():
+    assert median_or_none([10, 20, 30]) == 20
+    assert median_or_none([None, 10, None, 30]) == 20
+    assert median_or_none([None, None]) is None
+    assert median_or_none([]) is None
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>PYTHONIOENCODING=utf-8 ./venv/Scripts/python.exe -m pytest tests/test_fr_epi_whitespace.py -q</code>
+Expected: FAIL with <code>ImportError</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+def time_to_epi(first_order_dt, first_epi_dt):
+    if first_order_dt is None or first_epi_dt is None:
+        return None
+    return (first_epi_dt - first_order_dt).days</p>
+
+<p>def median_or_none(values):
+    vals = [v for v in values if v is not None]
+    return statistics.median(vals) if vals else None
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>PYTHONIOENCODING=utf-8 ./venv/Scripts/python.exe -m pytest tests/test_fr_epi_whitespace.py -q</code>
+Expected: PASS (all pure-logic tests green).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add scripts/analyze_fr_epi_whitespace.py tests/test_fr_epi_whitespace.py
+git commit -m "feat(fr-epi): time-to-EPI latency + median helper + tests"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="task-6-db-query-functions">Task 6: DB query functions</h2>
+
+<p>No unit tests (DB offline at authoring). Each function is validated live in Task 9. SQL follows the proven patterns in <code>scripts/export_first_purchase_top_sku.py</code>. <strong>Assumption to confirm in Task 9:</strong> <code>ecom_invoice_lines.soldto_number</code> is the join key to <code>account_firmographic_community.account_number</code>.</p>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>scripts/analyze_fr_epi_whitespace.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Add the EPI SKU loader (PG)</strong></li>
+</ul>
+
+<p><code></code>`python
+def load_epi_skus(crm: CRMDatabase) -> list[str]:
+    """Active, sellable SKUs in the EPI section (W1)."""
+    rows = crm.query(
+        """SELECT product_reference FROM ecom_products
+           WHERE source_country=%s AND section_code=%s
+             AND item_category_code='NORM'
+             AND COALESCE(status_code,'') NOT IN ('98','99')
+             AND COALESCE(not_salable_flag,false)=false
+             AND COALESCE(not_visible_flag,false)=false""",
+        (COUNTRY, EPI_SECTION),
+    )
+    return [r["product_reference"] for r in rows]
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Add the sector lookup builders (PG)</strong></li>
+</ul>
+
+<p><code></code>`python
+def load_sector_lookups(crm: CRMDatabase) -> tuple[dict, dict, dict]:
+    """Return (account_to_community, community_to_sic, sic2_to_meta)."""
+    acc = crm.query(
+        """SELECT account_number, community_id
+           FROM account_firmographic_community
+           WHERE source_country=%s AND community_id IS NOT NULL""",
+        (COUNTRY,),
+    )
+    account_to_community = {r["account_number"]: r["community_id"] for r in acc}</p>
+
+<p>comm = crm.query(
+        """SELECT community_id, dominant_sic_group
+           FROM firmographic_communities
+           WHERE source_country=%s AND dominant_sic_group IS NOT NULL""",
+        (COUNTRY,),
+    )
+    community_to_sic = {r["community_id"]: r["dominant_sic_group"] for r in comm}</p>
+
+<p>meta = crm.query(
+        """SELECT sic_2digit, meta_sector FROM sic_meta_sectors
+           WHERE sic_system='us_sic_1987'""",
+    )
+    sic2_to_meta = {r["sic_2digit"]: r["meta_sector"] for r in meta}
+    return account_to_community, community_to_sic, sic2_to_meta
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Add the YTD order-level rollup (TS)</strong></li>
+</ul>
+
+<p><code></code>`python
+def load_ytd_orders(ts: TimeseriesDatabase, epi_skus: list[str]) -> list[dict]:
+    """One row per (account, invoice) for FR YTD: rev, #SKU, EPI rev."""
+    return ts.query(
+        """
+        SELECT soldto_number AS account_number,
+               invoice_number,
+               SUM(sales_amount) AS order_rev,
+               COUNT(DISTINCT product_reference) AS n_skus,
+               SUM(CASE WHEN product_reference = ANY(%(epi)s)
+                        THEN sales_amount ELSE 0 END) AS epi_rev
+        FROM ecom_invoice_lines
+        WHERE source_country=%(c)s
+          AND invoice_date BETWEEN %(start)s AND %(end)s
+          AND COALESCE(cancelled_flag,false)=false
+          AND product_reference IS NOT NULL AND product_reference <> ''
+          AND soldto_number IS NOT NULL AND soldto_number <> ''
+        GROUP BY soldto_number, invoice_number
+        """,
+        {"c": COUNTRY, "start": YTD_START, "end": YTD_END, "epi": epi_skus},
+    )
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Add the all-time first-order / first-EPI dates (TS)</strong></li>
+</ul>
+
+<p><code></code>`python
+def load_first_dates(ts: TimeseriesDatabase, epi_skus: list[str]) -> dict:
+    """account_number -> (first_order_dt, first_epi_dt), all-time (option b)."""
+    rows = ts.query(
+        """
+        SELECT soldto_number AS account_number,
+               MIN(invoice_date) AS first_order_dt,
+               MIN(invoice_date) FILTER (WHERE product_reference = ANY(%(epi)s))
+                   AS first_epi_dt
+        FROM ecom_invoice_lines
+        WHERE source_country=%(c)s
+          AND COALESCE(cancelled_flag,false)=false
+          AND soldto_number IS NOT NULL AND soldto_number <> ''
+        GROUP BY soldto_number
+        """,
+        {"c": COUNTRY, "epi": epi_skus},
+    )
+    return {r["account_number"]: (r["first_order_dt"], r["first_epi_dt"]) for r in rows}
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Add the digital-behaviour loader (TS)</strong></li>
+</ul>
+
+<p><code></code>`python
+def load_digital_behaviour(ts: TimeseriesDatabase, account_numbers: list[str],
+                           epi_skus: list[str]) -> dict:
+    """account_number -> digital signals over the YTD window, from customer_timeline.</p>
+
+<p>NOTE (verify in Task 9): customer_timeline carries account_number, event_type,
+    product_reference, event_time, source_country. 'searched_epi' matches SEARCH
+    events whose search text contains an EPI keyword; the exact search-text column
+    is confirmed live and adjusted if the schema differs.
+    """
+    if not account_numbers:
+        return {}
+    rows = ts.query(
+        """
+        SELECT account_number,
+               bool_or(event_type IN ('PAGE_VIEW','ADD_TO_CART')
+                       AND product_reference = ANY(%(epi)s)) AS viewed_epi,
+               bool_or(event_type='SEARCH'
+                       AND lower(coalesce(search_term,'')) ~
+                           '(epi|securit|gant|casque|chaussure|masque|haute.?visib|lunette|protection)')
+                   AS searched_epi,
+               count(*) FILTER (WHERE event_type='ADD_TO_CART'
+                       AND product_reference = ANY(%(epi)s)) AS epi_atc
+        FROM customer_timeline
+        WHERE source_country=%(c)s
+          AND account_number = ANY(%(acc)s)
+          AND event_time BETWEEN %(start)s AND %(end)s
+        GROUP BY account_number
+        """,
+        {"c": COUNTRY, "acc": account_numbers, "epi": epi_skus,
+         "start": YTD_START, "end": YTD_END},
+    )
+    return {r["account_number"]: r for r in rows}</p>
+
+<p>def load_engagement(ts: TimeseriesDatabase, account_numbers: list[str]) -> dict:
+    """account_number -> session engagement over YTD, from ga4_sessions."""
+    if not account_numbers:
+        return {}
+    rows = ts.query(
+        """
+        SELECT account_number,
+               SUM(COALESCE(n_sessions,0)) AS n_sessions,
+               SUM(COALESCE(n_engaged_sessions,0)) AS n_engaged_sessions,
+               SUM(COALESCE(n_checkout_sessions,0)) AS n_checkout_sessions
+        FROM ga4_sessions
+        WHERE source_country=%(c)s
+          AND account_number = ANY(%(acc)s)
+          AND session_date BETWEEN %(start)s AND %(end)s
+        GROUP BY account_number
+        """,
+        {"c": COUNTRY, "acc": account_numbers, "start": YTD_START, "end": YTD_END},
+    )
+    return {r["account_number"]: r for r in rows}
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 6: Verify the module still imports</strong></li>
+</ul>
+
+<p>Run: <code>PYTHONIOENCODING=utf-8 ./venv/Scripts/python.exe -c "import scripts.analyze_fr_epi_whitespace as m; print('ok', m.load_epi_skus.__name__, m.load_digital_behaviour.__name__)"</code>
+Expected: <code>ok load_epi_skus load_digital_behaviour</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 7: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add scripts/analyze_fr_epi_whitespace.py
+git commit -m "feat(fr-epi): DB query functions (EPI skus, sector lookups, YTD orders, first-dates, digital)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="task-7-excel-writer">Task 7: Excel writer</h2>
+
+<p>Builds the 5 sheets from already-computed in-memory structures (built in Task 8). Sheet names use <code>·</code>/<code>—</code> (never <code>/</code>). All datetimes are dates already (no tz), so no <code>tzinfo</code> strip needed; if any <code>datetime</code> slips in, call <code>.replace(tzinfo=None)</code> before writing.</p>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>scripts/analyze_fr_epi_whitespace.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Add a small sheet helper</strong></li>
+</ul>
+
+<p><code></code>`python
+def _write_header(ws, headers: list[str], row: int = 1):
+    for col, h in enumerate(headers, 1):
+        c = ws.cell(row=row, column=col, value=h)
+        c.fill = HEADER_FILL; c.font = HEADER_FONT; c.alignment = CENTER</p>
+
+<p>def _autosize(ws):
+    for col in ws.columns:
+        try:
+            length = max(len(str(c.value or "")) for c in col if hasattr(c, "value"))
+        except ValueError:
+            length = 12
+        letter = get_column_letter(col[0].column if hasattr(col[0], "column") else 1)
+        ws.column_dimensions[letter].width = min(max(length + 2, 12), 60)
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Add the workbook builder</strong></li>
+</ul>
+
+<p><code></code>`python
+def build_workbook(meta: dict, sector_rows: list[dict], target_rows: list[dict]) -> Workbook:
+    """meta: run-level facts. sector_rows: per-sector KPI dicts.
+    target_rows: per white-space account dicts (already scored, tiered, sorted)."""
+    wb = Workbook()</p>
+
+<p># --- README ---
+    ws = wb.active
+    ws.title = "README"
+    lines = [
+        "FR EPI (workwear, section 003) white-space analysis",
+        f"Generated: {meta['generated']}",
+        f"Window (volume KPIs): YTD {YTD_START} -> {YTD_END}",
+        "Time-to-EPI latency: all-time (first order -> first EPI order).",
+        f"Active EPI SKUs (section 003, sellable): {meta['n_epi_skus']}",
+        f"FR active accounts: {meta['n_active_accounts']}",
+        f"FR baseline EPI conversion-rate: {meta['base_cr']:.1%}",
+        f"White-space accounts (should-buy sector, active, 0 EUR EPI): {len(target_rows)}",
+        "",
+        "LIMITS: sector = US SIC 1987 at community level (not French NAF, not per-company).",
+        "Workwear = section_code='003' only (W1). Source = ecom_invoice_lines (billed).",
+        "Opportunity score = sector EPI penetration x account YTD revenue x (1 + digital intent).",
+    ]
+    for i, txt in enumerate(lines, 1):
+        ws.cell(row=i, column=1, value=txt)
+    ws.column_dimensions["A"].width = 90</p>
+
+<p># --- Sector EPI KPIs ---
+    ws = wb.create_sheet("Sector EPI KPIs")
+    headers = ["Meta sector", "Active accounts", "EPI buyers", "CR EPI", "Lift vs base",
+               "Should buy", "Median days to EPI",
+               "Avg orders", "Avg basket (EUR)", "Avg #SKU/order",
+               "Avg EPI orders", "Avg EPI basket (EUR)"]
+    _write_header(ws, headers)
+    for i, s in enumerate(sector_rows, 2):
+        vals = [s["meta_sector"], s["n_active"], s["n_epi_buyers"],
+                round(s["cr"], 4), round(s["lift"], 2), "YES" if s["should_buy"] else "",
+                s["median_days_to_epi"] if s["median_days_to_epi"] is not None else "",
+                round(s["avg_orders"], 2), round(s["avg_basket"], 2), round(s["avg_skus"], 2),
+                round(s["avg_epi_orders"], 2), round(s["avg_epi_basket"], 2)]
+        for col, v in enumerate(vals, 1):
+            ws.cell(row=i, column=col, value=v)
+    _autosize(ws)</p>
+
+<p># --- White-space accounts ---
+    ws = wb.create_sheet("White-space accounts")
+    headers = ["Account", "Meta sector", "YTD revenue (EUR)", "Orders", "Avg basket (EUR)",
+               "Avg #SKU/order", "Sector CR EPI", "Digital intent", "Tier", "Opportunity score"]
+    _write_header(ws, headers)
+    for i, t in enumerate(target_rows, 2):
+        vals = [t["account_number"], t["meta_sector"], round(t["total_rev"], 2), t["n_orders"],
+                round(t["avg_basket"], 2), round(t["avg_skus_per_order"], 2),
+                round(t["sector_cr"], 4), t["intent"], t["tier"], round(t["score"], 2)]
+        for col, v in enumerate(vals, 1):
+            cell = ws.cell(row=i, column=col, value=v)
+            if t["tier"] == "A":
+                cell.fill = TIER_A_FILL
+    _autosize(ws)</p>
+
+<p># --- Digital behaviour ---
+    ws = wb.create_sheet("Digital behavior")
+    headers = ["Account", "Meta sector", "Viewed EPI", "Searched EPI", "EPI add-to-cart",
+               "Sessions", "Engaged sessions", "Checkout sessions"]
+    _write_header(ws, headers)
+    for i, t in enumerate(target_rows, 2):
+        vals = [t["account_number"], t["meta_sector"],
+                "YES" if t["viewed_epi"] else "", "YES" if t["searched_epi"] else "",
+                t["epi_atc"], t["n_sessions"], t["n_engaged_sessions"], t["n_checkout_sessions"]]
+        for col, v in enumerate(vals, 1):
+            ws.cell(row=i, column=col, value=v)
+    _autosize(ws)</p>
+
+<p># --- Action list (Tier A first, then by score) ---
+    ws = wb.create_sheet("Action list")
+    headers = ["Rank", "Account", "Meta sector", "Tier", "Opportunity score",
+               "YTD revenue (EUR)", "Viewed EPI", "Searched EPI"]
+    _write_header(ws, headers)
+    action = sorted(target_rows, key=lambda t: (t["tier"] != "A", -t["score"]))
+    for i, t in enumerate(action, 1):
+        vals = [i, t["account_number"], t["meta_sector"], t["tier"], round(t["score"], 2),
+                round(t["total_rev"], 2), "YES" if t["viewed_epi"] else "",
+                "YES" if t["searched_epi"] else ""]
+        for col, v in enumerate(vals, 1):
+            cell = ws.cell(row=1 + i, column=col, value=v)
+            if t["tier"] == "A":
+                cell.fill = TIER_A_FILL
+    _autosize(ws)
+    return wb
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Verify import + a smoke build with fake data</strong></li>
+</ul>
+
+<p>Run:
+<code></code>`bash
+PYTHONIOENCODING=utf-8 ./venv/Scripts/python.exe -c "
+import scripts.analyze_fr_epi_whitespace as m
+meta={'generated':'x','n_epi_skus':1,'n_active_accounts':1,'base_cr':0.1}
+s=[{'meta_sector':'Construction','n_active':10,'n_epi_buyers':4,'cr':0.4,'lift':2.0,'should_buy':True,'median_days_to_epi':30,'avg_orders':5,'avg_basket':100,'avg_skus':3,'avg_epi_orders':1,'avg_epi_basket':40}]
+t=[{'account_number':'A','meta_sector':'Construction','total_rev':1000,'n_orders':5,'avg_basket':200,'avg_skus_per_order':3,'sector_cr':0.4,'intent':1.0,'tier':'A','score':800,'viewed_epi':True,'searched_epi':False,'epi_atc':2,'n_sessions':9,'n_engaged_sessions':5,'n_checkout_sessions':1}]
+wb=m.build_workbook(meta,s,t); print('sheets', wb.sheetnames)
+"
+<code></code>`
+Expected: <code>sheets ['README', 'Sector EPI KPIs', 'White-space accounts', 'Digital behavior', 'Action list']</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add scripts/analyze_fr_epi_whitespace.py
+git commit -m "feat(fr-epi): Excel workbook builder (5 sheets)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="task-8-wire-main">Task 8: Wire <code>main()</code></h2>
+
+<p>Assembles everything: load lookups, group orders by account, compute per-account KPIs, resolve sectors, compute sector CR/lift, pick white-space targets, fetch digital signals for targets only, score + tier, build + save workbook.</p>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>scripts/analyze_fr_epi_whitespace.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Add <code>main()</code> and the entrypoint</strong></li>
+</ul>
+
+<p><code></code>`python
+def main() -> int:
+    crm = CRMDatabase()
+    ts = TimeseriesDatabase()</p>
+
+<p>log.info("Loading EPI catalogue (section %s)...", EPI_SECTION)
+    epi_skus = load_epi_skus(crm)
+    log.info("  %s active EPI SKUs", len(epi_skus))
+    if not epi_skus:
+        log.error("No EPI SKUs found — aborting.")
+        return 1</p>
+
+<p>acc_to_comm, comm_to_sic, sic2_to_meta = load_sector_lookups(crm)
+    log.info("  %s accounts mapped to communities", len(acc_to_comm))</p>
+
+<p>log.info("Loading YTD orders (%s..%s)...", YTD_START, YTD_END)
+    order_rows = load_ytd_orders(ts, epi_skus)
+    log.info("  %s order rows", len(order_rows))</p>
+
+<p>first_dates = load_first_dates(ts, epi_skus)</p>
+
+<p># Group orders by account, compute KPIs, attach sector + latency.
+    by_acct: dict[str, list[dict]] = defaultdict(list)
+    for o in order_rows:
+        by_acct[o["account_number"]].append(o)</p>
+
+<p>accounts: dict[str, dict] = {}
+    for acct, orders in by_acct.items():
+        k = account_kpis(orders)
+        if not is_active(k):
+            continue
+        community = acc_to_comm.get(acct)
+        k["account_number"] = acct
+        k["meta_sector"] = resolve_sector(community, comm_to_sic, sic2_to_meta)
+        fo, fe = first_dates.get(acct, (None, None))
+        k["days_to_epi"] = time_to_epi(fo, fe)
+        accounts[acct] = k
+    log.info("  %s active accounts", len(accounts))</p>
+
+<p># Sector aggregation + baseline.
+    base_cr = sector_cr(list(accounts.values()))
+    by_sector: dict[str, list[dict]] = defaultdict(list)
+    for k in accounts.values():
+        by_sector[k["meta_sector"]].append(k)</p>
+
+<p>sector_rows = []
+    sector_cr_by_name: dict[str, float] = {}
+    for name, ks in sorted(by_sector.items()):
+        cr = sector_cr(ks)
+        sector_cr_by_name[name] = cr
+        lf = lift(cr, base_cr)
+        buyers = [k for k in ks if k["epi_n_orders"] > 0]
+        sector_rows.append({
+            "meta_sector": name,
+            "n_active": len(ks),
+            "n_epi_buyers": len(buyers),
+            "cr": cr,
+            "lift": lf,
+            "should_buy": lf >= SHOULD_BUY_LIFT,
+            "median_days_to_epi": median_or_none([k["days_to_epi"] for k in buyers]),
+            "avg_orders": statistics.mean([k["n_orders"] for k in ks]) if ks else 0.0,
+            "avg_basket": statistics.mean([k["avg_basket"] for k in ks]) if ks else 0.0,
+            "avg_skus": statistics.mean([k["avg_skus_per_order"] for k in ks]) if ks else 0.0,
+            "avg_epi_orders": statistics.mean([k["epi_n_orders"] for k in ks]) if ks else 0.0,
+            "avg_epi_basket": statistics.mean(
+                [k["epi_rev"] / k["epi_n_orders"] for k in buyers]) if buyers else 0.0,
+        })</p>
+
+<p>should_buy = {r["meta_sector"] for r in sector_rows if r["should_buy"]}</p>
+
+<p># White-space targets: active, in a should-buy sector, zero EPI.
+    targets = [k for k in accounts.values()
+               if k["meta_sector"] in should_buy and is_whitespace(k)]
+    log.info("  %s white-space targets", len(targets))</p>
+
+<p># Digital signals for targets only.
+    acct_ids = [t["account_number"] for t in targets]
+    digital = load_digital_behaviour(ts, acct_ids, epi_skus)
+    engage = load_engagement(ts, acct_ids)</p>
+
+<p>target_rows = []
+    for t in targets:
+        d = digital.get(t["account_number"], {})
+        e = engage.get(t["account_number"], {})
+        viewed = bool(d.get("viewed_epi"))
+        searched = bool(d.get("searched_epi"))
+        intent = digital_intent_boost(viewed, searched)
+        sec_cr = sector_cr_by_name.get(t["meta_sector"], 0.0)
+        target_rows.append({
+            <em></em>t,
+            "sector_cr": sec_cr,
+            "viewed_epi": viewed,
+            "searched_epi": searched,
+            "epi_atc": int(d.get("epi_atc") or 0),
+            "n_sessions": int(e.get("n_sessions") or 0),
+            "n_engaged_sessions": int(e.get("n_engaged_sessions") or 0),
+            "n_checkout_sessions": int(e.get("n_checkout_sessions") or 0),
+            "intent": intent,
+            "tier": assign_tier(viewed),
+            "score": opportunity_score(sec_cr, t["total_rev"], intent),
+        })
+    target_rows.sort(key=lambda t: -t["score"])</p>
+
+<p>meta = {
+        "generated": f"{datetime.now():%Y-%m-%d %H:%M}",
+        "n_epi_skus": len(epi_skus),
+        "n_active_accounts": len(accounts),
+        "base_cr": base_cr,
+    }
+    wb = build_workbook(meta, sector_rows, target_rows)
+    out = _REPO / "exports" / f"fr_epi_whitespace_FR_{datetime.now():%Y-%m-%d}.xlsx"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    wb.save(out)
+    log.info("Wrote %s", out)
+    return 0</p>
+
+<p>if __name__ == "__main__":
+    raise SystemExit(main())
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Verify module still imports and full test suite passes</strong></li>
+</ul>
+
+<p>Run: <code>PYTHONIOENCODING=utf-8 ./venv/Scripts/python.exe -m pytest tests/test_fr_epi_whitespace.py -q</code>
+Expected: PASS (all pure-logic tests still green).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add scripts/analyze_fr_epi_whitespace.py
+git commit -m "feat(fr-epi): wire main() — sector benchmark, white-space targeting, scoring"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="task-9-live-validation-run-when-docker-dbs-are-up">Task 9: Live validation (run when Docker DBs are up)</h2>
+
+<p>This is the integration checkpoint. All steps require postgres :5433 + timescale :5434 running. Where a result contradicts an assumption, fix the query and re-run.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Start the DBs and confirm reachability</strong></li>
+</ul>
+
+<p>Run: <code>docker compose up -d postgres timescale</code> (from repo root), then
+<code>PYTHONIOENCODING=utf-8 ./venv/Scripts/python.exe -c "from database.crm_db import CRMDatabase; from database.timeseries_db import TimeseriesDatabase; print(CRMDatabase().query('select 1 x')[0], TimeseriesDatabase().query('select 1 x')[0])"</code>
+Expected: <code>{'x': 1} {'x': 1}</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Confirm the soldto↔account join key + EPI SKU count</strong></li>
+</ul>
+
+<p>Run a quick probe:
+<code></code>`bash
+PYTHONIOENCODING=utf-8 ./venv/Scripts/python.exe -c "
+import scripts.analyze_fr_epi_whitespace as m
+from database.crm_db import CRMDatabase
+crm=CRMDatabase()
+skus=m.load_epi_skus(crm); print('EPI SKUs:', len(skus))
+a,c,s=m.load_sector_lookups(crm); print('acct->comm:', len(a), 'comm->sic:', len(c), 'sic->meta:', len(s))
+"
+<code></code>`
+Expected: non-zero EPI SKU count; non-empty lookups. If <code>acct->comm</code> is 0, confirm <code>account_firmographic_community</code> has FR rows and the column names.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Confirm <code>customer_timeline</code> / <code>ga4_sessions</code> columns</strong></li>
+</ul>
+
+<p>Verify <code>search_term</code>, <code>account_number</code>, <code>event_type</code>, <code>event_time</code>, <code>product_reference</code>, <code>source_country</code> exist on <code>customer_timeline</code>, and <code>account_number</code>, <code>n_sessions</code>, <code>n_engaged_sessions</code>, <code>n_checkout_sessions</code>, <code>session_date</code> on <code>ga4_sessions</code>. Adjust <code>load_digital_behaviour</code> / <code>load_engagement</code> column names if the live schema differs, then re-run the probe.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Full run</strong></li>
+</ul>
+
+<p>Run: <code>PYTHONIOENCODING=utf-8 ./venv/Scripts/python.exe scripts/analyze_fr_epi_whitespace.py</code>
+Expected: logs show non-zero EPI SKUs, active accounts, white-space targets; writes <code>exports/fr_epi_whitespace_FR_2026-05-29.xlsx</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Sanity-check the output</strong></li>
+</ul>
+
+<p>Open the workbook. Confirm: Sector KPIs CR values in [0,1]; high-EPI sectors (Manufacturing, Construction, Healthcare) flagged should-buy; white-space accounts all show 0 EPI; Action list Tier A rows highlighted and on top. Spot-check 2-3 accounts against raw invoice data.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 6: Commit any query fixes</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add scripts/analyze_fr_epi_whitespace.py
+git commit -m "fix(fr-epi): align queries with live schema after validation"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="self-review-notes-done-at-authoring">Self-review notes (done at authoring)</h2>
+
+<ul class="article-list">
+  <li><strong>Spec coverage:</strong> Bloc 1 KPIs → Tasks 2/4/5 + Sector sheet (Task 7). Bloc 2 white-space/lift/score → Tasks 3/4 + main (Task 8). Bloc 3 digital → Task 6 (<code>load_digital_behaviour</code>/<code>load_engagement</code>) + Digital sheet. Deliverable 5 sheets → Task 7. YTD window + all-time latency (option b) → constants + <code>load_ytd_orders</code>/<code>load_first_dates</code>. All spec sections mapped.</li>
+  <li><strong>Type consistency:</strong> <code>account_kpis</code> returns the dict consumed by <code>is_active</code>/<code>is_whitespace</code>/<code>sector_cr</code> and extended in <code>main</code>; <code>resolve_sector(community, comm_to_sic, sic_to_meta)</code> signature matches caller; <code>opportunity_score(sector_pen, account_ca, intent)</code> matches caller; sheet builder keys match the dicts built in <code>main</code>.</li>
+  <li><strong>Known live-wiring risks (Task 9):</strong> soldto↔account join key; <code>customer_timeline.search_term</code> column name; <code>ga4_sessions</code> engagement column names. All flagged, none silently assumed.</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#file-structure">File structure</a></li>
+<li><a href="#task-1-scaffold-script-constants">Task 1: Scaffold script + constants</a></li>
+<li><a href="#task-2-pure-logic-per-account-kpi-aggregation">Task 2: Pure logic — per-account KPI aggregation</a></li>
+<li><a href="#task-3-pure-logic-active-white-space-digital-intent-tier-score">Task 3: Pure logic — active / white-space / digital intent / tier / score</a></li>
+<li><a href="#task-4-pure-logic-sector-resolution-cr-lift">Task 4: Pure logic — sector resolution + CR/lift</a></li>
+<li><a href="#task-5-pure-logic-time-to-epi-latency">Task 5: Pure logic — time-to-EPI latency</a></li>
+<li><a href="#task-6-db-query-functions">Task 6: DB query functions</a></li>
+<li><a href="#task-7-excel-writer">Task 7: Excel writer</a></li>
+<li><a href="#task-8-wire-main">Task 8: Wire `main()`</a></li>
+<li><a href="#task-9-live-validation-run-when-docker-dbs-are-up">Task 9: Live validation (run when Docker DBs are up)</a></li>
+<li><a href="#self-review-notes-done-at-authoring">Self-review notes (done at authoring)</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

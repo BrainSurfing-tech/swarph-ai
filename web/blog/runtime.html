@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Playground Runtime Runbook | Technical Whitepaper</title>
+  <meta name="description" content="Playground Runtime Runbook — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/runtime.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Playground Runtime Runbook</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Playground Runtime Runbook</p>
+
+<p>Playground launches evaluations through <strong>Matraix Playground batch jobs</strong>. The Playground and
+<code>POST /api/harbor/jobs</code> always use the same artifact layout under <code>jobs/</code>.</p>
+
+<h2 id="execution-planes">Execution planes</h2>
+
+<p>| Plane | Meaning |
+|-------|---------|
+| <code>harbor</code> (default) | API machine or local dev runs <code>harbor run</code> directly |
+| <code>remote</code> | API dispatches <code>taskType=harbor_job</code> to a <strong>Remote Runner</strong> HTTP worker |</p>
+
+<p>Configure the default plane:</p>
+
+<p><code></code>`bash
+export MATRIX_EXECUTION_PLANE=harbor   # or remote
+<code></code>`</p>
+
+<p>Optional per-request override: <code>"plane": "harbor"</code> or <code>"plane": "remote"</code> on
+<code>POST /api/harbor/jobs</code>.</p>
+
+<h2 id="option-a-local-matraix-playground-default">Option A: Local Matraix Playground (default)</h2>
+
+<p><strong>Terminal A — API</strong></p>
+
+<p><code></code>`bash
+bash application/playground/backend/run_dev.sh
+<code></code>`</p>
+
+<p><strong>Terminal B — frontend</strong></p>
+
+<p><code></code>`bash
+cd application/playground/frontend && npm run dev
+<code></code>`</p>
+
+<p>Open http://localhost:5173 and launch with <strong>Mode → auto</strong>.</p>
+
+<h2 id="option-b-remote-runner-worker">Option B: Remote Runner worker</h2>
+
+<p>Use this when the API should not execute <code>harbor run</code> locally.</p>
+
+<p><strong>Terminal A — Remote Runner</strong></p>
+
+<p><code></code>`bash
+PYTHONPATH=.:environment/runtime:packages/playground/src:application/playground:src \
+  uvicorn playground.remote_runner.server:app \
+  --host 127.0.0.1 --port 9100
+<code></code>`</p>
+
+<p><strong>Terminal B — Playground API</strong></p>
+
+<p><code></code>`bash
+export REMOTE_RUNNER_API_URL=http://127.0.0.1:9100
+export MATRIX_EXECUTION_PLANE=remote
+bash application/playground/backend/run_dev.sh
+<code></code>`</p>
+
+<p>The worker must have access to the same repository checkout (tasks, personas,
+<code>jobs/</code> output directory). Production deployments typically mount a shared
+<code>jobs/</code> path or sync artifacts after each run.</p>
+
+<h3 id="remote-runner-api">Remote Runner API</h3>
+
+<ul class="article-list">
+  <li><code>GET /health</code></li>
+  <li><code>POST /v1/runs</code> with <code>{"taskType": "harbor_job", "payload": {...}}</code></li>
+  <li><code>GET /v1/runs/{id}</code></li>
+  <li><code>GET /v1/runs/{id}/artifacts/{name}</code></li>
+</ul>
+
+<p>Primary payload fields for <code>harbor_job</code>:</p>
+
+<ul class="article-list">
+  <li><code>jobName</code></li>
+  <li><code>configYaml</code> — generated Matraix Playground job recipe</li>
+  <li><code>repoRoot</code></li>
+  <li><code>jobsDir</code></li>
+  <li><code>env</code> — optional <code>PYTHONPATH</code> plus <code>MATRIX_*</code> task exports only (no API keys)</li>
+</ul>
+
+<p>API keys and other secrets must be configured on the <strong>worker</strong> process, not
+sent from the Playground API host.</p>
+
+<p>Optional dev-only <code>taskType=web</code> returns a deterministic mock when
+<code>REMOTE_RUNNER_WEB_COMMAND</code> is not set.</p>
+
+<h2 id="environment-variables">Environment variables</h2>
+
+<p>| Variable | Purpose |
+|----------|---------|
+| <code>MATRIX_EXECUTION_PLANE</code> | Default <code>harbor</code> or <code>remote</code> |
+| <code>REMOTE_RUNNER_API_URL</code> | Remote runner base URL (required for <code>remote</code>) |
+| <code>REMOTE_RUNNER_API_KEY</code> | Optional bearer token |
+| <code>REMOTE_RUNNER_INLINE</code> | Run jobs inline in the API process (tests) |
+| <code>REMOTE_RUNNER_HARBOR_COMMAND</code> | Override <code>harbor</code> CLI command on the worker |</p>
+
+<h2 id="task-types">Task types</h2>
+
+<p>Matraix Playground resolves execution per task <code>metadata.type</code>:</p>
+
+<ul class="article-list">
+  <li><code>survey</code> / <code>chatbot</code> → host-native agents in <code>auto</code> mode</li>
+  <li><code>web</code> / <code>os-app</code> → docker or <code>use-computer</code> backends</li>
+</ul>
+
+<p>See [quickstart.md](../quickstart.md) for terminal <code>harbor run</code> examples.</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#remote-runner-api">Remote Runner API</a></li>
+<li><a href="#execution-planes">Execution planes</a></li>
+<li><a href="#option-a-local-matraix-playground-default">Option A: Local Matraix Playground (default)</a></li>
+<li><a href="#option-b-remote-runner-worker">Option B: Remote Runner worker</a></li>
+<li><a href="#environment-variables">Environment variables</a></li>
+<li><a href="#task-types">Task types</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

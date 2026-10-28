@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Firmographic Cluster Semantic Labels — Design | Technical Whitepaper</title>
+  <meta name="description" content="Firmographic Cluster Semantic Labels — Design — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-06-11-firmographic-cluster-labels-design.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Firmographic Cluster Semantic Labels — Design</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Firmographic Cluster Semantic Labels — Design</p>
+
+<p><strong>Date:</strong> 2026-06-11
+<strong>Status:</strong> Approved (brainstorm) — pending spec review
+<strong>Repo:</strong> lead-contagion-project (Lyréco tenant)</p>
+
+<h2 id="goal">Goal</h2>
+
+<p>Give each firmographic cluster (the KMeans communities in
+<code>account_firmographic_community</code>, k=60 per country) a <em></em>human-readable name + a
+one-line "what it's made of" description<em></em>, so marketers read *"Mid-spend
+South-East professional services"<em> instead of </em>"cluster 37."* Names/descriptions
+are <strong>hybrid-generated</strong>: facts computed deterministically, phrasing by the LLM.</p>
+
+<h2 id="decision-brainstorm">Decision (brainstorm)</h2>
+
+<p><strong>Naming method = hybrid.</strong> Compute each cluster's defining traits
+deterministically, then <code>claude -p</code> turns the factual summary into a polished
+name + description. Facts are reproducible; wording is human and marketer-facing.</p>
+
+<h2 id="components">Components</h2>
+
+<h3 id="1-stat-profiler-deterministic-the-made-of">1. Stat profiler (deterministic — the "made of")</h3>
+
+<p>For each <code>(source_country, community_id)</code>, aggregate its members from
+<code>customer_firmographic_features</code> (joined to <code>account_firmographic_community</code> on
+<code>account_number, source_country</code>) into a compact factual profile:</p>
+
+<ul class="article-list">
+  <li><strong>member_count</strong> — accounts in the cluster.</li>
+  <li><strong>dominant_sector</strong> — the modal <code>accounts_category</code> (fallback <code>sic_group</code>) +</li>
+</ul>
+  its share, with a human label via <code>sic_meta_sectors</code>. e.g. `"professional
+  services" (62%)`.
+<ul class="article-list">
+  <li><strong>spend_tier</strong> — banded from the cluster's <strong>median <code>annual_spend</code></strong>:</li>
+</ul>
+  <code>micro < £1k · small £1k–10k · mid £10k–50k · large ≥ £50k</code> (GB £; thresholds
+  are module constants, tunable).
+<ul class="article-list">
+  <li><strong>size_band</strong> — from median <code>n_users</code>: `solo 1 · small 2–5 · mid 6–20 ·</li>
+</ul>
+  large 20+`.
+<ul class="article-list">
+  <li><strong>dominant_region</strong> — top <code>postcode_area</code> (fallback <code>region_key</code>) + share.</li>
+  <li><strong>churn_share</strong> — % of members with <code>is_churn = true</code>.</li>
+</ul>
+
+<p>Reproducible and auditable: every claim in a description traces back to a number.
+Implemented as a pure function <code>profile_cluster(member_rows) -> dict</code> over the
+fetched rows, so it is hermetically testable and free of DB/LLM coupling.</p>
+
+<h3 id="2-llm-namer-phrasing">2. LLM namer (phrasing)</h3>
+
+<p><strong>One batched <code>claude -p</code> call</strong> for all clusters (not one per cluster). Input =
+JSON list of the stat-profiles. Output = JSON array of
+<code>{community_id, name, description}</code> where:
+<ul class="article-list">
+  <li><code>name</code> ≤ 4 words, title-case, marketer-friendly;</li>
+  <li><code>description</code> ≤ 1 sentence, plain language, <em></em>only traits present in the</li>
+</ul>
+  stats<em></em> (no invented attributes).</p>
+
+<p>Mechanics: <code>claude -p</code> with <code>stdin=subprocess.DEVNULL</code> (the console-less-service
+stdin-hang gotcha), subscription-billed (quota, not API). The prompt instructs
+strict JSON-only output. <strong>Validate</strong> the returned JSON (shape + every
+<code>community_id</code> present); if it fails or the CLI errors, <strong>fall back</strong> to a
+rule-based name/description assembled from the top features, so a row is never
+left unlabeled.</p>
+
+<h3 id="3-storage">3. Storage</h3>
+
+<p>New Postgres table:</p>
+
+<p><code></code>`sql
+CREATE TABLE IF NOT EXISTS firmographic_community_labels (
+    source_country   TEXT NOT NULL,
+    community_id     INTEGER NOT NULL,
+    name             TEXT NOT NULL,
+    description      TEXT NOT NULL,
+    member_count     INTEGER NOT NULL,
+    top_sector       TEXT,
+    spend_tier       TEXT,
+    size_band        TEXT,
+    dominant_region  TEXT,
+    churn_share      NUMERIC(5,2),
+    generated_by     TEXT NOT NULL DEFAULT 'llm',   -- 'llm' | 'rule_fallback'
+    last_computed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (source_country, community_id)
+);
+<code></code>`</p>
+
+<p>Stores the human label <strong>and</strong> the stats behind it (auditable + reusable).</p>
+
+<h3 id="4-worker-cadence">4. Worker + cadence</h3>
+
+<p><code>workers/label_firmographic_communities.py --country GB</code>:
+1. fetch members + features per cluster,
+2. <code>profile_cluster</code> each → stat-profiles,
+3. batched <code>claude -p</code> → names/descriptions (with rule-based fallback),
+4. idempotent write (delete-then-insert per <code>source_country</code>).</p>
+
+<p>Runs <strong>after</strong> <code>community_match_soft</code> (the clusterer) — chained in
+<code>daily_refresh</code> when communities are recomputed, or run manually.</p>
+
+<p><strong>Reproducibility caveat (pin):</strong> KMeans <code>community_id</code> is <em></em>not stable across
+rebuilds<em></em> — a re-run of <code>community_match_soft</code> can renumber clusters. Labels
+therefore regenerate each time the clusters do; a label describes the <em>current</em>
+composition, not a durable cluster identity.</p>
+
+<h3 id="5-surfacing">5. Surfacing</h3>
+
+<ul class="article-list">
+  <li><strong>Cluster rollup report</strong> (<code>scripts/export_buying_profiles.py</code>): replace the</li>
+</ul>
+  <code>"Firmographic cluster {id}"</code> heading with <code>"{name} — {description}"</code> via a
+  LEFT JOIN to <code>firmographic_community_labels</code> (NULL-safe: fall back to the id).
+<ul class="article-list">
+  <li><strong>Buying Profile panel</strong> (<code>/panel/buying-profile</code>): show the account's cluster</li>
+</ul>
+  name in the header — join <code>account_firmographic_community</code> → labels for the
+  resolved account.
+
+<h3 id="6-testing">6. Testing</h3>
+
+<ul class="article-list">
+  <li><strong>Hermetic</strong> unit tests on <code>profile_cluster</code> (synthetic member rows → expected</li>
+</ul>
+  spend_tier/size_band/dominant_sector/share/churn_share) and on the rule-based
+  fallback namer.
+<ul class="article-list">
+  <li>The LLM step is integration-only (skipped without the CLI / in CI).</li>
+</ul>
+
+<h2 id="data-flow-notes">Data-flow notes</h2>
+
+<ul class="article-list">
+  <li>All inputs/outputs are <strong>Postgres</strong> (<code>customer_firmographic_features</code>,</li>
+</ul>
+  <code>account_firmographic_community</code>, <code>sic_meta_sectors</code>,
+  <code>firmographic_community_labels</code>) — single-DB, no cross-DB join.
+<ul class="article-list">
+  <li><code>claude -p</code> billing = subscription quota; one batched call keeps it cheap.</li>
+</ul>
+
+<h2 id="yagni-cuts">YAGNI cuts</h2>
+
+<p>No manual-override UI (edit the row directly if a label is off — <code>generated_by</code>
+flags provenance). No per-cluster LLM calls. No FR until its communities exist
+(GB-only now). No durable cluster identity across rebuilds.</p>
+
+<h2 id="open-tunable">Open / tunable</h2>
+
+<ul class="article-list">
+  <li>Spend-tier £ thresholds (module constants) — first pass as above, tune on</li>
+</ul>
+  inspection of the GB distribution.
+<ul class="article-list">
+  <li>Whether to add the panel-header cluster name now or defer — included now</li>
+</ul>
+  (cheap once the table exists).
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#1-stat-profiler-deterministic-the-made-of">1. Stat profiler (deterministic — the "made of")</a></li>
+<li style="margin-left: 0.8rem;"><a href="#2-llm-namer-phrasing">2. LLM namer (phrasing)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#3-storage">3. Storage</a></li>
+<li style="margin-left: 0.8rem;"><a href="#4-worker-cadence">4. Worker + cadence</a></li>
+<li style="margin-left: 0.8rem;"><a href="#5-surfacing">5. Surfacing</a></li>
+<li style="margin-left: 0.8rem;"><a href="#6-testing">6. Testing</a></li>
+<li><a href="#goal">Goal</a></li>
+<li><a href="#decision-brainstorm">Decision (brainstorm)</a></li>
+<li><a href="#components">Components</a></li>
+<li><a href="#data-flow-notes">Data-flow notes</a></li>
+<li><a href="#yagni-cuts">YAGNI cuts</a></li>
+<li><a href="#open-tunable">Open / tunable</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

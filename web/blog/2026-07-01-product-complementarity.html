@@ -1,0 +1,1193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Product Complementarity Engine (Tech-Spec Layer + v2 Merge) Implementation Plan | Technical Whitepaper</title>
+  <meta name="description" content="Product Complementarity Engine (Tech-Spec Layer + v2 Merge) Implementation Plan — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-07-01-product-complementarity.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Product Complementarity Engine (Tech-Spec Layer + v2 Merge) Implementation Plan</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 23 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Product Complementarity Engine (Tech-Spec Layer + v2 Merge) Implementation Plan</p>
+
+<p>> <strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+
+<p><strong>Goal:</strong> Populate a persistent product-complementarity catalog attribute for Marie's 18k in-scope products, driven primarily by structured technical characteristics and completed by the existing co-purchase/family engine.</p>
+
+<p><strong>Architecture:</strong> A pure-function core (<code>core/complement_specs.py</code>) turns <code>T_PRODUCT_ATTRIBUTE</code> rows into complementarity signals — Type A (direct-compat, device→consumable) and Type B (requirement→family top-N) — then merges them with the v2 co-purchase/family fallback, deduping against Marie's existing links. An orchestrator script pulls the data, runs the core, and writes a scope flag + a normalized <code>product_complements</code> table + a JSON column + a wide-format XLSX for Marie.</p>
+
+<p><strong>Tech Stack:</strong> Python 3.12, psycopg2 (Postgres :5433), oracledb thin (Halo/Oracle), openpyxl, pytest. Reuses <code>core/complement_families.py</code> and <code>core/ai_typing.py</code>.</p>
+
+<h2 id="global-constraints">Global Constraints</h2>
+
+<ul class="article-list">
+  <li>Python <strong>3.12</strong> venv (<code>venv\Scripts\python.exe</code>); psycopg2 needs 3.12, not 3.14.</li>
+  <li>FR only: <code>source_country='FR'</code> / Oracle <code>COUNTRY_CODE='FR'</code>. Product key = <code>LPAD(sap,18,'0')</code> (18-digit, NOT LPAD-10).</li>
+  <li>Oracle pulls set <code>ORACLE_TNS_ADMIN</code> to the project <code>oracle/</code> dir; hygiene filter <code>DL_DELETION_FLAG='N'</code>. Halo is slow — pull once, aggregate in Python.</li>
+  <li>Cross-DB: masters (<code>ecom_products</code>) in Postgres :5433; <code>ecom_order_lines</code> in timescale :5434; Oracle is a third source. Never join across DBs in one query — bridge with <code>ANY(%s)</code>.</li>
+  <li>psycopg2 <code>%</code>-literal trap: literal <code>%</code> in SQL passed with params must be <code>%%</code>.</li>
+  <li><code>core/complement_specs.py</code> is <strong>pure</strong> (no network/DB/file I/O) — all data passed in as plain dicts/lists.</li>
+  <li>Cap per anchor: <code>N=20</code> (Marie's wide format). Scope tag value: <code>complement_scope='marie-2026-06-25'</code>.</li>
+  <li>Preserve Marie's existing 5,458 links: v1 dedups against them, never overwrites.</li>
+</ul>
+
+<h3 id="canonical-data-shapes-used-across-tasks">Canonical data shapes (used across tasks)</h3>
+
+<p><code></code>`python
+# attribute row (one per label per anchor), from T_PRODUCT_ATTRIBUTE
+attr = {"label": str, "value": str, "unit": str | None}
+# product / sku (from ecom_products, enriched with sales)
+sku  = {"reference": str, "description": str, "web_title": str, "family_code": str,
+        "subcategory_code": str, "brand": str, "brand_group": str,
+        "manufacturer_code": str, "gtins": list[str], "sales": int,
+        "not_salable": bool, "not_visible": bool}
+# a signal produced from an attribute
+signal = {"signal": "A_compat" | "B_family", "label": str, "value": str,
+          "match": str | None, "target": str | None}   # match for A, target for B
+# a complement candidate
+cand = {"reference": str, "name": str, "family_code": str,
+        "signal_type": str, "signal_label": str}
+# label_map entry: {"<ATTRIBUTE_LABEL>": {"signal": "A_compat"|"B_family",
+#   "match": "oem_ref"|"printer_model"|"screen_size",   # A only
+#   "target": "battery"|"cable"|"paper"|"cable_hub",      # B only
+#   "needs_type": bool, "by_value": bool, "when_value": str}}
+# target_family_map: {"battery": ["<subcategory_code>", ...], "cable": [...], ...}
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-1-label-map-config-loader">Task 1: Label map config + loader</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>config/complement_label_map.json</code></li>
+  <li>Create: <code>core/complement_specs.py</code></li>
+  <li>Test: <code>tests/test_complement_specs.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Produces: <code>load_label_map(path: str) -> tuple[dict, dict]</code> returning <code>(label_map, target_family_map)</code>.</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Create the config file</strong></li>
+</ul>
+
+<p>Create <code>config/complement_label_map.json</code> (seed set from the surveyed vocabulary; extend later):</p>
+
+<p><code></code>`json
+{
+  "label_map": {
+    "Compatible Printer":            {"signal": "A_compat", "match": "printer_model"},
+    "Imprimante compatible":         {"signal": "A_compat", "match": "printer_model"},
+    "Compatible OEM Part Number":    {"signal": "A_compat", "match": "oem_ref"},
+    "Compatible avec référence FEO": {"signal": "A_compat", "match": "oem_ref"},
+    "Maximum Screen Size Supported": {"signal": "A_compat", "match": "screen_size"},
+    "Taille maximale d'écran compatible": {"signal": "A_compat", "match": "screen_size"},
+    "Batteries Included":            {"signal": "B_family", "target": "battery", "needs_type": true},
+    "Piles incluses":                {"signal": "B_family", "target": "battery", "needs_type": true},
+    "Alimentation":                  {"signal": "B_family", "target": "battery", "needs_type": true},
+    "Cable Type":                    {"signal": "B_family", "target": "cable"},
+    "Connector on First End":        {"signal": "B_family", "target": "cable"},
+    "Connecteur 1ère extrémité":     {"signal": "B_family", "target": "cable"},
+    "Sheet Format":                  {"signal": "B_family", "target": "paper", "by_value": true},
+    "Format de feuille":             {"signal": "B_family", "target": "paper", "by_value": true},
+    "Host Interface":                {"signal": "B_family", "target": "cable_hub", "when_value": "USB"}
+  },
+  "target_family_map": {
+    "battery": [],
+    "cable": [],
+    "paper": [],
+    "cable_hub": []
+  }
+}
+<code></code>`</p>
+
+<p>> Note: <code>target_family_map</code> codes are filled in Task 9 after we query the real subcategory codes; empty lists are valid placeholders the loader must accept.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_complement_specs.py
+import json, os
+from core.complement_specs import load_label_map</p>
+
+<p>def test_load_label_map(tmp_path):
+    cfg = {"label_map": {"Cable Type": {"signal": "B_family", "target": "cable"}},
+           "target_family_map": {"cable": ["004005"]}}
+    p = tmp_path / "m.json"
+    p.write_text(json.dumps(cfg), encoding="utf-8")
+    lm, tfm = load_label_map(str(p))
+    assert lm["Cable Type"]["signal"] == "B_family"
+    assert tfm["cable"] == ["004005"]
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_specs.py::test_load_label_map -v</code>
+Expected: FAIL — <code>ModuleNotFoundError</code> / <code>cannot import name 'load_label_map'</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# core/complement_specs.py
+"""Produits complémentaires — couche tech-spec (fonctions pures). Aucun I/O réseau/DB.
+Méthode : docs/superpowers/specs/2026-07-01-product-complementarity-design.md"""
+from __future__ import annotations
+import json
+import re</p>
+
+<p>def load_label_map(path: str) -> tuple[dict, dict]:
+    """Charge la carte label->signal + la carte target->familles depuis le JSON versionné."""
+    cfg = json.loads(open(path, encoding="utf-8").read())
+    return cfg.get("label_map", {}), cfg.get("target_family_map", {})
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_specs.py::test_load_label_map -v</code>
+Expected: PASS</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 6: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add config/complement_label_map.json core/complement_specs.py tests/test_complement_specs.py
+git commit -m "feat(complements): label->signal map config + loader"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-2-classify-attribute-one-attribute-signal-or-none">Task 2: <code>classify_attribute</code> — one attribute → signal or None</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>core/complement_specs.py</code></li>
+  <li>Test: <code>tests/test_complement_specs.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: <code>label_map</code> from Task 1.</li>
+  <li>Produces: <code>classify_attribute(label: str, value: str, label_map: dict) -> dict | None</code> returning a <code>signal</code> dict (see canonical shapes) or <code>None</code> when the label is not in the map or a <code>when_value</code> guard fails.</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+from core.complement_specs import classify_attribute</p>
+
+<p>LM = {
+  "Compatible OEM Part Number": {"signal": "A_compat", "match": "oem_ref"},
+  "Batteries Included": {"signal": "B_family", "target": "battery", "needs_type": True},
+  "Host Interface": {"signal": "B_family", "target": "cable_hub", "when_value": "USB"},
+}</p>
+
+<p>def test_classify_type_a():
+    s = classify_attribute("Compatible OEM Part Number", "CE285A", LM)
+    assert s == {"signal": "A_compat", "label": "Compatible OEM Part Number",
+                 "value": "CE285A", "match": "oem_ref", "target": None}</p>
+
+<p>def test_classify_type_b():
+    s = classify_attribute("Batteries Included", "Yes", LM)
+    assert s["signal"] == "B_family" and s["target"] == "battery"</p>
+
+<p>def test_classify_when_value_guard():
+    assert classify_attribute("Host Interface", "PS/2", LM) is None      # not USB
+    assert classify_attribute("Host Interface", "USB 3.0", LM) is not None</p>
+
+<p>def test_classify_unmapped_label():
+    assert classify_attribute("Marque", "KENSINGTON", LM) is None
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_specs.py -k classify -v</code>
+Expected: FAIL — <code>cannot import name 'classify_attribute'</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+def classify_attribute(label: str, value: str, label_map: dict) -> dict | None:
+    """Traduit un attribut (label,value) en signal, ou None si non pertinent.
+    <code>when_value</code> : ne déclenche que si la valeur contient la chaîne exigée (ex. USB)."""
+    rule = label_map.get(label)
+    if not rule:
+        return None
+    wv = rule.get("when_value")
+    if wv and wv.upper() not in (value or "").upper():
+        return None
+    return {"signal": rule["signal"], "label": label, "value": value or "",
+            "match": rule.get("match"), "target": rule.get("target")}
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_specs.py -k classify -v</code>
+Expected: PASS (4 tests)</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/complement_specs.py tests/test_complement_specs.py
+git commit -m "feat(complements): classify_attribute -> signal"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-3-parse-battery-type-free-text-battery-type-fallback">Task 3: <code>parse_battery_type</code> — free-text battery-type fallback</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>core/complement_specs.py</code></li>
+  <li>Test: <code>tests/test_complement_specs.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Produces: <code>parse_battery_type(text: str) -> str | None</code> → one of <code>"AAA"|"AA"|"9V"|"C"|"D"|"CR2032"|...</code> or <code>None</code>. Order matters: check AAA before AA.</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+from core.complement_specs import parse_battery_type</p>
+
+<p>def test_parse_battery_type():
+    assert parse_battery_type("Utilise 1 pile AAA. Connexion USB.") == "AAA"
+    assert parse_battery_type("Requires 2x AA batteries") == "AA"
+    assert parse_battery_type("Pile bouton CR2032 incluse") == "CR2032"
+    assert parse_battery_type("9V block battery") == "9V"
+    assert parse_battery_type("Rechargeable lithium, no info") is None
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_specs.py -k battery_type -v</code>
+Expected: FAIL.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+_BATT_PATTERNS = [
+    ("CR2032", r"CR20\d\d"),
+    ("AAA",    r"\bAAA\b|\bLR ?0?3\b"),
+    ("AA",     r"\bAA\b|\bLR ?0?6\b"),
+    ("9V",     r"\b9\s?V\b|\b6LR61\b|\bPP3\b"),
+    ("C",      r"\bLR14\b|\bpile[s]? C\b"),
+    ("D",      r"\bLR20\b|\bpile[s]? D\b"),
+]</p>
+
+<p>def parse_battery_type(text: str) -> str | None:
+    """Détecte le type de pile dans du texte libre (AAA avant AA). None si inconnu."""
+    t = text or ""
+    for name, pat in _BATT_PATTERNS:
+        if re.search(pat, t, re.IGNORECASE):
+            return name
+    return None
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_specs.py -k battery_type -v</code>
+Expected: PASS</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/complement_specs.py tests/test_complement_specs.py
+git commit -m "feat(complements): parse_battery_type free-text fallback"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-4-norm-oem-ref-build-compat-index">Task 4: <code>norm_oem_ref</code> + <code>build_compat_index</code></h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>core/complement_specs.py</code></li>
+  <li>Test: <code>tests/test_complement_specs.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: <code>label_map</code>, <code>classify_attribute</code>.</li>
+  <li>Produces:</li>
+  <li><code>norm_oem_ref(s: str) -> str</code> — uppercase, strip non-alphanumerics.</li>
+  <li><code>build_compat_index(consumables: list[dict], label_map: dict) -> dict</code> where each <code>consumables</code> item is <code>{"reference": str, "attrs": list[attr]}</code>; returns <code>{norm_key: set[reference]}</code> mapping each Type-A compat key (normalized OEM ref / printer model token) to the consumable refs that declare it.</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+from core.complement_specs import norm_oem_ref, build_compat_index</p>
+
+<p>LM_A = {"Compatible OEM Part Number": {"signal": "A_compat", "match": "oem_ref"},
+        "Compatible Printer": {"signal": "A_compat", "match": "printer_model"}}</p>
+
+<p>def test_norm_oem_ref():
+    assert norm_oem_ref("ce-285/A") == "CE285A"
+    assert norm_oem_ref(" HP 59X ") == "HP59X"</p>
+
+<p>def test_build_compat_index():
+    consumables = [
+      {"reference": "TONER1", "attrs": [
+          {"label": "Compatible OEM Part Number", "value": "CE285A", "unit": None},
+          {"label": "Compatible Printer", "value": "HP LaserJet M404", "unit": None}]},
+      {"reference": "TONER2", "attrs": [
+          {"label": "Compatible OEM Part Number", "value": "ce285a", "unit": None}]},
+    ]
+    idx = build_compat_index(consumables, LM_A)
+    assert idx["CE285A"] == {"TONER1", "TONER2"}
+    assert "M404" in idx and "TONER1" in idx["M404"]
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_specs.py -k "oem_ref or compat_index" -v</code>
+Expected: FAIL.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+def norm_oem_ref(s: str) -> str:
+    """Clé normalisée : majuscules, sans caractères non alphanumériques."""
+    return re.sub(r"[^A-Z0-9]", "", (s or "").upper())</p>
+
+<p>_MODEL_TOKEN = re.compile(r"[A-Z]{0,3}\d{2,4}[A-Z]{0,3}")   # M404, LW450, 59X ...</p>
+
+<p>def _compat_keys(match: str, value: str) -> list[str]:
+    """Clés d'index pour une valeur de compatibilité selon le type de match."""
+    if match == "oem_ref":
+        return [norm_oem_ref(value)] if value else []
+    if match == "printer_model":
+        return list({m.group(0) for m in _MODEL_TOKEN.finditer((value or "").upper())})
+    if match == "screen_size":
+        return [norm_oem_ref(value)] if value else []
+    return []</p>
+
+<p>def build_compat_index(consumables: list[dict], label_map: dict) -> dict:
+    """Index compat {clé -> set(references consommables déclarant cette compat)}."""
+    idx: dict[str, set] = {}
+    for c in consumables:
+        for a in c.get("attrs", []):
+            sig = classify_attribute(a["label"], a["value"], label_map)
+            if not sig or sig["signal"] != "A_compat":
+                continue
+            for k in _compat_keys(sig["match"], sig["value"]):
+                if k:
+                    idx.setdefault(k, set()).add(c["reference"])
+    return idx
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_specs.py -k "oem_ref or compat_index" -v</code>
+Expected: PASS</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/complement_specs.py tests/test_complement_specs.py
+git commit -m "feat(complements): OEM-ref normalization + compatibility index"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-5-resolve-type-a-directionality-device-consumables">Task 5: <code>resolve_type_a</code> — directionality (device → consumables)</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>core/complement_specs.py</code></li>
+  <li>Test: <code>tests/test_complement_specs.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: <code>build_compat_index</code>, <code>_compat_keys</code>, <code>norm_oem_ref</code>.</li>
+  <li>Produces: <code>resolve_type_a(anchor: dict, compat_index: dict, products_by_ref: dict, label_map: dict) -> list[dict]</code> where <code>anchor = {"reference","attrs","is_device"(bool),"identity_keys"(list[str])}</code> and <code>products_by_ref = {ref: sku}</code>. Returns <code>cand</code> dicts (<code>signal_type="A_compat"</code>).</li>
+  <li>If <code>anchor["is_device"]</code>: reverse-lookup — for each of the anchor's <code>identity_keys</code> (its own model tokens / OEM refs), pull consumable refs from <code>compat_index</code>.</li>
+  <li>Else (anchor is a consumable): forward — the device(s) it fits are not in the index (they're the keys); v1 returns the same-key sibling consumables excluded → returns <code>[]</code> for consumables in v1 (documented limitation; devices are the money direction).</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+from core.complement_specs import resolve_type_a, build_compat_index</p>
+
+<p>LM_A = {"Compatible OEM Part Number": {"signal": "A_compat", "match": "oem_ref"},
+        "Compatible Printer": {"signal": "A_compat", "match": "printer_model"}}</p>
+
+<p>def test_resolve_type_a_device_reverse_lookup():
+    consumables = [{"reference": "TONER1", "attrs": [
+        {"label": "Compatible Printer", "value": "HP LaserJet M404", "unit": None}]}]
+    idx = build_compat_index(consumables, LM_A)
+    products = {"TONER1": {"reference": "TONER1", "description": "TONER HP 59X",
+                           "family_code": "002001"}}
+    printer = {"reference": "PRN1", "attrs": [], "is_device": True, "identity_keys": ["M404"]}
+    out = resolve_type_a(printer, idx, products, LM_A)
+    assert [c["reference"] for c in out] == ["TONER1"]
+    assert out[0]["signal_type"] == "A_compat"
+    assert out[0]["family_code"] == "002001"</p>
+
+<p>def test_resolve_type_a_consumable_returns_empty_v1():
+    printer_anchor = {"reference": "TONER1", "attrs": [], "is_device": False, "identity_keys": []}
+    assert resolve_type_a(printer_anchor, {}, {}, LM_A) == []
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_specs.py -k resolve_type_a -v</code>
+Expected: FAIL.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+def resolve_type_a(anchor: dict, compat_index: dict, products_by_ref: dict,
+                   label_map: dict) -> list[dict]:
+    """Type A : pour une ancre DEVICE, remonte les consommables compatibles via l'index
+    (device->consommable = la direction utile). Pour un consommable en v1 : [] (limite
+    documentée). Déduplique les refs, préserve l'ordre de découverte des clés."""
+    if not anchor.get("is_device"):
+        return []
+    out, seen = [], set()
+    for key in anchor.get("identity_keys", []):
+        for ref in sorted(compat_index.get(key, ())):
+            if ref in seen or ref == anchor["reference"]:
+                continue
+            seen.add(ref)
+            p = products_by_ref.get(ref, {})
+            out.append({"reference": ref, "name": p.get("description") or "",
+                        "family_code": p.get("family_code") or "",
+                        "signal_type": "A_compat", "signal_label": "compatible"})
+    return out
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_specs.py -k resolve_type_a -v</code>
+Expected: PASS</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/complement_specs.py tests/test_complement_specs.py
+git commit -m "feat(complements): Type-A resolution (device->consumable reverse lookup)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-6-resolve-type-b-requirement-family-top-n">Task 6: <code>resolve_type_b</code> — requirement → family top-N</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>core/complement_specs.py</code></li>
+  <li>Test: <code>tests/test_complement_specs.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: <code>classify_attribute</code>, <code>parse_battery_type</code>, <code>target_family_map</code>, and <code>core.complement_families.rank_family_skus</code>.</li>
+  <li>Produces: <code>resolve_type_b(anchor: dict, label_map: dict, target_family_map: dict, family_skus: dict, top_n: int = 5) -> list[dict]</code>.</li>
+  <li><code>anchor = {"reference","attrs","free_text"}</code>; <code>family_skus = {family_code: [sku, ...]}</code> (sku dicts).</li>
+  <li>For each Type-B signal: pick target families from <code>target_family_map</code>; for <code>needs_type</code> battery signals, refine the family by <code>parse_battery_type(value or free_text)</code> when a per-type mapping exists (key <code>f"battery:{TYPE}"</code> in <code>target_family_map</code>), else generic <code>battery</code>. Rank family SKUs with <code>rank_family_skus</code>, take <code>top_n</code>.</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+from core.complement_specs import resolve_type_b</p>
+
+<p>LM_B = {"Batteries Included": {"signal": "B_family", "target": "battery", "needs_type": True},
+        "Cable Type": {"signal": "B_family", "target": "cable"}}
+TFM = {"battery": ["007010"], "battery:AAA": ["007011"], "cable": ["004005"]}</p>
+
+<p>def _sku(ref, sales, fam): 
+    return {"reference": ref, "description": ref, "family_code": fam, "sales": sales,
+            "not_salable": False, "not_visible": False}</p>
+
+<p>def test_resolve_type_b_battery_typed():
+    fam_skus = {"007011": [_sku("PILE_AAA_1", 500, "007011"), _sku("PILE_AAA_2", 300, "007011")],
+                "007010": [_sku("PILE_GEN", 900, "007010")]}
+    anchor = {"reference": "MOUSE", "free_text": "Utilise 1 pile AAA",
+              "attrs": [{"label": "Batteries Included", "value": "Yes", "unit": None}]}
+    out = resolve_type_b(anchor, LM_B, TFM, fam_skus, top_n=2)
+    refs = [c["reference"] for c in out]
+    assert refs == ["PILE_AAA_1", "PILE_AAA_2"]        # typed family, sales-ranked
+    assert out[0]["signal_type"] == "B_family"</p>
+
+<p>def test_resolve_type_b_cable():
+    fam_skus = {"004005": [_sku("RJ45_1", 100, "004005")]}
+    anchor = {"reference": "SWITCH", "free_text": "",
+              "attrs": [{"label": "Cable Type", "value": "RJ-45", "unit": None}]}
+    out = resolve_type_b(anchor, LM_B, TFM, fam_skus, top_n=5)
+    assert [c["reference"] for c in out] == ["RJ45_1"]
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_specs.py -k resolve_type_b -v</code>
+Expected: FAIL.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+from core.complement_families import rank_family_skus</p>
+
+<p>def _target_families(sig: dict, free_text: str, target_family_map: dict) -> list[str]:
+    """Familles cibles d'un signal B ; pour les piles, raffine par type si mapping dédié."""
+    target = sig.get("target")
+    fams = list(target_family_map.get(target, []))
+    if target == "battery":
+        btype = parse_battery_type(sig.get("value") or "") or parse_battery_type(free_text or "")
+        typed = target_family_map.get(f"battery:{btype}") if btype else None
+        if typed:
+            return list(typed)
+    return fams</p>
+
+<p>def resolve_type_b(anchor: dict, label_map: dict, target_family_map: dict,
+                   family_skus: dict, top_n: int = 5) -> list[dict]:
+    """Type B : requirement -> familles cibles -> top-N SKU (ventes desc, actif/périmètre)."""
+    out, seen = [], set()
+    free_text = anchor.get("free_text") or ""
+    for a in anchor.get("attrs", []):
+        sig = classify_attribute(a["label"], a["value"], label_map)
+        if not sig or sig["signal"] != "B_family":
+            continue
+        for fam in _target_families(sig, free_text, target_family_map):
+            ranked = rank_family_skus(family_skus.get(fam, []), top_n)
+            for s in ranked:
+                if s["reference"] in seen or s["reference"] == anchor["reference"]:
+                    continue
+                seen.add(s["reference"])
+                out.append({"reference": s["reference"], "name": s.get("description") or "",
+                            "family_code": fam, "signal_type": "B_family",
+                            "signal_label": sig["label"]})
+    return out
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_specs.py -k resolve_type_b -v</code>
+Expected: PASS</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/complement_specs.py tests/test_complement_specs.py
+git commit -m "feat(complements): Type-B resolution (requirement->family top-N)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-7-merge-complements-priority-dedup-incl-vs-existing-cap-display-sequence">Task 7: <code>merge_complements</code> — priority, dedup (incl. vs existing), cap, display_sequence</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>core/complement_specs.py</code></li>
+  <li>Test: <code>tests/test_complement_specs.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Produces: <code>merge_complements(type_a: list[dict], type_b: list[dict], fallback: list[dict], existing_refs: set[str], cap: int = 20) -> list[dict]</code>. Priority A → B → fallback; dedup by <code>reference</code> (first wins); drop any <code>reference in existing_refs</code>; cap; add <code>rank</code> 1..cap.</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+from core.complement_specs import merge_complements</p>
+
+<p>def _c(ref, st): return {"reference": ref, "name": ref, "family_code": "F",
+                         "signal_type": st, "signal_label": st}</p>
+
+<p>def test_merge_priority_dedup_cap():
+    a = [_c("X", "A_compat"), _c("Y", "A_compat")]
+    b = [_c("Y", "B_family"), _c("Z", "B_family")]   # Y dup -> dropped (A wins)
+    fb = [_c("W", "cooc"), _c("OLD", "cooc")]
+    out = merge_complements(a, b, fb, existing_refs={"OLD"}, cap=3)
+    assert [c["reference"] for c in out] == ["X", "Y", "Z"]   # OLD excluded, capped at 3
+    assert [c["rank"] for c in out] == [1, 2, 3]
+    assert out[0]["signal_type"] == "A_compat" and out[2]["signal_type"] == "B_family"
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_specs.py -k merge -v</code>
+Expected: FAIL.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+def merge_complements(type_a: list[dict], type_b: list[dict], fallback: list[dict],
+                      existing_refs: set[str], cap: int = 20) -> list[dict]:
+    """Fusionne les 3 pistes par priorité A>B>fallback ; dédup par reference (1er gagne) ;
+    écarte les liens déjà présents (existing_refs) ; plafonne ; numérote rank 1..cap."""
+    out, seen = [], set()
+    for lane in (type_a, type_b, fallback):
+        for c in lane:
+            ref = c["reference"]
+            if ref in seen or ref in existing_refs:
+                continue
+            seen.add(ref)
+            out.append({<em></em>c, "rank": len(out) + 1})
+            if len(out) >= cap:
+                return out
+    return out
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_specs.py -k merge -v</code>
+Expected: PASS</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Run the full core suite + commit</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_specs.py -v</code>
+Expected: all PASS.</p>
+
+<p><code></code>`bash
+git add core/complement_specs.py tests/test_complement_specs.py
+git commit -m "feat(complements): merge (priority/dedup-vs-existing/cap/rank)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-8-db-migration-table-scope-column-json-view">Task 8: DB migration — table, scope column, JSON view</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>database/migrations/003_product_complements.sql</code></li>
+  <li>Test: manual verification via psql/python.</li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Produces: table <code>product_complements</code>, column <code>ecom_products.complement_scope</code>, view <code>v_product_complements_json</code>.</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the migration SQL</strong></li>
+</ul>
+
+<p><code></code>`sql
+-- database/migrations/003_product_complements.sql
+CREATE TABLE IF NOT EXISTS product_complements (
+    anchor_ref      text    NOT NULL,
+    complement_ref  text    NOT NULL,
+    complement_name text,
+    family_code     text,
+    signal_type     text    NOT NULL,   -- A_compat | B_family | cooc | family_llm
+    signal_label    text,
+    rank            int     NOT NULL,
+    source_country  text    NOT NULL DEFAULT 'FR',
+    generated_at    timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (anchor_ref, complement_ref, source_country)
+);
+CREATE INDEX IF NOT EXISTS ix_prodcomp_anchor ON product_complements (anchor_ref, source_country);
+CREATE INDEX IF NOT EXISTS ix_prodcomp_comp   ON product_complements (complement_ref, source_country);</p>
+
+<p>ALTER TABLE ecom_products ADD COLUMN IF NOT EXISTS complement_scope text;
+CREATE INDEX IF NOT EXISTS ix_ecomprod_scope ON ecom_products (complement_scope);</p>
+
+<p>CREATE OR REPLACE VIEW v_product_complements_json AS
+SELECT anchor_ref, source_country,
+       jsonb_agg(jsonb_build_object('name', complement_name, 'sku', complement_ref,
+                 'family_code', family_code, 'signal', signal_type, 'rank', rank)
+                 ORDER BY rank) AS complements
+FROM product_complements
+GROUP BY anchor_ref, source_country;
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Apply the migration</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -c "from database.crm_db import CRMDatabase; import pathlib; sql=pathlib.Path('database/migrations/003_product_complements.sql').read_text(encoding='utf-8'); db=CRMDatabase(); db.execute(sql); print('applied')"</code>
+(If <code>CRMDatabase</code> has no <code>execute</code>, use its connection: <code>with db.connect() as c, c.cursor() as cur: cur.execute(sql); c.commit()</code>.)
+Expected: <code>applied</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Verify objects exist</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -c "from database.crm_db import CRMDatabase; db=CRMDatabase(); print(db.query(\"SELECT to_regclass('product_complements') t, to_regclass('v_product_complements_json') v\"))"</code>
+Expected: both non-null.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add database/migrations/003_product_complements.sql
+git commit -m "feat(complements): DB migration (table + complement_scope + json view)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-9-anchor-existing-links-readers-and-fill-target-family-map">Task 9: Anchor + existing-links readers, and fill <code>target_family_map</code></h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>scripts/refresh_product_complements_specs.py</code> (readers only in this task)</li>
+  <li>Modify: <code>config/complement_label_map.json</code> (fill target subcategory codes)</li>
+  <li>Test: <code>tests/test_complement_specs.py</code> (pure parsing of wide rows)</li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Produces (in the script): <code>read_anchor_scope(path) -> list[dict]</code> (<code>{"sap","ref18","title","descriptif","brand","mfr_code","gtins"}</code>); <code>read_existing_links(path) -> dict[str, set[str]]</code> (anchor SAP → set of already-linked complement SAPs, parsing the wide <code>Consumable Web</code> columns).</li>
+  <li>Produces (pure, in <code>complement_specs.py</code>): <code>parse_wide_existing(header: list, rows: list) -> dict[str, set[str]]</code> for testability.</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test for <code>parse_wide_existing</code></strong></li>
+</ul>
+
+<p><code></code>`python
+from core.complement_specs import parse_wide_existing</p>
+
+<p>def test_parse_wide_existing():
+    header = ["SAP Code", "Local SAP Description",
+              "Consumable Web", "Local SAP Description", "Local Status Current Year", "Display Sequence",
+              "Consumable Web", "Local SAP Description", "Local Status Current Year", "Display Sequence"]
+    rows = [["471006", "BISCUITS", "4213285", "ASSORT", "Continued", "1", "", "", "", ""]]
+    out = parse_wide_existing(header, rows)
+    assert out == {"471006": {"4213285"}}
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_specs.py -k parse_wide_existing -v</code>
+Expected: FAIL.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Implement <code>parse_wide_existing</code> (pure)</strong></li>
+</ul>
+
+<p><code></code>`python
+def parse_wide_existing(header: list, rows: list) -> dict:
+    """Parse le format large de Marie (SAP + N blocs [Consumable Web, desc, status, seq]).
+    Retourne {SAP ancre -> set(SAP compléments déjà liés)}. Ignore les cellules vides."""
+    cons_cols = [i for i, h in enumerate(header) if h == "Consumable Web"]
+    out: dict[str, set] = {}
+    for row in rows:
+        if not row or not row[0]:
+            continue
+        anchor = str(row[0]).strip()
+        links = {str(row[i]).strip() for i in cons_cols
+                 if i < len(row) and row[i] not in (None, "") and str(row[i]).strip()}
+        if links:
+            out.setdefault(anchor, set()).update(links)
+    return out
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_complement_specs.py -k parse_wide_existing -v</code>
+Expected: PASS</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Add the file readers to the orchestrator script</strong></li>
+</ul>
+
+<p><code></code>`python
+# scripts/refresh_product_complements_specs.py  (start of file)
+"""Refresh 'Produits complémentaires' — couche tech-spec + fallback v2, table + colonne.
+Méthode : docs/superpowers/specs/2026-07-01-product-complementarity-design.md"""
+from __future__ import annotations
+import sys, json
+from pathlib import Path
+_REPO = Path(__file__).resolve().parent.parent
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))
+import openpyxl
+from core.complement_specs import parse_wide_existing</p>
+
+<p>MARIE = _REPO / "imports" / "marie"
+SCOPE_FILE = MARIE / "Datas pour produits associés 20260625.xlsx"
+EXISTING_FILE = MARIE / "Produits complémentaires déjà liés 20260526.xlsx"
+SCOPE_TAG = "marie-2026-06-25"</p>
+
+<p>def ref18(sap: str) -> str:
+    return str(sap).strip().replace(".", "").zfill(18)</p>
+
+<p>def read_anchor_scope(path: Path = SCOPE_FILE) -> list[dict]:
+    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    ws = wb["Sheet1"]; it = ws.iter_rows(values_only=True); next(it)
+    out = []
+    for r in it:
+        if not r or not r[1]:
+            continue
+        out.append({"sap": str(r[1]).strip(), "ref18": ref18(r[1]),
+                    "title": r[2] or "", "descriptif": r[3] or "", "brand": r[5] or "",
+                    "mfr_code": r[6] or "", "gtins": [g for g in r[7:12] if g]})
+    wb.close()
+    return out</p>
+
+<p>def read_existing_links(path: Path = EXISTING_FILE) -> dict:
+    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    ws = wb["Sheet1"]; rows = list(ws.iter_rows(values_only=True))
+    wb.close()
+    return parse_wide_existing(list(rows[0]), [list(r) for r in rows[1:]])
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 6: Smoke-run the readers + fill <code>target_family_map</code></strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -c "from scripts.refresh_product_complements_specs import read_anchor_scope, read_existing_links; a=read_anchor_scope(); e=read_existing_links(); print('anchors',len(a),'existing',len(e)); print(a[0])"</code>
+Expected: <code>anchors 18183 existing 5458</code> (approx).</p>
+
+<p>Then query the real subcategory codes for the target families and paste them into <code>config/complement_label_map.json</code> <code>target_family_map</code> (battery / battery:AA / battery:AAA / cable / paper / cable_hub). Use:
+<code>venv\Scripts\python.exe -c "from database.crm_db import CRMDatabase; db=CRMDatabase(); [print(r) for r in db.query(\"SELECT subcategory_code, COUNT(*) n, MIN(product_description) ex FROM ecom_products WHERE source_country='FR' AND (product_description ILIKE '%%pile%%' OR product_description ILIKE '%%batter%%') GROUP BY 1 ORDER BY n DESC LIMIT 15\")]"</code>
+(repeat for cable/RJ-45, paper A4). Record chosen codes in the config.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 7: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add scripts/refresh_product_complements_specs.py core/complement_specs.py config/complement_label_map.json tests/test_complement_specs.py
+git commit -m "feat(complements): anchor + existing-links readers, fill target families"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-10-orchestrator-pulls-run-lanes-merge-write-outputs">Task 10: Orchestrator — pulls, run lanes, merge, write outputs</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>scripts/refresh_product_complements_specs.py</code></li>
+  <li>Test: end-to-end sample run (<code>--n-anchors 50</code>).</li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: everything above + <code>core.complement_families</code> (<code>build_wide_rows</code>, <code>WIDE_HEADER</code>, <code>is_in_perimeter</code>), the v2 fallback from <code>scripts.refresh_product_complements_v2</code>.</li>
+  <li>Produces: <code>main(n_anchors: int)</code> that writes the scope flag, <code>product_complements</code> rows, and the Marie XLSX.</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Add the Oracle attribute pull</strong></li>
+</ul>
+
+<p><code></code>`python
+from database.oracle_db import OracleDatabase</p>
+
+<p>def pull_attributes(ref18s: list[str]) -> dict:
+    """{ref18 -> list[attr]} depuis FRANCE.T_PRODUCT_ATTRIBUTE (hygiène DL_DELETION_FLAG='N').
+    Batch par 1000 refs (IN-list)."""
+    ora = OracleDatabase(); out: dict[str, list] = {}
+    for i in range(0, len(ref18s), 1000):
+        chunk = ref18s[i:i+1000]
+        binds = ",".join(f":{j+1}" for j in range(len(chunk)))
+        rows = ora.query(f"""SELECT PRODUCT_REFERENCE ref, ATTRIBUTE_LABEL lbl,
+                ATTRIBUTE_VALUE val, VALUE_UNIT unit
+            FROM FRANCE.T_PRODUCT_ATTRIBUTE
+            WHERE COUNTRY_CODE='FR' AND DL_DELETION_FLAG='N'
+              AND PRODUCT_REFERENCE IN ({binds})""", chunk)
+        for r in rows:
+            out.setdefault(r["REF"], []).append(
+                {"label": r["LBL"], "value": r["VAL"] or "", "unit": r["UNIT"]})
+    ora.close()
+    return out
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Add Postgres master + timescale sales pulls</strong></li>
+</ul>
+
+<p><code></code>`python
+from database.crm_db import CRMDatabase
+from database.timeseries_db import TimeseriesDatabase</p>
+
+<p>def pull_products_and_sales(ref18s: list[str]) -> tuple[dict, dict]:
+    """products_by_ref (masters) + family_skus (par family_code, avec ventes 365j)."""
+    crm = CRMDatabase()
+    prods = {}
+    for i in range(0, len(ref18s), 5000):
+        chunk = ref18s[i:i+5000]
+        for r in crm.query("""SELECT product_reference ref, product_description descr, web_title,
+              family_code, subcategory_code, brand, brand_group, group_supplier_id mfr,
+              not_salable_flag, not_visible_flag
+            FROM ecom_products WHERE source_country='FR' AND product_reference = ANY(%s)""", (chunk,)):
+            prods[r["ref"]] = {"reference": r["ref"], "description": r["descr"] or "",
+                "web_title": r["web_title"] or "", "family_code": r["family_code"] or "",
+                "subcategory_code": r["subcategory_code"] or "", "brand": r["brand"] or "",
+                "brand_group": r["brand_group"] or "",
+                "not_salable": r["not_salable_flag"] == "Y", "not_visible": r["not_visible_flag"] == "Y"}
+    # family_skus for the target families in the config (sales-joined) — see helper below
+    return prods, _family_skus_for_targets(crm)
+<code></code>`</p>
+
+<p>(Implement <code>_family_skus_for_targets</code> to load, per target family_code in the config, its FR products + 365-day sales from timescale via <code>ecom_order_lines</code> bridged on <code>product_reference</code>, shaped as the <code>sku</code> dict with <code>sales</code>.)</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Wire <code>main()</code> — run lanes, merge, write</strong></li>
+</ul>
+
+<p><code></code>`python
+def main(n_anchors: int = 0):
+    anchors = read_anchor_scope()
+    if n_anchors > 0:
+        anchors = anchors[:n_anchors]
+    existing = read_existing_links()
+    label_map, target_family_map = load_label_map(str(_REPO / "config" / "complement_label_map.json"))
+    ref18s = [a["ref18"] for a in anchors]
+    attrs = pull_attributes(ref18s)
+    products, family_skus = pull_products_and_sales(ref18s)
+    # build compat index from ALL anchors' consumable attrs (v1 catalog = the scope set)
+    consumables = [{"reference": a["ref18"], "attrs": attrs.get(a["ref18"], [])} for a in anchors]
+    compat_index = build_compat_index(consumables, label_map)</p>
+
+<p>rows_out = []  # for product_complements
+    for a in anchors:
+        ref = a["ref18"]; ax = attrs.get(ref, [])
+        is_device = is_durable_anchor((a["title"] or "") + " " + (a["descriptif"] or ""))
+        anchor_a = {"reference": ref, "attrs": ax, "is_device": is_device,
+                    "identity_keys": _identity_keys(a, ax, label_map)}
+        anchor_b = {"reference": ref, "attrs": ax,
+                    "free_text": _free_text(a, ax)}
+        ta = resolve_type_a(anchor_a, compat_index, products, label_map)
+        tb = resolve_type_b(anchor_b, label_map, target_family_map, family_skus, top_n=5)
+        fb = run_v2_fallback(a) if not (ta or tb) else []   # reuse v2 engine
+        merged = merge_complements(ta, tb, fb, existing.get(a["sap"], set()), cap=20)
+        for c in merged:
+            rows_out.append((ref, c["reference"], c["name"], c["family_code"],
+                             c["signal_type"], c["signal_label"], c["rank"]))
+    write_scope_flag([a["ref18"] for a in anchors])
+    write_product_complements(rows_out)
+    write_marie_xlsx(anchors, rows_out, products)
+    print(f"anchors={len(anchors)} rows={len(rows_out)}")
+<code></code>`</p>
+
+<p>(Implement the small helpers <code>_identity_keys</code> (anchor's own model tokens / mfr code / gtins → compat keys via <code>_compat_keys</code>), <code>_free_text</code> (concat title+descriptif+<code>Technical Details</code> attr), <code>run_v2_fallback</code> (thin wrapper over <code>scripts.refresh_product_complements_v2</code> family-graph→<code>assemble_anchor_blocks</code>), <code>write_scope_flag</code> (<code>UPDATE ecom_products SET complement_scope=%s WHERE product_reference = ANY(%s)</code>), <code>write_product_complements</code> (delete-then-insert for the anchor set), <code>write_marie_xlsx</code> (<code>build_wide_rows</code> + <code>WIDE_HEADER</code>). Add <code>argparse --n-anchors</code>.)</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Sample end-to-end run (VPN up)</strong></li>
+</ul>
+
+<p>Run: <code>set ORACLE_TNS_ADMIN=%CD%\oracle && venv\Scripts\python.exe -m scripts.refresh_product_complements_specs --n-anchors 50</code>
+Expected: prints <code>anchors=50 rows=...</code>; <code>product_complements</code> has rows; a Marie XLSX is written to <code>exports/</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Verify a known device anchor</strong></li>
+</ul>
+
+<p>Run a query for a printer anchor in the sample and confirm its complements are its cartridges (Type A) or that a mouse anchor gets battery complements (Type B). Spot-check <code>product_complements</code> rows + <code>signal_type</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 6: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add scripts/refresh_product_complements_specs.py
+git commit -m "feat(complements): orchestrator (pulls + lanes + merge + writes)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-11-full-run-coverage-report">Task 11: Full run + coverage report</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>scripts/refresh_product_complements_specs.py</code> (add a coverage summary print)</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Add coverage summary</strong></li>
+</ul>
+
+<p>At end of <code>main</code>, print: anchors total, how many got ≥1 complement, split by dominant <code>signal_type</code> (A/B/fallback/none), and how many anchors had a qualifying tech attribute — so we quantify tech-spec reach vs fallback reliance (spec §8).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Full run over the missing ~12.7k</strong></li>
+</ul>
+
+<p>Run: <code>set ORACLE_TNS_ADMIN=%CD%\oracle && venv\Scripts\python.exe -m scripts.refresh_product_complements_specs</code>
+Expected: completes; coverage summary printed; <code>ecom_products.complement_scope</code> set for 18,183; <code>product_complements</code> populated.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Sanity-check the JSON view + Marie XLSX</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -c "from database.crm_db import CRMDatabase; db=CRMDatabase(); print(db.query('SELECT count(*) FROM product_complements'), db.query('SELECT complements FROM v_product_complements_json LIMIT 1'))"</code>
+Confirm the exported XLSX opens and matches Marie's wide header.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add scripts/refresh_product_complements_specs.py
+git commit -m "feat(complements): coverage report + full refresh"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="self-review-notes">Self-review notes</h2>
+<ul class="article-list">
+  <li><strong>Spec coverage:</strong> §2 inputs → Tasks 9/10; §3 lanes+merge → Tasks 5,6,7,10; §4 label map → Tasks 1,2; §5 resolution → Tasks 4,5,6 (+battery parse Task 3); §6 storage → Tasks 8,10,11; §7 modules/tests → all; §8 open items → Task 11 coverage + preserved-existing (Task 7 dedup).</li>
+  <li><strong>Type consistency:</strong> <code>cand</code> dict keys (<code>reference,name,family_code,signal_type,signal_label</code>) are produced identically by <code>resolve_type_a</code>/<code>resolve_type_b</code>/fallback and consumed by <code>merge_complements</code> (which adds <code>rank</code>). <code>ref18()</code> normalization is the single anchor↔attribute↔master join key throughout.</li>
+  <li><strong>Deferred detail</strong> (implement inline during Task 10, not placeholders): <code>_identity_keys</code>, <code>_free_text</code>, <code>_family_skus_for_targets</code>, <code>run_v2_fallback</code>, <code>write_*</code> are I/O helpers whose signatures are fixed by their call sites in Step 3; each is a thin, well-scoped function over already-defined pure primitives.</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#canonical-data-shapes-used-across-tasks">Canonical data shapes (used across tasks)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-1-label-map-config-loader">Task 1: Label map config + loader</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-2-classify-attribute-one-attribute-signal-or-none">Task 2: `classify_attribute` — one attribute → signal or None</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-3-parse-battery-type-free-text-battery-type-fallback">Task 3: `parse_battery_type` — free-text battery-type fallback</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-4-norm-oem-ref-build-compat-index">Task 4: `norm_oem_ref` + `build_compat_index`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-5-resolve-type-a-directionality-device-consumables">Task 5: `resolve_type_a` — directionality (device → consumables)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-6-resolve-type-b-requirement-family-top-n">Task 6: `resolve_type_b` — requirement → family top-N</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-7-merge-complements-priority-dedup-incl-vs-existing-cap-display-sequence">Task 7: `merge_complements` — priority, dedup (incl. vs existing), cap, display_sequence</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-8-db-migration-table-scope-column-json-view">Task 8: DB migration — table, scope column, JSON view</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-9-anchor-existing-links-readers-and-fill-target-family-map">Task 9: Anchor + existing-links readers, and fill `target_family_map`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-10-orchestrator-pulls-run-lanes-merge-write-outputs">Task 10: Orchestrator — pulls, run lanes, merge, write outputs</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-11-full-run-coverage-report">Task 11: Full run + coverage report</a></li>
+<li><a href="#global-constraints">Global Constraints</a></li>
+<li><a href="#self-review-notes">Self-review notes</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Afrobarometer Round 9 -> MatrAIx 1,290 dimensions | Technical Whitepaper</title>
+  <meta name="description" content="Afrobarometer Round 9 -> MatrAIx 1,290 dimensions — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/AFROBAROMETER_EXTRACTION.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Afrobarometer Round 9 -> MatrAIx 1,290 dimensions</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Afrobarometer Round 9 -> MatrAIx 1,290 dimensions</p>
+
+<p>This pipeline maps the derived 53,384-row Afrobarometer persona parquet to the
+MatrAIx schema using only deterministic crosswalk rules. No LLM, API key, model
+server, inferred layer, or token budget is required. Every dimension without an
+exact source mapping is emitted as <code>null</code> with <code>assignment_type="unsupported"</code>.</p>
+
+<p>The source <code>name</code> is synthetic, and <code>domain</code>/<code>seniority_level</code> may be inferred.
+They are deliberately not exact overlays.  Source <code>65+</code>, generic <code>urban</code>,
+<code>tertiary</code>, and <code>postgraduate</code> categories are also too coarse for a single target
+enum and remain null unless supported more precisely by evidence.</p>
+
+<h2 id="1-download">1. Download</h2>
+
+<p>The Hugging Face dataset is authenticated.  Log in first if necessary:</p>
+
+<p><code></code>`bash
+huggingface-cli login
+huggingface-cli download MatrAIx2026/MatrAIx2026 \
+  afrobarometer/afrobarometer_round9.parquet --repo-type dataset \
+  --local-dir data/matraix2026
+<code></code>`</p>
+
+<h2 id="2-prepare-and-test-five-people">2. Prepare and test five people</h2>
+
+<p><code></code>`bash
+python persona/human_extraction/scripts/prepare_afrobarometer.py \
+  --input data/matraix2026/afrobarometer/afrobarometer_round9.parquet \
+  --out out/afrobarometer_profiles_5.jsonl --limit 5
+<code></code>`</p>
+
+<p>Create the complete 1,290-field records directly from the observed mappings:</p>
+
+<p><code></code>`bash
+python persona/human_extraction/scripts/postprocess_afrobarometer.py \
+  --profiles out/afrobarometer_profiles_5.jsonl \
+  --schema persona/schema/dimensions.json \
+  --out out/afrobarometer_personas_5.jsonl
+<code></code>`</p>
+
+<h2 id="3-validate">3. Validate</h2>
+
+<p><code></code>`bash
+python persona/human_extraction/scripts/validate_extraction.py \
+  --input out/afrobarometer_personas_5.jsonl \
+  --schema persona/schema/dimensions.json \
+  --profiles out/afrobarometer_profiles_5.jsonl
+<code></code>`</p>
+
+<p>The postprocessor selects Parquet output when <code>--out</code> ends in <code>.parquet</code>; otherwise
+it writes JSONL. The existing validator consumes JSONL, so use a <code>.jsonl</code> smoke-test
+output for that command. The validator must report zero errors.</p>
+
+<h2 id="4-run-all-53-384-people">4. Run all 53,384 people</h2>
+
+<p>Remove <code>--limit 5</code>, prepare a new full profiles file, and run the same rule-only
+postprocessor and validator against it. Runtime is local CPU/file-processing time;
+there are no API calls or model costs.</p>
+
+<p>For the canonical compressed JSONL deliverable, use:</p>
+
+<p><code></code>`bash
+python persona/human_extraction/scripts/postprocess_afrobarometer.py \
+  --profiles out/afrobarometer_profiles_full.jsonl \
+  --schema persona/schema/dimensions.json \
+  --out afrobarometer/extraction_v1/shard_00.jsonl.gz
+<code></code>`</p>
+
+<p>Every field includes <code>provenance</code>: <code>observed</code> for exact crosswalk values and
+<code>unobserved</code> for null dimensions.</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#1-download">1. Download</a></li>
+<li><a href="#2-prepare-and-test-five-people">2. Prepare and test five people</a></li>
+<li><a href="#3-validate">3. Validate</a></li>
+<li><a href="#4-run-all-53-384-people">4. Run all 53,384 people</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

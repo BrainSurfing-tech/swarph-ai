@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HubSpot form-submit debug tracker | Technical Whitepaper</title>
+  <meta name="description" content="HubSpot form-submit debug tracker — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/hubspot_form_submit_debug.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">HubSpot form-submit debug tracker</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 5 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># HubSpot form-submit debug tracker</p>
+
+<p>Drop this into Tampermonkey <strong>or</strong> paste into the browser DevTools Console on the page that's giving trouble (<code>https://content.lyreco.com/create-my-lyreco-account</code> or wherever the step-2 button lives). It captures everything around the button click + form submit and prefixes every line with <code>[LYRECO-DEBUG]</code> for easy filtering in the Console.</p>
+
+<p>What it catches:
+1. <strong>Clicks</strong> on any <code><button></code>, <code><input type=submit></code> or <code>role=button</code> — even when the button only appears after the first page transition.
+2. <strong>Form submit events</strong> (capture phase, so dynamic forms and frameworks are caught).
+3. <strong>HubSpot <code>hsFormCallback</code> postMessages</strong> (the official callback channel).
+4. <strong>History API + hashchange</strong> (so you see when step-2 swaps in).
+5. <strong><code>fetch</code> + <code>XMLHttpRequest</code></strong> — non-GET requests are logged with method+URL+body so you see the actual submission endpoint.
+6. <strong>MutationObserver</strong> logs every new <code><button></code> and <code><form></code> the SPA adds to the DOM.</p>
+
+<h2 id="option-a-tampermonkey-userscript">Option A — Tampermonkey userscript</h2>
+
+<p><code></code>`javascript
+// ==UserScript==
+// @name         Lyreco form submit tracker (debug)
+// @namespace    lyreco-debug
+// @match        https://content.lyreco.com/*
+// @match        https://www.lyreco.com/*
+// @run-at       document-start
+// @grant        none
+// @version      1.0
+// ==/UserScript==</p>
+
+<p>(function () {
+  'use strict';
+  const TAG = '[LYRECO-DEBUG]';
+  const t0  = performance.now();
+  const log = (label, info) => {
+    console.log(
+      '%c' + TAG + ' +' + Math.round(performance.now() - t0) + 'ms ' + label,
+      'color:#88c4dd;font-weight:bold;',
+      info || ''
+    );
+  };</p>
+
+<p>// 1) Capture-phase click listener — catches every button/submit-input click
+  document.addEventListener('click', function (e) {
+    const el = e.target.closest('button, input[type="submit"], a[role="button"], [data-action]');
+    if (!el) return;
+    log('CLICK', {
+      tag:        el.tagName,
+      type:       el.type || '',
+      text:       (el.innerText || el.value || el.getAttribute('aria-label') || '').trim().slice(0, 100),
+      id:         el.id || '',
+      className:  (typeof el.className === 'string' ? el.className : '').slice(0, 100),
+      formId:     el.form ? el.form.id : (el.closest('form') || {}).id,
+      url:        location.pathname + location.search,
+    });
+  }, true);</p>
+
+<p>// 2) Capture-phase submit listener — wins over preventDefault'd handlers
+  document.addEventListener('submit', function (e) {
+    const f = e.target;
+    const data = {};
+    try {
+      new FormData(f).forEach(function (v, k) { data[k] = typeof v === 'string' ? v.slice(0, 200) : '(file)'; });
+    } catch (err) { data._error = String(err); }
+    log('SUBMIT', {
+      formId:    f.id || '',
+      action:    f.action || '',
+      method:    (f.method || 'GET').toUpperCase(),
+      fields:    f.elements ? f.elements.length : 0,
+      data:      data,
+      defaultPrevented: e.defaultPrevented,
+    });
+  }, true);</p>
+
+<p>// 3) HubSpot embedded-form postMessage callbacks
+  window.addEventListener('message', function (e) {
+    if (e.data && e.data.type === 'hsFormCallback') {
+      log('HS FORM CALLBACK · ' + e.data.eventName, {
+        formId: e.data.id,
+        data:   e.data.data,
+      });
+    }
+  });</p>
+
+<p>// 4) DOM additions (SPA-style transitions)
+  const seen = new Set();
+  const obs  = new MutationObserver(function (mutations) {
+    for (const m of mutations) {
+      for (const n of m.addedNodes) {
+        if (n.nodeType !== 1) continue;
+        const buttons = n.matches && n.matches('button, input[type="submit"]')
+          ? [n]
+          : Array.from((n.querySelectorAll && n.querySelectorAll('button, input[type="submit"]')) || []);
+        buttons.forEach(function (b) {
+          const key = (b.tagName || '') + '|' + (b.id || '') + '|' + ((b.innerText || b.value || '').trim().slice(0, 40));
+          if (seen.has(key)) return;
+          seen.add(key);
+          log('NEW BUTTON appeared', {
+            tag:       b.tagName,
+            type:      b.type || '',
+            text:      (b.innerText || b.value || '').trim().slice(0, 80),
+            id:        b.id || '',
+            inFormId:  (b.closest('form') || {}).id,
+          });
+        });
+        const forms = n.matches && n.matches('form')
+          ? [n]
+          : Array.from((n.querySelectorAll && n.querySelectorAll('form')) || []);
+        forms.forEach(function (f) {
+          log('NEW FORM appeared', {
+            id:      f.id || '',
+            action:  f.action || '',
+            fields:  f.elements ? f.elements.length : 0,
+          });
+        });
+      }
+    }
+  });
+  obs.observe(document.documentElement, { childList: true, subtree: true });</p>
+
+<p>// 5) History API (SPA routing)
+  ['pushState', 'replaceState'].forEach(function (method) {
+    const orig = history[method];
+    history[method] = function () {
+      log('HISTORY · ' + method, { url: arguments[2] || location.pathname });
+      return orig.apply(this, arguments);
+    };
+  });
+  window.addEventListener('popstate',   function () { log('POPSTATE',   location.pathname); });
+  window.addEventListener('hashchange', function () { log('HASHCHANGE', location.hash);     });</p>
+
+<p>// 6) Fetch + XHR — see the actual submit endpoint that fires
+  const origFetch = window.fetch;
+  window.fetch = function (resource, init) {
+    const url    = typeof resource === 'string' ? resource : (resource && resource.url) || '';
+    const method = ((init && init.method) || 'GET').toUpperCase();
+    if (method !== 'GET') {
+      log('FETCH · ' + method, {
+        url:  url,
+        body: (init && init.body && typeof init.body === 'string') ? init.body.slice(0, 400) : '(non-string body)',
+      });
+    }
+    return origFetch.apply(this, arguments);
+  };
+  const origOpen = XMLHttpRequest.prototype.open;
+  const origSend = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.open = function (method, url) {
+    this.__lyrecoMethod = method.toUpperCase();
+    this.__lyrecoUrl    = url;
+    return origOpen.apply(this, arguments);
+  };
+  XMLHttpRequest.prototype.send = function (body) {
+    if (this.__lyrecoMethod && this.__lyrecoMethod !== 'GET') {
+      log('XHR · ' + this.__lyrecoMethod, {
+        url:  this.__lyrecoUrl,
+        body: (body && typeof body === 'string') ? body.slice(0, 400) : '(non-string body)',
+      });
+    }
+    return origSend.apply(this, arguments);
+  };</p>
+
+<p>log('Lyreco form tracker armed', { url: location.href });
+})();
+<code></code>`</p>
+
+<h2 id="option-b-devtools-console-paste-no-install">Option B — DevTools Console paste (no install)</h2>
+
+<p>Paste the same IIFE body (everything from <code>(function () {</code> to the closing <code>})();</code>) directly into the DevTools Console. It runs immediately and stays alive until you reload the page. Useful for a quick one-off check without installing Tampermonkey.</p>
+
+<h2 id="how-to-read-the-output">How to read the output</h2>
+
+<p>Open DevTools → Console → set the filter to <code>[LYRECO-DEBUG]</code>. Reproduce the broken flow (step 1 → step 2 → click the submit button). You'll see chronologically (each line timestamped from page load):</p>
+
+<p>1. <code>NEW BUTTON appeared</code> / <code>NEW FORM appeared</code> when the second-page content is swapped in.
+2. <code>CLICK</code> when the user clicks the submit button — confirms the click is reaching the right element. If you see <code>CLICK</code> but no <code>SUBMIT</code>, the page is preventing the form submission (likely SPA wiring intercepting the click handler).
+3. <code>SUBMIT</code> if a real <code><form></code> submit event fires. <code>defaultPrevented: true</code> means a handler called <code>e.preventDefault()</code> — common in SPA forms.
+4. <code>FETCH</code> or <code>XHR</code> with method=POST + URL — this is the actual submission going to HubSpot's API. If you see this but no <code>SUBMIT</code>, the form is being posted via JS (not a native form submit), which is why the <code>submit</code> event tracking misses it.
+5. <code>HS FORM CALLBACK · onFormSubmitted</code> — the official HubSpot callback we use in the production tagging (<code>docs/hubspot_cms_tagging_content_lyreco.md</code>). If this never fires, that's the bug — the HubSpot form context isn't broadcasting the event.</p>
+
+<h2 id="if-the-form-is-in-an-iframe">If the form is in an iframe</h2>
+
+<p>HubSpot embedded forms often live in an iframe whose <code>src</code> is <code>forms.hsforms.com</code>. The userscript only sees events in the top page. To debug inside the iframe, open DevTools → "Sources" → change the <strong>execution context</strong> dropdown (top-right of Console) to the iframe's frame, then paste the IIFE. The MutationObserver and click listeners will run there.</p>
+
+<h2 id="common-patterns-this-script-reveals">Common patterns this script reveals</h2>
+
+<p>| Symptom in console | Likely cause | Fix |
+|---|---|---|
+| <code>CLICK</code> fires, no <code>SUBMIT</code>, no <code>FETCH</code> | Click handler did nothing — button isn't wired | Inspect onclick / framework binding |
+| <code>CLICK</code> + <code>SUBMIT defaultPrevented=true</code>, no <code>FETCH</code> | Submit blocked by validation | Check form validation state |
+| <code>CLICK</code> + <code>FETCH</code> POST, no <code>SUBMIT</code>, no HS callback | Form posts via JS, bypasses native event — HubSpot embed not configured | Use the HubSpot Forms API config to register an <code>onFormSubmitted</code> callback, OR hook the <code>FETCH</code> URL directly |
+| <code>CLICK</code> + <code>FETCH</code> + <code>HS FORM CALLBACK onFormSubmitted</code> | Everything healthy — the production tagging snippet's listener will fire correctly |</p>
+
+<p>---</p>
+
+<p>_Authored 2026-06-01 to debug step-2 submit on the WISE onboarding form. Production tagging snippet lives in <code>hubspot_cms_tagging_content_lyreco.md</code>._</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#option-a-tampermonkey-userscript">Option A — Tampermonkey userscript</a></li>
+<li><a href="#option-b-devtools-console-paste-no-install">Option B — DevTools Console paste (no install)</a></li>
+<li><a href="#how-to-read-the-output">How to read the output</a></li>
+<li><a href="#if-the-form-is-in-an-iframe">If the form is in an iframe</a></li>
+<li><a href="#common-patterns-this-script-reveals">Common patterns this script reveals</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

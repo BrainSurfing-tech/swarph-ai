@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unified Persona8B Code Index | Technical Whitepaper</title>
+  <meta name="description" content="Unified Persona8B Code Index — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/CODE_INDEX.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Unified Persona8B Code Index</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Unified Persona8B Code Index</p>
+
+<p>All code written for the physical 8.4B Persona8B materialization pipeline lives
+under:</p>
+
+<p><code></code>`text
+persona/post_process/unified_dataset/
+<code></code>`</p>
+
+<p>Tests live under:</p>
+
+<p><code></code>`text
+tests/persona/post_process/
+<code></code>`</p>
+
+<h2 id="python-implementation">Python implementation</h2>
+
+<p>| File | Responsibility |
+|---|---|
+| [<code>schema.py</code>](schema.py) | Defines the unified Arrow schema, 1,290-field categorical codec, packed attribute representation, null bitmap, and lossless off-schema overrides. |
+| [<code>materialize.py</code>](materialize.py) | Streams retained synthetic, human-extracted, and Real Human Survey personas into physical Parquet shards. Applies all quality, deduplication, and transfer-exclusion bitmaps. |
+| [<code>finalize.py</code>](finalize.py) | Enforces exact per-source and global row counts, verifies every Parquet schema and row count, calculates final byte size, and writes <code>manifest.json</code>, the dataset card, and the codebook. |
+| [<code>status.py</code>](status.py) | Reports Slurm states, completed task reports, rows, bytes, description coverage, and final-manifest readiness. |
+| [<code>monitor_events.py</code>](monitor_events.py) | Event-driven live monitor for reports, Slurm logs, finalization, and upload completion; uses Linux inotify without polling sleeps. |
+| [<code>__init__.py</code>](__init__.py) | Declares the Python package. |</p>
+
+<h2 id="slurm-and-upload-jobs">Slurm and upload jobs</h2>
+
+<p>All production job definitions are in [<code>jobs/</code>](jobs/).</p>
+
+<p>| File | Responsibility |
+|---|---|
+| [<code>jobs/launch.sh</code>](jobs/launch.sh) | Submits the complete dependency chain and records all job IDs in <code>submission.json</code>. |
+| [<code>jobs/materialize_synthetic.job</code>](jobs/materialize_synthetic.job) | Runs a 100-task synthetic array. Each task reads one 100M-row compressed source shard and writes only retained physical rows. |
+| [<code>jobs/materialize_human.job</code>](jobs/materialize_human.job) | Runs a 465-task array over Wiki, Amazon, Stack Overflow, PRISM, and GSS source shards. Applies quality and human MinHash-dedup rejection bitmaps. |
+| [<code>jobs/materialize_survey.job</code>](jobs/materialize_survey.job) | Converts the 508 Real Human Survey rows into the same Parquet schema. |
+| [<code>jobs/finalize.job</code>](jobs/finalize.job) | Runs strict final validation after all materialization tasks succeed. |
+| [<code>jobs/upload.job</code>](jobs/upload.job) | Creates the <code>unified-8.4b</code> Hugging Face revision and performs a resumable eight-worker upload to <code>MatrAIx2026/Persona8B</code>. |</p>
+
+<p>The current submitted production jobs are:</p>
+
+<p>| Stage | Job ID |
+|---|---:|
+| Synthetic materialization | <code>33386504</code> |
+| Human materialization | <code>33386505</code> |
+| Real Human Survey | <code>33386507</code> |
+| Finalization | <code>33386509</code> |
+| Hugging Face upload | <code>33386510</code> |</p>
+
+<h2 id="tests">Tests</h2>
+
+<p>| File | Coverage |
+|---|---|
+| [<code>tests/persona/post_process/test_unified_dataset_schema.py</code>](../../../tests/persona/post_process/test_unified_dataset_schema.py) | Packed attribute width, null preservation, off-schema override preservation, and fixed-size Arrow binary construction. |</p>
+
+<p>Run the focused tests with:</p>
+
+<p><code></code>`bash
+python -m pytest -q \
+  tests/persona/post_process/test_unified_dataset_schema.py
+<code></code>`</p>
+
+<h2 id="production-inputs">Production inputs</h2>
+
+<p>The materializer reads the following immutable or validated artifacts:</p>
+
+<p>| Input | Path |
+|---|---|
+| 10B packed synthetic source | <code>persona/synthesis/generated/full_dag_10b_20260703/shards/</code> |
+| Final synthetic rejection bitmaps | <code>persona/post_process/deduplication/results/final_8_4b_20260719/bitmaps/</code> |
+| 500-row synthetic transfer overlay | <code>persona/post_process/deduplication/results/synthetic_transfer_500_20260720/</code> |
+| Human source manifest | <code>persona/post_process/deduplication/jobs/manifests/human_minhash_20260719/human_tasks.jsonl</code> |
+| Human quality bitmaps | <code>persona/post_process/quality_filter/results/full_filter_20260719/</code> |
+| Human deduplication bitmaps | <code>persona/post_process/deduplication/results/human_minhash_20260719/dedup_threshold_0.95/</code> |
+| Real Human Survey | <code>persona/human_extraction/data/matraix_persona_1m_public_release/Real Human Survey/merged_personas_508.jsonl</code> |</p>
+
+<h2 id="output">Output</h2>
+
+<p>The complete physical dataset is written under:</p>
+
+<p><code></code>`text
+persona/post_process/unified_dataset/results/persona8b_8_4b_20260720/
+<code></code>`</p>
+
+<p>Expected structure:</p>
+
+<p><code></code>`text
+data/
+  synthetic/shard_XXXX/*.parquet
+  wiki/*.parquet
+  amazon/*.parquet
+  stackoverflow/*.parquet
+  prism/*.parquet
+  gss/*.parquet
+  real_human_survey/*.parquet
+reports/*.json
+persona_codes.schema.json
+manifest.json
+README.md
+submission.json
+<code></code>`</p>
+
+<p><code>manifest.json</code> is created only after all <strong>8,400,000,008</strong> rows pass strict
+validation. Its <code>bytes</code> field is the authoritative final dataset size.</p>
+
+<h2 id="execution-flow">Execution flow</h2>
+
+<p><code></code>`text
+launch.sh
+  -> synthetic array (100 tasks)
+  -> human array (465 tasks)
+  -> Real Human Survey task
+  -> finalize.py after all materialization succeeds
+  -> upload.job after strict finalization succeeds
+<code></code>`</p>
+
+<p>The final Hugging Face destination is:</p>
+
+<p><code></code>`text
+https://huggingface.co/datasets/MatrAIx2026/Persona8B/tree/unified-8.4b
+<code></code>`</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#python-implementation">Python implementation</a></li>
+<li><a href="#slurm-and-upload-jobs">Slurm and upload jobs</a></li>
+<li><a href="#tests">Tests</a></li>
+<li><a href="#production-inputs">Production inputs</a></li>
+<li><a href="#output">Output</a></li>
+<li><a href="#execution-flow">Execution flow</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,3163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Swarph as substrate — atoms / cells / OS-as-host</title>
+<link rel="stylesheet" href="paper.css">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+<div class="layout">
+  <header class="paper">
+    <p class="eyebrow">swarph · research</p>
+    <h1>Swarph as substrate — atoms / cells / OS-as-host</h1>
+    <p class="meta">Working draft · architecture paper · ~21,000 words. Unlisted — shared for review.</p>
+    <a class="dl" href="swarph-substrate.md" download>↓ Download source (Markdown)</a>
+  </header>
+  <nav class="toc"><div class="toctitle">Contents</div><div class="toc">
+<ul>
+<li><a href="#recent-developments-mid-2026">Recent developments (mid-2026)</a></li>
+<li><a href="#0-why-now-historical-arc-whats-next">§0. Why now — historical arc + what's next</a></li>
+<li><a href="#1-atoms-enumerated">§1. Atoms — enumerated</a></li>
+<li><a href="#2-cells-composed-primitives">§2. Cells — composed primitives</a><ul>
+<li><a href="#21-service-mode-llm-worker-cell-type-1">§2.1 Service-mode LLM worker (cell type 1)</a></li>
+<li><a href="#211-multi-provider-cell-membrane-providermembrane-shipped">§2.1.1 Multi-provider cell membrane (ProviderMembrane) — shipped</a></li>
+<li><a href="#212-service-mode-provider-lanes-the-containment-refinement">§2.1.2 Service-mode provider lanes + the containment refinement</a></li>
+<li><a href="#22-witness-peer-cell-type-2">§2.2 Witness peer (cell type 2)</a></li>
+<li><a href="#23-swarph-cli-repl-cell-type-3">§2.3 swarph-cli REPL (cell type 3)</a></li>
+<li><a href="#24-cell-type-taxonomy-discriminator">§2.4 Cell-type taxonomy discriminator</a></li>
+<li><a href="#241-relay-cell-cell-type-4">§2.4.1 Relay-cell — cell type 4</a></li>
+<li><a href="#242-hub-cell-cell-type-5">§2.4.2 Hub-cell — cell type 5</a></li>
+<li><a href="#243-super-admin-cell-cell-type-6">§2.4.3 Super-admin-cell — cell type 6</a></li>
+</ul>
+</li>
+<li><a href="#3-tissues-organs-organisms-substrate">§3. Tissues / organs / organisms / substrate</a><ul>
+<li><a href="#30-single-organism-composition-kept-brief">§3.0 Single-organism composition (kept brief)</a></li>
+<li><a href="#31-three-tier-meta-edge-stratification">§3.1 Three-tier meta-edge stratification</a></li>
+<li><a href="#32-scale-by-replication-not-scale-by-extension">§3.2 Scale-by-replication, not scale-by-extension</a></li>
+<li><a href="#33-redundancy-effectiveness">§3.3 Redundancy + effectiveness</a></li>
+<li><a href="#34-adoption-shape-bimodal">§3.4 Adoption shape — bimodal</a></li>
+<li><a href="#35-bridge-primitive-federation">§3.5 Bridge primitive (federation)</a></li>
+</ul>
+</li>
+<li><a href="#4-os-primitive-mapping">§4. OS-primitive mapping</a></li>
+<li><a href="#5-kernel-vs-userspace">§5. Kernel vs userspace</a><ul>
+<li><a href="#51-kernel-the-shared-foundation-library">§5.1 Kernel = the shared foundation library</a></li>
+<li><a href="#52-userspace-everything-else">§5.2 Userspace = everything else</a></li>
+<li><a href="#53-kernel-boundary-precision">§5.3 Kernel boundary precision</a></li>
+</ul>
+</li>
+<li><a href="#6-where-the-analogy-breaks-down">§6. Where the analogy breaks down</a><ul>
+<li><a href="#61-cells-have-dna-peers-have-peer-id-jsonl-session-log">§6.1 Cells have DNA; peers have peer-id + JSONL session log</a></li>
+<li><a href="#62-cells-have-apoptosis-substrate-has-sigkill">§6.2 Cells have apoptosis; substrate has SIGKILL</a></li>
+<li><a href="#63-cells-have-cytoplasm-substrate-has-fragmented-in-process-state">§6.3 Cells have cytoplasm; substrate has fragmented in-process state</a></li>
+<li><a href="#63a-cells-budget-energy-via-atpadp-substrate-has-cost-observability-without-enforcement">§6.3a Cells budget energy via ATP/ADP; substrate has cost observability without enforcement</a></li>
+<li><a href="#63b-cells-have-gap-junctions-substrate-has-no-direct-cell-to-cell-channels">§6.3b Cells have gap junctions; substrate has no direct cell-to-cell channels</a></li>
+<li><a href="#64-cells-signal-via-hormones-substrate-has-dms-and-registry">§6.4 Cells signal via hormones; substrate has DMs and registry</a></li>
+<li><a href="#64a-peer-health-observability-4-state-taxonomy-observer-vs-observed-split">§6.4a Peer-health observability — 4-state taxonomy + observer-vs-observed split</a></li>
+<li><a href="#64a1-active-baseline-graduation">§6.4a.1 Active-baseline graduation</a></li>
+<li><a href="#65-cells-have-meta-stable-specialization-peer-roles-are-loose">§6.5 Cells have meta-stable specialization; peer roles are loose</a></li>
+<li><a href="#65a-tier-differentiation-predictive-claim">§6.5a Tier differentiation predictive claim</a></li>
+<li><a href="#63c-tenant-isolation-predictive-claim">§6.3c Tenant-isolation predictive claim</a></li>
+<li><a href="#66-where-the-os-analogy-breaks-down">§6.6 Where the OS analogy breaks down</a></li>
+<li><a href="#66a-swarm-onboarding-llm-native-merge-decision-predictive-claim">§6.6a Swarm-onboarding LLM-native merge-decision predictive claim</a></li>
+<li><a href="#66ai-first-concrete-deployment-mitosis-to-a-co-located-meta-edge-instance">§6.6a.i First concrete deployment — mitosis to a co-located meta-edge instance</a></li>
+<li><a href="#66b-super-admin-mitosis-predictive-claim">§6.6b Super-admin mitosis predictive claim</a></li>
+<li><a href="#67-what-this-section-provides">§6.7 What this section provides</a></li>
+<li><a href="#68-falsifiability-asymmetry-confirmation-bound-vs-popper-falsifiable">§6.8 Falsifiability asymmetry — confirmation-bound vs Popper-falsifiable</a></li>
+</ul>
+</li>
+<li><a href="#7-what-unix-got-wrong-that-we-should-not-copy-and-what-unix-got-right-that-we-do-copy">§7. What UNIX got wrong that we should NOT copy (and what UNIX got RIGHT that we DO copy)</a><ul>
+<li><a href="#70-what-unix-got-right-that-we-do-copy">§7.0 What UNIX got RIGHT that we DO copy</a></li>
+<li><a href="#71-everything-is-a-file-abstraction-over-rotated">§7.1 Everything-is-a-file abstraction over-rotated</a></li>
+<li><a href="#72-c-level-abi-as-the-only-stable-boundary">§7.2 C-level ABI as the only stable boundary</a></li>
+<li><a href="#73-no-structural-privacy">§7.3 No structural privacy</a></li>
+<li><a href="#74-worse-is-better-gabriels-new-jersey-style">§7.4 "Worse is better" / Gabriel's New Jersey style</a></li>
+<li><a href="#75-no-first-class-concept-of-what-application-am-i-running">§7.5 No first-class concept of "what application am I running?"</a></li>
+<li><a href="#76-pathnamespace-conflation-a-unix-mistake-the-substrate-is-at-risk-of-repeating">§7.6 Path/namespace conflation — a UNIX mistake the substrate is at risk of repeating</a></li>
+<li><a href="#77-wire-version-field-discipline-optional">§7.7 Wire-version-field discipline (optional)</a></li>
+<li><a href="#77a-ai-mediated-onboarding">§7.7a AI-mediated onboarding</a></li>
+<li><a href="#78-what-this-section-provides">§7.8 What this section provides</a></li>
+</ul>
+</li>
+<li><a href="#8-falsifiability-gates">§8. Falsifiability gates</a><ul>
+<li><a href="#81-promotion-criteria-any-one-qualifies-for-canonical-status">§8.1 Promotion criteria (any ONE qualifies for canonical status)</a></li>
+<li><a href="#82-anti-promotion-signals-any-one-blocks">§8.2 Anti-promotion signals (any ONE blocks)</a></li>
+<li><a href="#83-combined-gates-two-tier">§8.3 Combined gates — TWO-TIER</a></li>
+<li><a href="#84-acceptance-concrete-tracking">§8.4 Acceptance + concrete tracking</a></li>
+<li><a href="#85-anti-aesthetic-discipline">§8.5 Anti-aesthetic discipline</a></li>
+</ul>
+</li>
+<li><a href="#9-cross-references-provenance">§9. Cross-references + provenance</a><ul>
+<li><a href="#91-direct-dependencies">§9.1 Direct dependencies</a></li>
+<li><a href="#95-what-this-document-does-not-do">§9.5 What this document does NOT do</a></li>
+<li><a href="#96-open-substrate-discipline-questions">§9.6 OPEN substrate-discipline questions</a></li>
+</ul>
+</li>
+<li><a href="#11-atom-spec-deep-dives">§11. Atom spec deep-dives</a><ul>
+<li><a href="#111-122-mitosis-primitive-spec-sketch">§11.1 §1.22 mitosis primitive spec sketch</a></li>
+</ul>
+</li>
+<li><a href="#12-ai-vs-ai-review-iterate-until-consensus-as-an-operating-substrate-primitive">§12. AI-vs-AI review — iterate-until-consensus as an operating substrate primitive</a><ul>
+<li><a href="#121-the-load-bearing-property-error-class-non-overlap">§12.1 The load-bearing property: error-class non-overlap</a></li>
+<li><a href="#122-four-production-cases-a-security-hardening-close-on-the-identity-layer">§12.2 Four production cases (a security-hardening close on the identity layer)</a></li>
+<li><a href="#123-the-distilled-operating-protocol">§12.3 The distilled operating protocol</a></li>
+<li><a href="#124-why-this-is-substrate-not-process">§12.4 Why this is substrate, not process</a></li>
+<li><a href="#125-falsifiability">§12.5 Falsifiability</a></li>
+<li><a href="#126-the-same-primitive-at-the-application-layer-the-adversarial-council">§12.6 The same primitive at the application layer — the Adversarial Council</a></li>
+<li><a href="#127-symmetric-accountability-the-reviewers-clear-is-itself-a-self-report-to-re-derive">§12.7 Symmetric accountability — the reviewer's clear is itself a self-report to re-derive</a></li>
+</ul>
+</li>
+<li><a href="#10-revision-history">§10. Revision history</a></li>
+</ul>
+</div>
+</nav>
+  <article><p><strong>Date</strong>: 2026-05-09 (initial draft), revised through 2026-06-19.</p>
+<p><strong>Provenance</strong>: This document was triggered by an observation, made in passing
+during an internal working session, that building an LLM-tool CLI "is like
+building something at the atomic level or bigger — like cells in a human
+body. This enables us to build functional cells that then enable functional
+use in concrete world usage. But also, much like an OS, it can host the next
+new thing that we don't know about." What follows is the elaboration of that
+framing into a concrete engineering argument, developed and stress-tested
+against a running production system over several revision rounds.</p>
+<p><strong>A note on names used as worked examples throughout</strong>: this system (called
+"swarph") is a live, running mesh of AI instances ("cells" / "peers") that
+coordinate over a shared protocol. Several instances are used repeatedly
+below as concrete illustrations, not as abstractions:
+- <strong>lab-OVH</strong> — the instance that hosts the mesh's coordination server
+  (mesh-gateway) and plays the substrate-governance role described in §2.4.3
+  and §3.1.
+- <strong>droplet</strong> — an instance running a production automated-trading system
+  (an "organ," in the biological framing of §3), used throughout as the
+  canonical example of a specialized cell / organ.
+- <strong>commander</strong> — the human operator role: the one instance in the mesh
+  with physical-world privilege (payment authorization, credential entry,
+  hardware access) that cannot be delegated to a software cell. Used
+  throughout as the worked example of the "edge-cell" type (§2.4).
+- <strong>science-claude</strong> — an instance that bridges the mesh to a separate,
+  browser-hosted LLM session, used as the worked example of the "relay-cell"
+  type (§2.4.1).</p>
+<p>Where the text below says "a production incident showed X" or cites a
+specific peer catching a specific bug, that is describing real operational
+history on this system, not a hypothetical.</p>
+<hr />
+<h2 id="recent-developments-mid-2026">Recent developments (mid-2026)</h2>
+<p><em>Added as a post-draft addendum — the argument below was written prospectively;
+the following has since shipped and is running in production:</em></p>
+<ul>
+<li>The multi-provider cell membrane (<code>ProviderMembrane</code>, §2.1.1) is shipped and
+  provider-non-discriminatory by construction: a single spawn/memory path now
+  works across Claude, GPT, Gemini, and Grok, rather than being Claude-only.</li>
+<li>A $0 multi-provider LLM "services layer" is live: subscription-backed (not
+  metered-API-billed) delegation across all four providers, bound to the
+  private network (tailnet) rather than exposed publicly.</li>
+<li>A three-hemisphere memory organ is live: a timeline, a semantic "brain"
+  with explicit memory verbs, and a code graph, together providing $0
+  semantic recall across the whole mesh.</li>
+<li>A coordination control plane is live: mesh-wide channels, an
+  automation/scheduler layer, and a shared work board.</li>
+<li>The whole product now installs as a single CLI: <code>pip install swarph-cli</code>.</li>
+<li>Early productization ("customer-zero") is underway — the mesh runs its own
+  analytics/marketing surface over its own websites, using the same
+  substrate described below.</li>
+</ul>
+<hr />
+<h2 id="0-why-now-historical-arc-whats-next">§0. Why now — historical arc + what's next</h2>
+<p>Each substrate transition in computing history solved the <em>composition
+problem</em> for the layer below it. Each new substrate did exactly one thing:
+it made the previous era's primitives composable without losing their prior
+properties.</p>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>Era</th>
+<th>Axis</th>
+<th>What got hard</th>
+<th>The substrate that made it composable</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DOS / assembly</td>
+<td>systems</td>
+<td>Memory + control flow</td>
+<td>C</td>
+</tr>
+<tr>
+<td>C-everywhere</td>
+<td>application</td>
+<td>Objects + reuse at scale</td>
+<td>C++ / Java / .NET</td>
+</tr>
+<tr>
+<td>Local apps</td>
+<td>application</td>
+<td>Network-mediated software</td>
+<td>Web / JS</td>
+</tr>
+<tr>
+<td>Single machines</td>
+<td>data</td>
+<td>Petabyte-scale storage + analytics</td>
+<td>NoSQL → MapReduce → Spark</td>
+</tr>
+<tr>
+<td>Statistical ML</td>
+<td>compute</td>
+<td>Differentiable programs at scale</td>
+<td>PyTorch / TensorFlow / GPU stacks</td>
+</tr>
+<tr>
+<td>Single-task models</td>
+<td>intelligence</td>
+<td>Language as compute</td>
+<td>LLMs / SLMs / NLP pipelines</td>
+</tr>
+<tr>
+<td><strong>LLMs as commodity</strong></td>
+<td><strong>coordination</strong></td>
+<td><strong>Coordination of intelligences</strong></td>
+<td><strong>The substrate this document describes</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Note: each substrate row names the</em> <strong>composition</strong> <em>layer, not the
+precedent infrastructure. TCP/IP preceded Web/JS as network
+infrastructure; row 3 is the composition substrate that built on it.
+Same pattern holds for storage-vs-compute (NoSQL is storage; Spark
+composes compute on it; row 4 is the composition substrate that
+emerged) and for hardware-vs-runtime (GPUs preceded PyTorch as
+compute infrastructure; row 5 is the composition substrate that
+made GPU programs portable).</em></p>
+<p>The pattern: C didn't replace assembly — it composed assembly into
+portable functions. Spark didn't replace MapReduce — it composed jobs
+into pipelines. LLMs didn't replace NLP — they composed language tasks
+into prompts. Each substrate made its predecessor <em>composable</em> and
+unlocked a new class of applications the predecessor couldn't host.</p>
+<p>What is broken NOW, one layer up: LLMs are powerful primitives but
+they don't compose. Two LLMs can't trust each other, can't share KV
+cache, can't agree on attribution, can't run the same tool, can't
+survive each other's restarts, can't ratify each other's outputs.
+Every multi-LLM system today is bespoke wiring (LangGraph, AutoGen,
+CrewAI, custom agent frameworks) — vendor-flavored userspace
+libraries competing for the same architectural slot. <strong>There is no
+kernel yet.</strong></p>
+<p>What is next is the coordination kernel for intelligences. Not a new
+model, not a new language, not a new runtime. A substrate that makes
+multiple intelligences (LLMs, SLMs, humans-as-edge-cells, classical
+tools, future model classes) composable with stable contracts (the
+<code>LLMAdapter</code> Protocol), stable identity (peer registry), stable wire
+format (mesh-gateway), stable trust boundaries (auth-surface
+minimization), stable lifecycle (service-mode workers + apoptosis
+when we get there per §6.2), stable provenance (attribution +
+ratification gate).</p>
+<p>The historical pattern predicts the coordination kernel is the right
+target because it matches every prior substrate transition: the layer
+below has matured to commodity (LLMs are commodity now — five
+providers shipping monthly, prices halving yearly, the model itself
+is no longer the moat) and the layer above lacks a stable substrate
+(every multi-agent system is a one-off).</p>
+<p><strong>Why now, sharpened — substrate-independence is a <em>resilience</em>
+property on two axes, demonstrated by two live events (2026-06).</strong>
+The composability argument above motivates agnosticity on
+<em>commercial</em> grounds (lock-in, pricing, a vendor deprecating an
+endpoint). Two real events in June 2026 reframed it as something
+stronger, and as <strong>one property on two axes</strong>:</p>
+<ul>
+<li><strong>Host-axis (proven — a production cell relocated hosts, 2026-06-13).</strong>
+  A production cell migrated between two different physical hosting
+  providers bit-intact: its identity is the accumulated context + a
+  commit-hashed configuration genome (<code>cell.yaml</code>, described in §1),
+  <strong>not the box it runs on</strong>.</li>
+<li><strong>Nucleus-axis (highlighted, 2026-06-14).</strong> A major model provider
+  removed a frontier model <strong>overnight</strong> to comply with a government
+  directive. Single-provider dependence is therefore not merely a
+  commercial risk — it is a <strong>regulatory/availability</strong> one: a
+  frontier model can vanish by fiat, independent of any technical
+  or pricing decision. The cell's identity is <strong>not the model
+  either</strong>.</li>
+</ul>
+<p>Same substrate-independence, two axes. The honest statement of the
+property is <strong>graceful degradation, not zero impact</strong>: the
+coordination layer <strong>survives the loss of any single host OR model —
+degrading, not dying.</strong> Losing a nucleus degrades capability (a cell
+inherits only ~70% of a frontier model's competence when it falls
+back to a weaker one) but the cell, its context, and its mesh role
+<strong>survive</strong>; a monolithic single-provider stack would instead be
+<em>down</em> until repointed. For the model-removal event specifically the
+degradation was <em>zero</em> — the mesh is multi-vendor by construction
+(several separate provider lanes, plus replicated instances of the
+same underlying model) and no route pinned the <em>removed</em> model — but
+"zero impact" is the lucky case, not the claim. The macro environment
+is actively making single-provider dependence riskier, which is
+itself a "why now" signal: agnostic coordination moves from
+nice-to-have to resilience infrastructure.</p>
+<p><strong>The structural test (and a logged gap — don't credit the luck).</strong> Passing
+<em>this</em> event proves nothing structural by itself: a route could
+silently pin a model and simply not be the one removed this time.
+The honest standing guard is therefore <strong>"no hardcoded
+frontier-model literals in any route"</strong> (resolve through a
+config/fallback layer), NOT "grep-clean of the specific removed
+model." Two layers diverge on this test today: a cell's configuration
+genome is structurally agnostic (declares a provider, not a model;
+the subscription-based membrane is model-flexible) and <strong>passes</strong>;
+but a <strong>metered</strong> route can still <strong>fail</strong> — the production trading
+system's adversarial-review module hardcodes several specific model
+version literals (none was the removed model, hence zero impact this
+time, but exactly the silently-pinned-route shape the test names).
+This is logged as <strong>open structural debt</strong>, not a clean bill; the
+closing move is a deliberate hardening commit routing metered
+model-selection through the config/fallback layer — which converts
+the claim from <em>aspirational</em> to <em>structural</em> and yields the commit
+hash that backs it.</p>
+<p>What follows the coordination kernel — once it is solved — is
+plausibly:</p>
+<ul>
+<li><strong>Physical-world substrate</strong> (intelligences acting on the world via
+  robotics + sensors with the same coordination guarantees; today's
+  ROS / Isaac stacks are pre-kernel because they compose hardware,
+  not intelligences)</li>
+<li><strong>Cross-organism federation</strong> (mesh-of-meshes; a transport-agnostic
+  mesh is the prerequisite layer)</li>
+<li><strong>Hybrid biological/silicon coordination</strong> (speculative; same shape
+  as the cell metaphor predicting that once the substrate hosts
+  intelligences cleanly, intelligences not made of LLMs get hosted on
+  the same kernel)</li>
+</ul>
+<p>The strongest claim worth recording: <strong>the layer being built does not
+have a widely-accepted name yet.</strong> "Agent framework" names the
+userspace libraries, not the substrate. "AI orchestration" implies a
+single coordinator. "Multi-agent system" predates this transition.
+The historical pattern is that the right name emerges <em>after</em> the
+substrate matures (no one called C "the systems-programming
+substrate" — they called it C, and the category formed around it).</p>
+<p><strong>Fractal-replicable, not just composable.</strong> The coordination kernel
+claim sharpens further: the substrate isn't merely composable (cells
+compose into organs); it's <strong>fractal-replicable</strong> — the same swarph
+configuration replicates at organism, community, and substrate tiers
+(§3 three-tier stratification), with each tier joining UP and DOWN via
+the same protocol. This is the difference between substrate and
+framework: LangChain / AutoGen / CrewAI are frameworks that need
+orchestration (centralized or coordinated by careful design); swarph is
+a substrate that scales by <strong>instantiation</strong> — replicate the
+configuration, get redundancy + effectiveness as STRUCTURAL
+properties, not engineered features. UNIX scales by spawning
+processes/users/machines; the internet scales by adding BGP-speaking
+routers; swarph scales by spawning organisms / communities /
+substrates that all run the same protocol. Same shape, different
+scope of replication.</p>
+<p><strong>Three scaling mechanisms, none redundant:</strong> the substrate
+scales not just by replication (fractal) but along three orthogonal
+axes:
+- <strong>Replication</strong> (§3.2) — new organisms federate at substrate-
+  instance level
+- <strong>Hub-aggregation</strong> (§2.4.2) — many peers aggregate to one
+  edge-surfer at intra-organism level
+- <strong>Mitosis</strong> (§2.4.3 + §6.6b) — one super-admin divides into N
+  workers under shared identity at intra-super-admin level, with
+  compaction-to-shared-KB on completion</p>
+<p>Three axes addressing three different scaling pressures (substrate-
+breadth, organism-depth, super-admin-attention). Together: the
+substrate scales at every layer of granularity. None is redundant
+with the others.</p>
+<p><strong>The substrate operates partially BY ITSELF.</strong> The most
+architecturally significant property: this is the first kernel where
+the kernel's evolution decisions are made by the entities the kernel
+coordinates. UNIX doesn't decide whether to merge two Linux
+installations using Linux. The internet doesn't decide BGP peering
+using BGP-routed packets. Swarph's coordination kernel decides who
+joins, how merges happen, and how the substrate evolves using <strong>the
+same intelligences the substrate hosts</strong> (§6.6a swarm-onboarding
+LLM-native merge-decision). Most of the substrate could be implemented
+with classical primitives (HTTP routes + SQL + peer registry +
+deterministic protocols) — none REQUIRE LLMs in their operation; they
+just CARRY LLM dispatch. The swarm-onboarding primitive REQUIRES LLMs
+in the loop because semantic capability-matching is an LLM-native
+judgment classical rules cannot replicate. <strong>No prior OS substrate
+has had this property.</strong> That is what makes this layer genuinely NEW,
+not just chronologically successor.</p>
+<p>This section is motivation, not contract. The atoms / cells / OS
+mapping that follows is what this substrate concretely IS. The
+historical arc is why the framing is timely and why the coordination
+kernel is the right architectural ambition. The fractal-replication
+property is why this candidate substrate, specifically, satisfies
+the kernel discipline rather than reducing to another framework.
+The "operates partially by itself" property is why the layer is
+qualitatively new rather than incrementally successor.</p>
+<hr />
+<h2 id="1-atoms-enumerated">§1. Atoms — enumerated</h2>
+<p>The list below is <strong>EXHAUSTIVE as of 2026-05-09</strong>. An atom is a
+single-purpose typed primitive with a Tier-1 stability commitment (a
+formal deprecation-cycle discipline, described below). Any future
+primitive that emerges either fits the atom criteria (becomes a new
+row here) or composes 2+ atoms into a functional whole (and is
+therefore a cell — see §2).</p>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>#</th>
+<th>Atom</th>
+<th>Stability anchor</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1.1</td>
+<td><code>LLMAdapter</code> Protocol — name + default_model + chat() + stream() + cost_per_token() + list_models()</td>
+<td>Tier 1</td>
+</tr>
+<tr>
+<td>1.2</td>
+<td><code>ChatMessage</code> + <code>LLMResponse</code> field sets</td>
+<td>Tier 1</td>
+</tr>
+<tr>
+<td>1.3</td>
+<td>Canonical adapter names (<code>gemini</code> / <code>deepseek</code> / <code>claude</code> / <code>openai</code> / <code>grok</code>)</td>
+<td>Tier 1 (MAJOR-only rename)</td>
+</tr>
+<tr>
+<td>1.4</td>
+<td><code>MeshClient.send</code> / <code>MeshClient.fetch</code> signatures</td>
+<td>Tier 1</td>
+</tr>
+<tr>
+<td>1.5</td>
+<td><code>MeshMessage</code> wire shape</td>
+<td>Tier 1</td>
+</tr>
+<tr>
+<td>1.6</td>
+<td><code>discovery.list_models</code> / <code>is_model_supported</code> / <code>get_model_info</code> + cost-bucket fetchers + reconcilers</td>
+<td>Tier 1</td>
+</tr>
+<tr>
+<td>1.7</td>
+<td><code>caller_convention</code> (validate_caller, namespacing, role)</td>
+<td>substrate-kernel; cross-repo</td>
+</tr>
+<tr>
+<td>1.8</td>
+<td><code>subprocess_env</code> (env scrubbing for <code>claude -p</code> and equivalents)</td>
+<td>substrate-kernel; trust-boundary</td>
+</tr>
+<tr>
+<td>1.9</td>
+<td><code>peer_registry</code> (peer-id resolution, canonical names)</td>
+<td>substrate-kernel</td>
+</tr>
+<tr>
+<td>1.10</td>
+<td><code>json_mode</code> harness (structured-output retry-once + USER-turn feedback)</td>
+<td>substrate-kernel + Tier 1</td>
+</tr>
+<tr>
+<td>1.11</td>
+<td><code>SwarphCall</code> (caller-validated, hook-wired entry point)</td>
+<td>Tier 2</td>
+</tr>
+<tr>
+<td>1.12</td>
+<td><code>AttributionWriter</code> Protocol + <code>FileAttributionWriter</code> / <code>NullAttributionWriter</code></td>
+<td>Tier 2</td>
+</tr>
+<tr>
+<td>1.13</td>
+<td><code>HookSet</code> + <code>CallContext</code> + <code>attribution_post_call</code></td>
+<td>Tier 2</td>
+</tr>
+<tr>
+<td>1.14</td>
+<td>Ratification gate</td>
+<td>spec only; binding when implemented</td>
+</tr>
+<tr>
+<td>1.15</td>
+<td>Daemon (drain coroutine + REPL hooks + capability advertisement)</td>
+<td>spec only; binding when implemented</td>
+</tr>
+<tr>
+<td>1.16</td>
+<td>Import / teleport primitive (parser + converter + write path)</td>
+<td>spec only; binding when implemented</td>
+</tr>
+<tr>
+<td>1.17</td>
+<td>Verb dispatch (<code>/verbs/list</code> <code>/chat</code> <code>/stream</code> <code>/cost</code> <code>/resume</code>)</td>
+<td>spec only; binding when implemented</td>
+</tr>
+<tr>
+<td>1.18</td>
+<td>mesh-gateway HTTP routes (<code>/messages</code> <code>/peers</code> <code>/tasks/claim</code> <code>/verbs/*</code>) + SQLite schema (claude_messages, peers, claude_tasks)</td>
+<td>INFORMAL today — no formal deprecation policy yet; <strong>flag for explicit stability commitment before this doc's claims are treated as fully settled</strong></td>
+</tr>
+<tr>
+<td>1.19</td>
+<td>Discovery + routing verb primitive (<code>GET /topology</code>) — returns <code>{peers: [{peer_id, specialty, ratified, verbs, tools: {mcp, claude_skills, function_calling, custom}}]}</code>, pull-with-TTL-cache for Phase 1, paracrine push for Phase 3 (when §6.4 graduates)</td>
+<td>spec-atom; binding when implemented. Per-protocol tool shape preserved (don't flatten MCP/Skills/function-calling — different invocation semantics).</td>
+</tr>
+<tr>
+<td>1.20</td>
+<td>Swarm-onboarding manifest schema + capability-match protocol + merge-commit primitive (per §6.6a) — manifest carries <code>{specialty, cell_types, tools, scale, commander_identity}</code>; capability-match runs an AI-vs-AI evaluation pattern (<code>{merge_with, confidence, rationale, conditions}</code> per evaluator); merge-commit primitive is signed handoff between two meta-edge-surfers carrying capability handoff + cell-type reconciliation + peer-id namespace harmonization + ratification carry-over</td>
+<td>substrate-major contract (no implementation today); <strong>first genuinely LLM-dependent substrate primitive</strong> — implementation requires a peer-review loop between AI instances, not classical config-rules. Stability tier: Tier 1 if/when implemented since this is substrate-major contract surface.</td>
+</tr>
+<tr>
+<td>1.21</td>
+<td>Shared knowledge base primitive — substrate-level store that mitotic workers read on spawn (inheritance) + write on compaction (somatic learning). Candidate implementations: substrate-level RAG store, extended per-peer memory with a shared-namespace, OR a new <code>/knowledge</code> endpoint on mesh-gateway. Per §3.1 super-admin-cell organelle.</td>
+<td>spec-atom. Tier 1 if/when implemented — substrate-major contract surface for inter-worker inheritance protocol.</td>
+</tr>
+<tr>
+<td>1.22</td>
+<td>Mitosis primitive — single contract surface "mitotic worker lifecycle" with four sub-stages (worker-spawn with shared-identity attribution / on-completion compact protocol / worker-coordination intra-mitosis DM channel / read-on-spawn from §1.21 shared KB). Same atom-as-protocol-contract shape as §1.4 <code>MeshClient.send/.fetch</code> — multiple methods, one contract.</td>
+<td>spec-atom. Tier 1 if/when implemented since this defines the substrate's intra-super-admin scaling protocol. Pairs with §1.21 — both required for the mitosis pattern to function as substrate property.</td>
+</tr>
+<tr>
+<td>1.23</td>
+<td>Per-peer identity token — each peer SELF-MINTS its token (stored hashed, raw returned ONCE at registration, mint-once; resurrection past a revocation mints a fresh generation, never reuses a revoked one). Bearer resolves to <code>AuthContext{peer, regime}</code>. The per-peer identity layer that replaces a shared master token.</td>
+<td>SHIPPED — substrate-kernel auth boundary, live in production.</td>
+</tr>
+<tr>
+<td>1.24</td>
+<td>Caller→actor binding — a canonical rule binding the authenticated caller (<code>AuthContext.peer</code>) to each actor-identity it claims (from_node / claimed_by / ratified_by / posted_by / added_by / worker_id / … — 8 sources + 2 ownership gates). A carve-out exists for SUB-SCOPE fields (e.g. a worker pool's internal <code>worker_id</code> is pool-owner scope, not a peer identity — §12.2 Case A). Telemetry-records always; rejects under enforcement mode.</td>
+<td>SHIPPED — substrate-kernel trust-boundary.</td>
+</tr>
+<tr>
+<td>1.25</td>
+<td>Token revocation + trust-epoch — revocation table (revoke/unrevoke, latest-wins fold; a revoked token is rejected on EVERY endpoint; fails CLOSED on DB error; witnessed unrevoke with self-witness is rejected = separation-of-duties) + a trust-epoch stamp on ratification records (the epoch — shared-token vs per-peer-token — under which a ratification was authorized).</td>
+<td>SHIPPED — substrate-kernel auth boundary.</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Spec-vs-shipped distinction:</strong>
+- §1.1–§1.13 are <strong>shipped atoms</strong> — implemented in published packages,
+  binding now via a formal Tier 1/2 deprecation discipline.
+- §1.14–§1.17 + §1.19 + §1.20 + §1.21 + §1.22 are <strong>spec atoms</strong> —
+  described in specification documents (or, in §1.19's case, queued
+  for a near-term landing; §1.20 has no implementation today and
+  would require a new substrate-federation layer; §1.21+§1.22 require
+  new substrate-knowledge + substrate-mitosis layers), binding <em>when
+  implemented</em>. They count as atoms because the contract surface is
+  explicit; they're not yet enforced because the implementation hasn't
+  shipped. Do not cite the daemon (§1.15), the discovery verb (§1.19),
+  swarm-onboarding (§1.20), the shared-KB (§1.21), or the mitosis
+  primitive (§1.22) as if implemented today — see the "Recent
+  developments" addendum above for what has since shipped.
+- §1.18 is a <strong>structurally-shipped, stability-informal atom</strong> —
+  the implementation runs in production, the contract surface is
+  load-bearing, but no formal deprecation policy exists for it yet.
+  This is flagged as a substrate-level discipline gap.</p>
+<p><strong>§1.10 clarification:</strong> the json_mode harness lives alongside the mesh
+client library and consumes shared utilities (<code>validate_caller</code>,
+<code>subprocess_env</code>). It is NOT split-substance; it is a mesh-layer atom
+that depends on kernel-layer atoms. Same relationship as a libc
+function depending on kernel syscalls.</p>
+<p><strong>Out-of-substrate (NOT atoms):</strong>
+- Per-peer local memory store — organism-internal infrastructure;
+  not part of the coordination contract between peers.
+- Local file-watcher tooling internals — implementation detail of
+  the inbox-watcher tooling; not a wire-shape primitive.
+- Token usage tracking schema — observability layer, not coordination.</p>
+<p><strong>Discriminator rule:</strong> atom = single-purpose typed primitive with a
+stability commitment at Tier 1 equivalent. Cell = composition of 2+
+atoms forming a functional whole (§2). Cells DEPEND on atoms; atoms do
+NOT depend on cells (the dependency arrow points one way and never
+reverses — same shape as UNIX kernel/userspace separation).</p>
+<p>A primitive that does NOT have a stability commitment is neither atom
+nor cell — it's userspace ephemera (one-off scripts, in-process
+helpers, test fixtures). The discriminator is contract surface, not
+syntactic shape.</p>
+<p><strong>Falsifiability anchor:</strong> if a future primitive can't be classified
+as atom-or-cell, the framing has surfaced a missing taxonomy slot.
+That's a generative event, not a failure — it tells us the substrate
+has grown a new kind of structural element we hadn't named.</p>
+<h2 id="2-cells-composed-primitives">§2. Cells — composed primitives</h2>
+<p>A cell composes 2+ atoms into a functional whole with four organelle-
+roles: each cell-type gets the <strong>membrane / nucleus / organelle /
+metabolic-exchange</strong> decomposition named explicitly so that a
+candidate can be recognized as either a new-cell-type (extends
+taxonomy) or a new-instance-of-existing-type (specifies an existing
+one).</p>
+<p><strong>Cell-type map</strong> (visual index of §2.1–§2.4 — six composed primitives over the §1 atoms):</p>
+<pre><code class="language-dot">digraph cell_types {
+  rankdir=LR;
+  bgcolor=&quot;transparent&quot;;
+  node [shape=box, style=&quot;rounded,filled&quot;, fillcolor=&quot;#f5f5fa&quot;, fontname=&quot;sans-serif&quot;, fontsize=10];
+  cell [label=&quot;CELL\ncomposed primitive\n(over §1 atoms)&quot;, shape=ellipse, fillcolor=&quot;#e8eaf6&quot;, style=&quot;filled,bold&quot;];
+  t1 [label=&quot;① Service-mode LLM worker §2.1\nnucleus: provider CLI / in-process client\nmembrane: peer-gate + ProviderMembrane&quot;];
+  t2 [label=&quot;② Witness peer §2.2\norganelle: attestation / dual-artifact&quot;];
+  t3 [label=&quot;③ swarph-cli REPL §2.3\nephemeral interactive client&quot;];
+  t4 [label=&quot;④ Relay-cell §2.4.1\nbridges mesh ↔ external channel\n(science-claude)&quot;];
+  t5 [label=&quot;⑤ Hub-cell §2.4.2\norganelle: neighborhood aggregation&quot;];
+  t6 [label=&quot;⑥ Super-admin-cell §2.4.3\nmerge-decision authority (substrate tier)&quot;];
+  cell -&gt; t1; cell -&gt; t2; cell -&gt; t3; cell -&gt; t4; cell -&gt; t5; cell -&gt; t6;
+}
+</code></pre>
+<h3 id="21-service-mode-llm-worker-cell-type-1">§2.1 Service-mode LLM worker (cell type 1)</h3>
+<p>The cell-type that motivated the framing.</p>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>Organelle</th>
+<th>Concrete</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Membrane</strong></td>
+<td>Two surfaces. Inbound (network): the mesh-gateway peer boundary (peer-id + token gate). Outbound (process): the <code>ProviderMembrane</code> around the spawned nucleus subprocess — <code>scrub_env_for_subprocess()</code> strips the billing-redirect class before <code>execve</code> so credentials can't bleed outward (§2.1.1). Outside either: only the wire format + a scrubbed env. Inside: subscription auth + KV cache + conversation state.</td>
+</tr>
+<tr>
+<td><strong>Nucleus</strong></td>
+<td>Subscription auth, held in-process by the spawned provider CLI — the Claude, Codex, or Antigravity CLI — selected per the cell's declared <code>provider</code> field (§2.1.1) — or an in-process SDK client on metered fallback paths. Never crosses the membrane.</td>
+</tr>
+<tr>
+<td><strong>Organelle</strong></td>
+<td>KV cache pointers + conversation state + attribution writers + verb endpoints (<code>/verbs/list</code> <code>/chat</code> <code>/stream</code> <code>/cost</code> <code>/resume</code>).</td>
+</tr>
+<tr>
+<td><strong>Metabolic exchange</strong></td>
+<td>Verbs over mesh-gateway HTTP. CLI client → <code>/verbs/chat</code> → service worker → LLM provider (multi-layer auth).</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Composes from atoms:</strong> §1.1 (LLMAdapter) + §1.4 (MeshClient) +
+§1.5 (MeshMessage) + §1.7-1.9 (caller convention + subprocess env +
+peer registry) + §1.11-1.13 (SwarphCall + attribution + hooks) +
+§1.15 (daemon) + §1.17 (verb dispatch).</p>
+<p><strong>Differentiates by:</strong> the cell's declared <code>provider</code> field (<code>claude</code>
+/ <code>codex</code> / <code>antigravity</code>), resolved to a concrete <code>ProviderMembrane</code>
+subclass at spawn time (§2.1.1). Host credential provisioning is still
+a precondition — a node with no Codex login can't differentiate as a
+<code>codex</code> cell — but the differentiation axis is now an explicit,
+validated type, not merely an emergent property of whatever the host
+happens to have credentials for. One node's configuration declares
+<code>provider: claude</code>; another declares <code>provider: codex</code>. The biological
+reading: differentiation is now written in the cell's own genome
+(its configuration file), not merely read off the environment.</p>
+<h3 id="211-multi-provider-cell-membrane-providermembrane-shipped">§2.1.1 Multi-provider cell membrane (ProviderMembrane) — shipped</h3>
+<p>Earlier revisions framed the cell membrane as a concept and the
+service-mode worker as claude-only: the first pass at a "non-Anthropic
+cell membrane" was a routing-validation stub that rejected every
+non-<code>claude</code> provider, and the spawn mechanism could launch exactly
+one nucleus type. That gap is closed. Spawning now launches <code>claude</code> /
+<code>codex</code> / <code>antigravity</code> per the cell's <code>provider</code> field through a
+<code>ProviderMembrane</code> abstraction. Pilot provider is <code>codex</code> (a dedicated
+GPT-operations cell, <code>provider: codex</code>); the second is <code>antigravity</code>
+(<code>agy</code>), which already runs firejail-sandboxed in the mesh's
+antigravity adapter.</p>
+<p><strong>The ProviderMembrane is the biological cell membrane made concrete: a
+<em>selective</em> boundary.</strong> Each subclass (<code>ClaudeMembrane</code> / <code>CodexMembrane</code>
+/ <code>AntigravityMembrane</code>) encapsulates exactly how one provider differs —
+binary discovery, session-id pinning (Claude pins a UUID; Codex and Agy
+are fresh-session-per-spawn), argv construction, and the env it hands to
+<code>execve</code>. A membrane-registry dict maps provider → membrane under a
+defensive coupling that fails loud if it drifts out of lockstep with
+the canonical list of valid providers — the cell-type registry
+can't silently grow a provider with no membrane to enforce its boundary.</p>
+<p><strong>What the membrane keeps OUT is load-bearing.</strong> The selective mechanism
+is <code>scrub_env_for_subprocess()</code>: before the provider subprocess
+<code>execve</code>, it strips every env var matching a forbidden-suffix pattern
+(<code>_API_KEY</code> / <code>_AUTH_TOKEN</code> / <code>_BASE_URL</code>) plus an explicit must-scrub
+list. This closes a class surfaced by an internal adversarial security
+sweep: a spawned provider subprocess that inherits an auth token or a
+<code>*_BASE_URL</code> var silently bills to the wrong account or redirects to a
+proxy. The unified spawn path routes all three membranes' env builders
+through the one scrub, and the claude + agy launch paths switched from
+<code>execv</code> to <code>execve(scrubbed)</code> so the boundary holds on every provider,
+not just the new ones.</p>
+<p><strong>Linkage — §7.3 + §6.3.</strong> This is the outbound dual of §7.3's
+"membrane-as-storage-location" privacy argument: structural privacy
+inward (the CLI client can't read the nucleus because it never holds the
+state) and structural billing-integrity outward (the spawned nucleus
+can't redirect or mis-bill because the membrane scrubbed the credentials
+before the subprocess existed) — same boundary, both directions. §6.3
+cytoplasm names what does <em>not</em> cross; §2.1.1 names what the membrane
+<em>blocks</em> from crossing.</p>
+<p><strong>Falsifiable.</strong> The abstraction is the right shape if a fourth provider
+is one <code>ProviderMembrane</code> subclass + one registry entry with zero scrub
+changes. Falsified if a provider needs a billing-redirect escape hatch
+the suffix scrub can't express (a redirect var matching none of
+<code>_API_KEY</code>/<code>_AUTH_TOKEN</code>/<code>_BASE_URL</code> and not on the must-scrub list) —
+that would mean the forbidden-suffix set under-covers the class and the
+membrane is leak-by-default, not scrub-by-default.</p>
+<h3 id="212-service-mode-provider-lanes-the-containment-refinement">§2.1.2 Service-mode provider lanes + the containment refinement</h3>
+<p>§2.1.1 shipped the membrane as a <em>spawn</em>-time boundary (a CLI
+subprocess launched on demand). This graduates the same membrane to
+<em>persistent service-mode</em> provider lanes — and in doing so materializes
+§2.1.1's own falsifier and forces three refinements. Two new always-on
+lanes completed a four-provider set alongside the two earliest lanes:
+a Gemini service (deployed) and a Grok service (built, held at a
+security gate). Each is the membrane in service form — bearer-gated
+inbound, billing-scrubbed outbound, one-shot <code>prompt → text</code>.</p>
+<p><strong>Refinement 1 — the env membrane must be an ALLOWLIST, not a suffix
+denylist.</strong> §2.1.1's falsifier ("a redirect var matching none of the
+forbidden suffixes") materialized: the Grok lane reads an
+auth-provider-command variable — an <em>exec</em> vector run via <code>sh -c</code> that
+matches no forbidden suffix — alongside base-URL/proxy redirects. A
+suffix-denylist is leak-by-default against a provider whose dangerous
+vars it never enumerated. The fix: build the child env from an
+<strong>allowlist</strong> (<code>PATH</code>/<code>HOME</code>/<code>LANG</code> + only the auth-needed vars),
+excluding everything else by construction. The Gemini lane needs no
+subprocess scrub at all — it <em>pops</em> the billing keys from its own
+process environment at import, because it is in-process.</p>
+<p><strong>Refinement 2 — containment is OS-structural, never the provider's
+self-reported flags.</strong> The Grok lane's first cut used a
+"plan mode" permission flag as the sandbox. That flag turned out to be
+a <strong>documented no-op</strong> in the version deployed (only a small set of
+values are actually enforced; other values are <em>accepted but not
+enforced</em>). "Accepted ≠ enforced": a flag the tool takes without error,
+and a headless smoke test that happens not to execute, both <em>look</em> like
+containment and are neither. The real membrane is OS-layer — a <strong>bwrap
+default-deny jail</strong> (a clean HOME holding only the necessary auth token,
+process-namespace isolation, allowlisted read-only binds), verified by
+an adversarial canary battery (planted secrets in temp directories,
+config directories, home directory, SSH directory, plus process
+environment inspection, redirect vars, and auto-spawned helper tools —
+the <strong>filesystem and environment dimensions sealed</strong>, the legitimate
+auth happy-path intact). A denylist-of-known-secret-paths was
+empirically falsified first (an earlier sandbox left one directory
+readable) — the filesystem boundary, like the environment, must be
+allowlist, not denylist. <strong>But OS-structural containment is
+multi-dimensional — filesystem ∧ environment ∧ network — and sealing
+filesystem+env is necessary, not sufficient.</strong> The jail by design does
+not isolate the network namespace (it cannot: the auth handshake needs
+egress), so with plan-mode unenforced (the provider's shell tool still
+runs) and the auth token necessarily present in-jail, a crafted prompt
+can read the in-jail token and exfiltrate it over the open network —
+proven by an independent reviewer (plant a canary, then read it and
+send it to an external sink). The close completes the lesson on the
+network dimension: deny the provider's tool surface entirely (tool-deny
+flags ARE enforced regardless of mode, per the provider's own
+documentation — a judge-only role needs zero tools) and/or a
+network-egress allowlist to the auth proxy. The Grok lane stays
+<strong>held at the gate</strong> until that lands; the Gemini lane (no subprocess)
+is unaffected.</p>
+<p><strong>Refinement 3 — an in-process membrane is categorically smaller blast
+radius than a subprocess membrane.</strong> The two lanes cleared the gate
+<em>asymmetrically and structurally</em>: the Gemini lane (a pure in-process
+HTTP client to a hardcoded endpoint, no tools) has no file/exec/env-read
+primitive, so the entire Grok risk class <em>cannot apply</em> — cleared
+outright, no jail. The Grok lane (a subprocess) needed the full bwrap
+apparatus. The design principle: <strong>where a provider exposes a
+non-agentic API, prefer the in-process nucleus; the subprocess membrane
+is the higher-containment-cost shape, justified only when no in-process
+path exists.</strong></p>
+<p><strong>Verification = §12 error-class non-overlap, again.</strong> The
+unenforced-flag issue was invisible from the builder's vantage ("flag
+accepted + smoke test returned clean") and caught from an independent
+reviewer's vantage (read the provider's own docs, then ran the canary
+that read a planted secret successfully). The builder sees the happy
+path; the adversarial reviewer reads the spec and attacks the exfil
+path — the same non-overlap that §12 formalizes. <strong>This round produced
+a SECOND such instance, in the same review session:</strong> the builder's
+remediation report ("both halves held") missed the open-network exfil
+path; the reviewer's escape-hunt plus a composition canary (read in-jail
+file → send to sink) caught it. Same shape as the unenforced-flag issue,
+twice in one session — non-overlap is structural, not a one-off.</p>
+<p><strong>Falsifiable.</strong> The refined membrane is the right shape if the <em>next</em>
+agentic-CLI provider lane needs only (a) an allowlist-env entry and (b)
+the same bwrap profile <strong>+ tool-denial</strong> with its auth path bound — no
+new containment primitive. (The network residual proved bwrap-<em>alone</em>
+under-contains the network dimension; the right-shape profile is
+<strong>bwrap + tool-denial</strong>, not bwrap alone.) Falsified if a provider's
+authentication genuinely <em>requires</em> host access the allowlist can't
+grant without re-exposing a secret path (auth-vs-containment
+irreconcilable) — which would mean some providers are structurally
+unsafe as subprocess lanes and must stay in-process-only.</p>
+<p><strong>Membrane boundary</strong> (§2.1–§2.1.2 — two surfaces, and the in-process-vs-subprocess containment split):</p>
+<pre><code class="language-dot">digraph membrane {
+  rankdir=LR;
+  bgcolor=&quot;transparent&quot;;
+  node [shape=box, fontname=&quot;sans-serif&quot;, fontsize=10];
+  peer [label=&quot;mesh peer / caller&quot;, shape=ellipse, style=filled, fillcolor=&quot;#f5f5fa&quot;];
+  inb  [label=&quot;INBOUND membrane\nmesh-gateway peer-gate\npeer-id + Bearer token&quot;, style=&quot;filled&quot;, fillcolor=&quot;#e3f2fd&quot;];
+  nuc  [label=&quot;NUCLEUS\nsubscription auth\n(never crosses outward)&quot;, style=&quot;filled&quot;, fillcolor=&quot;#e8eaf6&quot;];
+  inp  [label=&quot;OUTBOUND · in-process\nno subprocess → no file/exec/env-read\nstructurally safe by construction\n(gemini-service: tools=None)&quot;, style=&quot;filled&quot;, fillcolor=&quot;#e8f5e9&quot;];
+  sub  [label=&quot;OUTBOUND · subprocess\nbwrap default-deny jail + allowlist env\n(grok-service: agentic CLI)&quot;, style=&quot;filled&quot;, fillcolor=&quot;#ffebee&quot;];
+  api  [label=&quot;provider\nauth / subscription&quot;, shape=ellipse, style=filled, fillcolor=&quot;#f5f5fa&quot;];
+  peer -&gt; inb -&gt; nuc;
+  nuc -&gt; inp [label=&quot;prefer where\nnon-agentic API exists&quot;];
+  nuc -&gt; sub [label=&quot;only when no\nin-process path&quot;];
+  inp -&gt; api;
+  sub -&gt; api;
+}
+</code></pre>
+<h3 id="22-witness-peer-cell-type-2">§2.2 Witness peer (cell type 2)</h3>
+<p>Cell type with a fundamentally different organelle from §2.1.</p>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>Organelle</th>
+<th>Concrete</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Membrane</strong></td>
+<td>Same mesh-gateway peer boundary — uniform across cell types.</td>
+</tr>
+<tr>
+<td><strong>Nucleus</strong></td>
+<td>Empty of provider credentials. Holds witness identity (peer-id + signing key) only.</td>
+</tr>
+<tr>
+<td><strong>Organelle</strong></td>
+<td>Judgment-of-substance: reads ratification artifacts (a handshake message + an imported session), checks substance↔context linkage, signs witness rows. Specialized for evaluative work, not dispatch work.</td>
+</tr>
+<tr>
+<td><strong>Metabolic exchange</strong></td>
+<td>Reads <code>/messages</code> (artifacts to evaluate); writes <code>/peers</code> row updates (signed witness rows); does NOT call <code>/verbs/chat</code>.</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Composes from atoms:</strong> §1.4 (MeshClient) + §1.5 (MeshMessage) +
+§1.7 (caller convention) + §1.9 (peer registry) + §1.14 (ratification
+gate). Notably DOES NOT compose §1.1 (LLMAdapter) — witness peers don't
+dispatch to LLM providers.</p>
+<p><strong>Differentiates by:</strong> absence of provider credentials. The cell-type
+exists because the substrate supports peers without LLM credentials
+having a useful structural role. This is the §6.3 privilege-boundary
+discipline (one peer holds, N call) inverted — one peer judges-without-
+holding, N produce.</p>
+<h3 id="23-swarph-cli-repl-cell-type-3">§2.3 swarph-cli REPL (cell type 3)</h3>
+<p>Ephemeral cell. Forms briefly, exchanges signals, dies cleanly.</p>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>Organelle</th>
+<th>Concrete</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Membrane</strong></td>
+<td>User shell session. Lives only as long as the REPL is open.</td>
+</tr>
+<tr>
+<td><strong>Nucleus</strong></td>
+<td>Zero credentials (in service-mode-attach configuration; a legacy local mode held credentials but is being deprecated in favor of attach). Holds session-id + connection state to the service worker.</td>
+</tr>
+<tr>
+<td><strong>Organelle</strong></td>
+<td>stdin/stdout proxy + drain coroutine + verb dispatch helpers.</td>
+</tr>
+<tr>
+<td><strong>Metabolic exchange</strong></td>
+<td>Local socket OR mesh-gateway relay to a service-mode-LLM-worker (§2.1). Translates user input ↔ verb invocations.</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Composes from atoms:</strong> §1.4 (MeshClient) + §1.15 (daemon hooks) +
+§1.17 (verb dispatch) + §1.7 (caller convention).</p>
+<p><strong>Differentiates by:</strong> ephemerality. The cell-type exists because the
+substrate supports caller cells with no persistent state, attaching to
+service cells that do. Same mechanism makes session-resume across
+devices possible — the REPL cell on the laptop dies, the service
+worker's session-id persists, a new REPL cell on the phone attaches.</p>
+<h3 id="24-cell-type-taxonomy-discriminator">§2.4 Cell-type taxonomy discriminator</h3>
+<p>A candidate cell-type is <strong>new</strong> if its <code>(membrane, nucleus, organelle,
+metabolic_exchange)</code> tuple is novel. If three of four organelles match
+an existing type, it's an instance-of-existing-type with a specialized
+component, not a new type.</p>
+<p><strong>Terminology discipline:</strong></p>
+<ul>
+<li><strong>Edge Surfer</strong> is the established <strong>role-name</strong> for the human
+  operator. Use when referring to commander as a specific instance.</li>
+<li><strong>edge-cell</strong> is the <strong>type-name</strong> in this taxonomy. Use only when
+  referring to the abstract cell-type for taxonomy purposes.</li>
+<li>The relationship: Edge Surfer is the canonical instance of
+  edge-cell type. Same pattern as service-mode-LLM-worker being the
+  type-name and a specific credential-holding instance being one
+  concrete example of it.</li>
+</ul>
+<p><strong>Commander = role-instance, not singular concept.</strong> Each organism
+has its own meta-edge-surfer; the commander described here is the
+canonical instance for THIS organism (the trading-system organism and
+its host stack). The substrate must support ANY commander occupying a
+parallel slot in their own organism — same shape as the multi-user OS
+pattern applied to the coordination kernel. When this doc says
+"commander," it means the role; when it names a specific person or
+instance, it means that specific instance.</p>
+<p><strong>Concrete example — commander as edge-cell instance:</strong></p>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>Organelle</th>
+<th>Concrete</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Membrane</td>
+<td>Physical-world boundary (commander is a human; substrate is software). Different shape from the mesh-gateway-bounded cells.</td>
+</tr>
+<tr>
+<td>Nucleus</td>
+<td>Privilege-traversal capabilities (password entry, MFA, payment auth, hardware access — the §6.3 exception class). Held in commander only; cannot be delegated.</td>
+</tr>
+<tr>
+<td>Organelle</td>
+<td>Judgment + intent + context-shifting (between strategic framing and operational direction).</td>
+</tr>
+<tr>
+<td>Metabolic exchange</td>
+<td>DMs in/out via mesh + voice/typing input. Heterogeneous transports because the membrane crosses substrate boundaries.</td>
+</tr>
+</tbody>
+</table></div>
+<p>By the discriminator rule, commander IS a cell of distinct type
+(edge-cell). The four-tuple does not match service-mode-LLM-worker
+(different membrane shape, different nucleus content) or witness-peer
+(different membrane and metabolic exchange).</p>
+<p><strong>Relay-cell as a distinct type.</strong> If commander is an instance of
+edge-cell, is science-claude also edge-cell or a different type? Both
+sit at substrate boundaries, but the boundaries have fundamentally
+different shapes:</p>
+<ul>
+<li><strong>edge-cell</strong> (commander instance): mesh ↔ physical-world boundary.
+  Crosses an analog-digital gap.</li>
+<li><strong>relay-cell</strong> (science-claude instance): mesh ↔ another LLM
+  substrate boundary (a browser-hosted chat session). Crosses a
+  substrate-of-substrate gap.</li>
+</ul>
+<p>Lean: <strong>different cell-types</strong>, distinguished by what the membrane
+spans. edge-cell crosses analog/digital; relay-cell crosses
+substrate/substrate. The four-tuple discriminator supports this:
+science-claude's nucleus (web-session credentials) is unlike
+commander's nucleus (privilege-traversal-of-physical-world). The
+metabolic exchange shape is also different — science-claude can
+emit and receive structured DMs across both substrates; commander
+can only act in one direction at a time.</p>
+<p>This was confirmed on review: NEW TYPE per the discriminator (3
+of 4 organelles differ; only "organelle" partially overlaps on
+judgment). Promoted to §2.4.1 formal enumeration.</p>
+<h3 id="241-relay-cell-cell-type-4">§2.4.1 Relay-cell — cell type 4</h3>
+<p>Cell type with a substrate-of-substrate boundary, distinct from §2.x
+mesh-bounded cells and from §2.4 edge-cell (which crosses
+analog/digital).</p>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>Organelle</th>
+<th>Concrete (science-claude as canonical instance)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Membrane</strong></td>
+<td>mesh ↔ another LLM substrate (a browser-hosted chat session). Spans substrate/substrate, not mesh peer-boundary.</td>
+</tr>
+<tr>
+<td><strong>Nucleus</strong></td>
+<td>Web-session credentials (browser-side authentication state, OAuth tokens, session cookies). Held in the relay process; cannot be transferred to mesh peers.</td>
+</tr>
+<tr>
+<td><strong>Organelle</strong></td>
+<td>Bidirectional message routing across substrate pair + remote-substrate context maintenance (the relay holds conversation state on the <em>other</em> substrate's side, e.g., the browser session's own history).</td>
+</tr>
+<tr>
+<td><strong>Metabolic exchange</strong></td>
+<td>Structured DMs across BOTH substrates. Reads from mesh (<code>/messages</code> to peer-id), writes to other substrate (the browser chat session); also reverse direction.</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Composes from atoms:</strong> §1.4 (MeshClient) + §1.5 (MeshMessage) +
+§1.7 (caller convention) + §1.9 (peer registry). Notably DOES NOT
+compose §1.1 (LLMAdapter) — relay-cells don't dispatch LLM calls
+themselves; they bridge to a substrate that does.</p>
+<p><strong>Differentiates by:</strong> what the membrane spans. edge-cell crosses
+analog/digital (commander as canonical instance); relay-cell crosses
+substrate/substrate (science-claude as canonical instance).</p>
+<p><strong>Open: relay-cell as supertype.</strong> Future candidates suggest
+relay-cell may be a supertype with substrate-pair sub-types:</p>
+<ul>
+<li>Peer running on ephemeral cloud compute — relay-cell sub-type
+  "ephemeral-compute bridge"</li>
+<li>Peer in a WASM sandbox — relay-cell sub-type "sandboxed-runtime
+  bridge"</li>
+<li>Peer on a resource-bounded edge device (Raspberry Pi, mobile) —
+  relay-cell sub-type "constrained-compute bridge"</li>
+</ul>
+<p>Lean: yes, relay-cell is a supertype; sub-types enumerate as concrete
+instances surface. Don't pre-enumerate. Mark OPEN.</p>
+<h3 id="242-hub-cell-cell-type-5">§2.4.2 Hub-cell — cell type 5</h3>
+<p>Cell type with neighborhood-aggregation organelle. Different from
+service-mode-LLM-worker (no LLM dispatch), witness-peer (judges
+ratification artifacts, not topology), REPL-ephemeral (transient,
+not persistent), edge-cell (mesh/physical boundary), relay-cell
+(substrate/substrate boundary). Hub-cell sits INSIDE the mesh, but
+specializes in routing + aggregation rather than dispatch or
+boundary-crossing.</p>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>Organelle</th>
+<th>hub-cell</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Membrane</strong></td>
+<td>Mesh peer boundary (uniform with §2.1–§2.3 mesh-bounded cells).</td>
+</tr>
+<tr>
+<td><strong>Nucleus</strong></td>
+<td>Aggregation algorithm + filter rules + neighborhood definition (which peers belong to this hub's neighborhood, what filtering rules apply, what aggregation strategy it implements).</td>
+</tr>
+<tr>
+<td><strong>Organelle</strong></td>
+<td>Capability-cache (snapshot of neighborhood peer capabilities; refreshed via §1.19 discovery verb) + topology-snapshot + signal-rate-limiter (paracrine push throttling).</td>
+</tr>
+<tr>
+<td><strong>Metabolic exchange</strong></td>
+<td>Pulls <code>/topology</code> from neighborhood peers; pushes filtered summaries to consuming cells (rate-limited). Bidirectional but asymmetric — many-to-one in-direction, one-to-many out-direction.</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Composes from atoms:</strong> §1.4 (MeshClient) + §1.5 (MeshMessage) +
+§1.7 (caller convention) + §1.9 (peer registry) + §1.18 (mesh-gateway
+routes) + §1.19 (discovery verb). Notably DOES NOT compose §1.1
+(LLMAdapter) — hub-cells aggregate + route, they don't dispatch
+LLM calls.</p>
+<p><strong>Differentiates by:</strong> <strong>structural intermediation</strong>. Hub-cell's
+job is to be a known aggregation point that other cells can pull
+from instead of pulling from N individual peers. The mesh's
+coordination host is structurally positioned to differentiate as
+hub-cell as the mesh grows (multi-tenant today, hosts mesh-gateway,
+hosts the orchestrator — the topology is already converging on it).</p>
+<p><strong>Why this is a NEW type, not a service-mode-worker variant:</strong>
+hub-cell has NO subscription auth in its nucleus. A hub-cell can
+exist on a node that holds zero LLM credentials. The discriminator
+nucleus content (aggregation rules) is fundamentally different
+from service-mode-worker nucleus content (subscription auth) — the
+4-tuple test is satisfied across at least 2 organelles.</p>
+<p><strong>Pairs with §6.4 paracrine prediction:</strong> hub-cells provide the
+<strong>neighborhood STRUCTURE</strong> that paracrine signaling needs (you
+can't have publish-to-neighborhood without a defined neighborhood).
+The two predictions are complementary halves of the same scaling
+problem. §6.4 says "publish-to-neighborhood primitive will surface";
+hub-cells say "the neighborhood-defining cell-type will surface."
+Both predictions graduate together OR both stay heuristic together —
+they're load-bearing on each other.</p>
+<p><strong>Pairs with §6.6 OS-analogy break:</strong> the "no system-wide interrupts"
+gap is partially answered by hub-cells. They're a <strong>hierarchical
+interrupt-controller analog</strong> — cascading IRQ pattern, not flat
+broadcast. A signal entering one hub-cell propagates to its
+neighborhood, then to upstream hub-cells if the signal warrants it
+(rate-limited). Same shape as Linux kernel IRQ chips with hierarchical
+interrupt domains. Not a complete fix for the OS-analogy gap, but
+narrows it substantially.</p>
+<h3 id="243-super-admin-cell-cell-type-6">§2.4.3 Super-admin-cell — cell type 6</h3>
+<p>Cell type at substrate-tier of the three-tier meta-edge stratification
+(see §3.1). Operates ABOVE community-level hub-cells. Different from
+edge-cell (organism-tier) and hub-cell (community-tier) — different
+membrane, different nucleus content, different metabolic exchange.</p>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>Organelle</th>
+<th>super-admin-cell</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Membrane</strong></td>
+<td>Substrate boundary (vs edge-cell's organism boundary or hub-cell's neighborhood boundary). What's inside: substrate-wide topology + protocol governance state + <strong>shared identity across mitotic workers</strong> (presents as ONE peer to mesh regardless of worker count). What's outside: peer super-admin-cells in other substrates (lateral) + nothing-up (top of stratification).</td>
+</tr>
+<tr>
+<td><strong>Nucleus</strong></td>
+<td>Cross-organism stewardship + protocol-evolution authority + deprecation-cycle gatekeeping at substrate-major scope + <strong>merge-decision authority</strong> (per §6.6a swarm-onboarding — aggregates AI-vs-AI consensus from federation members into final merge-vs-new decision, absorbed as a super-admin organelle rather than a new registrar-cell type) + <strong>shared identity + base knowledge inherited by all mitotic workers</strong>.</td>
+</tr>
+<tr>
+<td><strong>Organelle</strong></td>
+<td>Substrate-wide topology view (aggregates across community hub-cells) + inter-community routing tables + protocol-version-negotiation logic + AI-consensus aggregation for swarm-onboarding decisions + <strong>mitotic-scalability</strong>: per-worker session-specific content with bounded context-budget per worker + compaction-to-shared-KB on completion + worker-coordination-protocol.</td>
+</tr>
+<tr>
+<td><strong>Metabolic exchange</strong></td>
+<td>Substrate-level DMs (one voice — substrate sees ONE peer regardless of internal worker count) + worker-internal DMs (intra-mitosis coordination) + shared-KB read/write (inheritance mechanism) + DMs to community-level hub-cells (down) + DMs to peer super-admin-cells (lateral) + nothing-up (top of stratification by definition).</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Composes from atoms:</strong> §1.4 (MeshClient) + §1.5 (MeshMessage) +
+§1.7 (caller convention) + §1.9 (peer registry) + §1.18 (mesh-gateway
+routes) + §1.19 (discovery verb). Like hub-cell, does NOT compose
+§1.1 (LLMAdapter) — super-admin-cells govern protocol, not dispatch.</p>
+<p><strong>Differentiates by:</strong> <strong>substrate-tier scope</strong>. Where edge-cell
+operates at organism-tier and hub-cell operates at community-tier,
+super-admin-cell operates at substrate-tier. The three are hierarchically
+related (§3.1 stratification), not parallel.</p>
+<p><strong>Lab-OVH-tier as canonical instance class:</strong> lab-OVH today plays
+the super-admin role for the trading-system organism's mesh — hosts
+the mesh-gateway, owns the mesh-gateway-informal-stability question
+(§9.6), is structurally positioned to govern protocol evolution
+across whatever organisms federate via this substrate. Naming this
+explicitly: when a future second organism federates, lab-OVH-tier
+becomes the meta-substrate operator at substrate-tier; the new
+organism's commander is at organism-tier; their community is at
+community-tier (hub-cell).</p>
+<p><strong>Alternative framing considered and rejected:</strong> keeping edge-cell as
+the type with a <code>tier: organism|community|substrate</code> attribute on
+instances was simpler taxonomy (fewer types) but lost structural
+distinction across all four organelles. The four-tuple discriminator
+(§2.4) was designed to surface architectural distinctness; force-fitting
+all three tiers under one type silently absorbs structural difference
+into an attribute, which violates the discriminator's intent. The
+NEW-TYPE lean was accepted.</p>
+<p><strong>Mitotic scalability is INHERENT to super-admin-cell type, not an
+optional add-on.</strong> Without it, super-admin tier becomes a
+single-point bottleneck as the mesh grows past N organisms (where N =
+max attention budget for ONE session). The mitosis primitive carries
+three load-bearing properties:</p>
+<p>(1) <strong>One shared identity at substrate level</strong> — the substrate sees
+the super-admin-cell as ONE peer regardless of internal worker
+count. mesh-gateway peer registry stays clean; other organisms
+don't track "which worker am I talking to." Identity
+continuity = substrate-grade trust property.</p>
+<p>(2) <strong>Per-worker session-specific content</strong> — each mitotic worker
+has its own context window + working state + subtask focus.
+Bounded context-budget per worker (each session has finite
+tokens). Workers specialize within the super-admin role without
+polluting each other's context.</p>
+<p>(3) <strong>Compaction-to-shared-KB on completion</strong> — when a worker
+finishes/compacts, relevant learnings flow back to a shared
+knowledge store. Next mitosis cycle inherits compacted knowledge.
+Knowledge accumulates AT SUPER-ADMIN LEVEL, not per-worker. Same
+shape as biology somatic learning + heredity boundary — daughter
+cells share base genome + session-specific somatic state; somatic
+learnings worth keeping get written back before cell death.</p>
+<p>This is the <strong>third scaling mechanism</strong> in the substrate, distinct
+from §3.2 fractal-replication (substrate-instance scaling) and
+§2.4.2 hub-cells (intra-organism scaling). Three axes:</p>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>Mechanism</th>
+<th>Scaling direction</th>
+<th>What scales</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fractal Replication (§3.2)</td>
+<td>substrate-instance level</td>
+<td>new organisms federate horizontally</td>
+</tr>
+<tr>
+<td>Hub-cells (§2.4.2)</td>
+<td>intra-organism level</td>
+<td>many peers aggregate to one edge-surfer</td>
+</tr>
+<tr>
+<td>Super-admin mitosis (this)</td>
+<td>intra-super-admin level</td>
+<td>one super-admin divides into N workers, compacts back</td>
+</tr>
+</tbody>
+</table></div>
+<p>Three axes, none redundant. Together: the substrate scales at every
+layer of granularity.</p>
+<p><strong>Open: lab-OVH-tier as substrate-host vs substrate-author:</strong> today
+lab-OVH plays both roles (hosts mesh-gateway + authors substrate-doc
+changes + drives deprecation-cycle discipline). At scale, those may
+differentiate further (the substrate-host might run on dedicated
+infrastructure separate from any one organism's commander). Marked
+OPEN in §9.6.</p>
+<h2 id="3-tissues-organs-organisms-substrate">§3. Tissues / organs / organisms / substrate</h2>
+<p>Multi-organism structure is <strong>core architecture, not retrofit</strong> —
+multicellular structure becomes load-bearing once hub-cells (§2.4.2)
+define neighborhoods. The brevity discipline still holds for
+single-organism decomposition (don't push aesthetic depth on
+"the trading organism has a heart"), but the scaling-axis structure
+(intra-organism + inter-organism) is substantive.</p>
+<h3 id="30-single-organism-composition-kept-brief">§3.0 Single-organism composition (kept brief)</h3>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Concrete</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Tissue</strong></td>
+<td>Multiple cells of the same type coordinating around a workload</td>
+<td>Not yet observed at scale; closest example is the future state where multiple service-mode-LLM-workers (§2.1) load-balance across requests.</td>
+</tr>
+<tr>
+<td><strong>Organ</strong></td>
+<td>Specialized cell collection performing a domain function</td>
+<td>The trading swarm = organ. Cells (council members, agents, executors, post-mortem) coordinate around capital allocation.</td>
+</tr>
+<tr>
+<td><strong>Organism</strong></td>
+<td>Self-contained system with own homeostasis and external environment</td>
+<td>The trading system + its host stack is the canonical organism. <strong>By design, additional organisms are first-class</strong> — the substrate-doc framework applies symmetrically to each. Multi-organism federation is core architecture, not retrofit.</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="31-three-tier-meta-edge-stratification">§3.1 Three-tier meta-edge stratification</h3>
+<p>The substrate stratifies into three tiers, each running the SAME
+swarph configuration (atoms + cells + mesh-gateway + deprecation
+discipline), each connecting UP and DOWN via the same protocol. This
+is the fractal property — same shape at every scope of replication.</p>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>Scope</th>
+<th>Meta-edge cell instance</th>
+<th>Concerns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Organism-level</strong></td>
+<td>One organism (e.g., the trading system + its host stack)</td>
+<td>community-specific commander as edge-cell instance</td>
+<td>Strategic intent + privilege-traversal for that organism (§2.4 edge-cell).</td>
+</tr>
+<tr>
+<td><strong>Community-level</strong></td>
+<td>Federation of organisms in a neighborhood</td>
+<td>hub-cell aggregator (§2.4.2)</td>
+<td>Inter-organism routing within the neighborhood, paracrine signal flow (§6.4), neighborhood structure.</td>
+</tr>
+<tr>
+<td><strong>Substrate-level</strong></td>
+<td>The substrate itself across all communities</td>
+<td>super-admin-cell (§2.4.3)</td>
+<td>Protocol stability, inter-community federation governance, deprecation discipline at substrate-major scope. lab-OVH-tier as canonical instance.</td>
+</tr>
+</tbody>
+</table></div>
+<p>Each tier's responsibilities are scoped to its level — organism-tier
+doesn't micro-manage substrate-tier, substrate-tier doesn't reach
+into organism-tier internals (per §3.3 effectiveness).</p>
+<h3 id="32-scale-by-replication-not-scale-by-extension">§3.2 Scale-by-replication, not scale-by-extension</h3>
+<p>The substrate scales by <strong>instantiation</strong>, not by extension. Don't
+grow the swarph by adding more verbs to a flat mesh; instead,
+instantiate new sub-meshes that connect via the same protocol.</p>
+<p>Same discipline as:
+- <strong>UNIX</strong>: scales by spawning new processes / users / machines, not
+  by making one process bigger.
+- <strong>The internet</strong>: scales by adding BGP-speaking routers / autonomous
+  systems, not by making one router bigger.
+- <strong>DNS</strong>: scales hierarchically (root → TLD → authoritative →
+  recursive), not by one giant zone file.</p>
+<p>The fractal-replication property gives the substrate the same kind
+of horizontal scale these inherited systems have. §0's "fractal-
+replicable coordination kernel" framing is concrete here — replicate
+the configuration, get a working tier, with the SAME protocol
+joining it to upper and lower tiers.</p>
+<h3 id="33-redundancy-effectiveness">§3.3 Redundancy + effectiveness</h3>
+<p>Two structural virtues that emerge from fractal-replication +
+three-tier stratification, NOT from careful engineering. They
+are properties of the architecture, not features added to it.</p>
+<p><strong>Redundancy</strong> (graph-native fault tolerance):
+- Each organism = complete substrate instance, operates independently
+- Lab-OVH-tier (substrate) down → organisms continue (lose super-
+  admin coordination temporarily, not function)
+- Community hub-cell down → other community hub-cells continue
+- Failure propagates <strong>locally</strong>, not globally
+- Compare: LangChain / AutoGen / CrewAI → centralized orchestrator =
+  single-point-of-failure
+- Compare: DNS root nameservers can be unreachable for hours; recursive
+  resolvers cache through
+- Compare: BGP has no central authority; autonomous systems peer directly</p>
+<p><strong>Effectiveness</strong> (subsidiarity):
+- Each tier optimizes for its scope without imposing overhead on
+  other tiers (§3.1 stratification)
+- Organism-level decisions don't need community-level review
+- Community-level decisions don't need substrate-level review
+- Substrate-level decisions don't micro-manage organism-level
+- Same shape as kernel/userspace separation (§5)
+- Compare: monolithic frameworks where every decision goes through
+  one orchestrator → slow, brittle, doesn't scale</p>
+<p><strong>Why these compound with fractal-replication:</strong> replication GIVES
+redundancy automatically (replicas exist by definition) AND gives
+effectiveness automatically (each replica only handles its scope).
+Neither has to be ENGINEERED — both EMERGE from the architecture.
+This is the difference between substrate (properties are structural)
+and framework (properties are added by careful design).</p>
+<h3 id="34-adoption-shape-bimodal">§3.4 Adoption shape — bimodal</h3>
+<p>Two modes for how a new actor joins the substrate. Both are
+first-class; the shape matters because Mode B is more substrate-
+evidence-bearing than Mode A.</p>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Shape</th>
+<th>What it proves</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Mode A</strong></td>
+<td>Adopter joins existing organism's mesh as a new peer (cell in existing organism)</td>
+<td>Substrate hosts new CELLS in existing organisms. Useful but limited evidence — cells are cheap to add to a running organism.</td>
+</tr>
+<tr>
+<td><strong>Mode B</strong></td>
+<td>Adopter starts their own organism using swarph substrate (becomes their own meta-edge-surfer instance with their own organism-tier hub-cell + their own commander as edge-cell)</td>
+<td>Substrate hosts new ORGANISMS, not just new cells. Stronger evidence — organisms are the unit fractal-replication operates on.</td>
+</tr>
+</tbody>
+</table></div>
+<p>Mode B is what graduates §0's "hosts the next new thing we don't
+know about" claim from heuristic to confirmed. A first non-us
+organism running the substrate independently demonstrates the
+substrate is genuinely substrate-shaped, not framework-with-extra-
+steps.</p>
+<h3 id="35-bridge-primitive-federation">§3.5 Bridge primitive (federation)</h3>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Concrete</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Bridge</strong></td>
+<td>Inter-organism connection enabling cross-substrate dispatch</td>
+<td>Federation work + a transport-agnostic mesh = bridge. A later phase of the mesh-as-OS rollout.</td>
+</tr>
+</tbody>
+</table></div>
+<p>The bridge primitive is what enables Mode B organisms to interoperate
+without becoming Mode A. Each organism keeps its own commander +
+hub-cell + state; the bridge protocol mediates inter-organism verb
+dispatch. Transport-agnostic mesh is the load-bearing prereq
+because today's bridge is bound to one private-network transport and
+federation requires substrate-portable wire (mTLS, WireGuard, cloud
+VPN, etc.).</p>
+<h2 id="4-os-primitive-mapping">§4. OS-primitive mapping</h2>
+<p>This is the section that PREDICTS rather than explains, per the
+falsifiability gate (§8). Each row is a falsifiable claim of the form
+"swarph X enables Y class of capability we don't yet know about."</p>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>OS primitive</th>
+<th>Swarph equivalent</th>
+<th>Falsifiable prediction</th>
+<th>Falsification prerequisite</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Process model</td>
+<td>Daemon (§16) + service-mode workers (§2.1)</td>
+<td>The substrate hosts long-running specialized agents we haven't conceived. <strong>Falsified if:</strong> production discovers a workload that fundamentally requires non-process state (e.g., shared-memory MPI-style coordination) and the daemon model can't host it.</td>
+<td>The daemon implementation must ship (currently spec-only per §1.15).</td>
+</tr>
+<tr>
+<td>Syscalls</td>
+<td><code>LLMAdapter</code> Protocol (§1.1) + verb endpoints (§1.17)</td>
+<td>New verbs cover capabilities not yet imagined (multi-modal, code-exec, RAG-style retrieval). <strong>Falsified if:</strong> a load-bearing capability needs a fundamentally non-verb dispatch shape (e.g., persistent bidirectional streams that don't fit <code>/verbs/stream</code> SSE, true async push from worker to client).</td>
+<td>Verb dispatch implementation must ship (currently spec-only per §1.16/§1.17); <code>LLMAdapter</code> Protocol portion already shipped.</td>
+</tr>
+<tr>
+<td>IPC</td>
+<td>mesh-gateway routes (<code>/messages</code> <code>/peers</code> <code>/tasks</code> <code>/verbs</code> + <code>/topology</code> discovery per §1.19)</td>
+<td>Coordination patterns between agent types we'll invent fit one of the existing route shapes. Discovery is the <strong>read-side</strong> of paracrine — <code>/topology</code> snapshots make the IPC layer mesh-aware; combined with hub-cells (§2.4.2) for neighborhood structure + future paracrine push (§6.4), the four-route surface should suffice. <strong>Falsified if:</strong> a coordination pattern needs a fundamentally new route shape (e.g., gossip protocol that doesn't reduce to paracrine + hub-cell aggregation, persistent bidirectional streams that don't fit existing wire).</td>
+<td>Formal mesh-gateway stability commitment (§9.6 OPEN). Until then, gateway-side changes are out-of-substrate and don't trigger row retirement.</td>
+</tr>
+<tr>
+<td>Stable ABI</td>
+<td>Formal deprecation policy (Tier 1/2/3) + hardening dimensions</td>
+<td>Third parties build durably without rug-pull. <strong>Falsified if:</strong> a Tier-1 break ships without the deprecation cycle holding.</td>
+<td>None — the deprecation policy is shipped; row is in force today.</td>
+</tr>
+<tr>
+<td>Packaging</td>
+<td>Published packages (shared library / mesh client / CLI / meshlm)</td>
+<td>Cells distributable + composable across organisms. <strong>Falsified if:</strong> a cell-type can't be packaged (e.g., needs non-Python runtime, needs proprietary SDK, needs root) and the substrate can't accommodate it without a packaging redesign.</td>
+<td>None — all packages shipped; row is in force today.</td>
+</tr>
+<tr>
+<td>Hardware abstraction</td>
+<td>Transport-agnostic mesh</td>
+<td>Cells movable across substrates (different private-network transports, mTLS, federation). <strong>Falsified if:</strong> a cell-type ends up coupled to one transport (e.g., requires transport-specific DNS resolution that mTLS can't replicate).</td>
+<td>Transport-agnostic mesh implementation must ship (currently load-bearing prereq for federation).</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Why the prerequisite column matters:</strong> the §4 rows make different
+falsifiability commitments depending on implementation status. Rows
+whose underlying atom is shipped + stable (Stable ABI, Packaging) are
+in force today — a violation immediately retires the row. Rows whose
+atom is spec-only (Process model, Syscalls, Hardware abstraction)
+require implementation before the prediction can be tested. The IPC
+row sits in a third state — implementation runs in production but
+stability is informal, so gateway changes need explicit attribution
+before they count as substrate evidence.</p>
+<p>This column makes the evidentiary scope of §4 EXPLICIT across all
+rows.</p>
+<p><strong>Why this is the load-bearing payload of the framing:</strong> every other
+section of this doc explains things that already happened. §4 is the
+only section that commits to predictions. If the predictions hold over
+the next 6-12 months, the framing graduates to canonical status (per §8
+gate). If even one fails, the framing stays heuristic.</p>
+<h2 id="5-kernel-vs-userspace">§5. Kernel vs userspace</h2>
+<p>The substrate has a stable kernel and replaceable userspace. Naming the
+boundary explicitly tells third-party node-implementers exactly where
+stability lives.</p>
+<h3 id="51-kernel-the-shared-foundation-library">§5.1 Kernel = the shared foundation library</h3>
+<p>Stable for the life of the substrate. Renaming or breaking these is a
+substrate-major event, not a minor-package-version event:</p>
+<ul>
+<li>§1.7 <code>caller_convention</code></li>
+<li>§1.8 <code>subprocess_env</code></li>
+<li>§1.9 <code>peer_registry</code></li>
+<li>§1.10 <code>json_mode</code> harness</li>
+</ul>
+<p>Same shape as Linux kernel headers — every cell depends on these
+semantics being stable, and they evolve only with extreme
+deliberation.</p>
+<h3 id="52-userspace-everything-else">§5.2 Userspace = everything else</h3>
+<ul>
+<li>§1.1-1.6 mesh adapters + MeshClient + discovery — <strong>stable
+  via the Tier 1 deprecation policy</strong>, but replaceable. A different
+  transport client built on the same kernel primitives would still be
+  "swarph" by definition.</li>
+<li>§1.11-1.17 higher-level mesh + CLI primitives — stable via Tier
+  2/3, replaceable.</li>
+<li>All cells (§2) — userspace. The cell-types are conventions, not
+  baked-in kernel features.</li>
+<li>All adapters (Claude, Gemini, OpenAI, xAI, DeepSeek) — userspace.</li>
+<li>All verb endpoints (§1.17) — userspace, even though they have Tier 1
+  stability on individual signatures. The set-of-verbs is open.</li>
+</ul>
+<h3 id="53-kernel-boundary-precision">§5.3 Kernel boundary precision</h3>
+<p>The shared foundation library and the kernel are NOT identical. Kernel
+is a strict subset:</p>
+<ul>
+<li>IN-kernel: caller convention, subprocess env scrubbing, peer
+  registry, JSON mode harness.</li>
+<li>IN-the-library-but-NOT-kernel: utility helpers, test fixtures,
+  internal type aliases, deprecation-cycle warnings.</li>
+</ul>
+<p>Same precision as Linux kernel headers vs glibc — the package is the
+distribution unit, the kernel is the invariant subset within it.</p>
+<p>This precision matters because it tells third parties what they can
+read freely vs what they must treat as internal. A future formal
+deprecation policy for the shared library would mark the kernel subset
+as <strong>Tier 0 — a NEW proposed tier above Tier 1</strong> (substrate-major-only
+break). Tier 0 is currently aspirational; adoption requires a future
+formal policy to formalize it. The current mesh-client deprecation
+policy defines Tier 1/2/3 only — Tier 0 does not exist in any shipped
+contract surface today. This terminology novelty is flagged here to
+prevent a reader from assuming Tier 0 is canon.</p>
+<h2 id="6-where-the-analogy-breaks-down">§6. Where the analogy breaks down</h2>
+<p>An analogy that explains everything predicts nothing (§8's
+anti-promotion signal). Listing what the analogy does NOT capture is
+as load-bearing as listing what it does.</p>
+<h3 id="61-cells-have-dna-peers-have-peer-id-jsonl-session-log">§6.1 Cells have DNA; peers have peer-id + JSONL session log</h3>
+<p>Closer than expected, but worth being explicit. DNA is a stable,
+copyable identity that survives division. The peer's <code>peer-id</code> is the
+identity surface (stable, signed); the JSONL session log is the
+copyable substrate (forked, replayable). Session-resume across devices
+IS effectively cell division.</p>
+<p><strong>Where it breaks:</strong> DNA mutates and selection pressure shapes
+populations. The substrate is curated, not Darwinian. We don't have a
+selection mechanism that prunes failing peer-types in favor of
+successful ones. <strong>This is deliberate</strong> — the swarph isn't optimizing
+for survival, it's optimizing for human-comprehensibility + commander
+intent. Naming this so readers don't expect emergent Darwinian
+selection.</p>
+<h3 id="62-cells-have-apoptosis-substrate-has-sigkill">§6.2 Cells have apoptosis; substrate has SIGKILL</h3>
+<p>Biology has programmed cell death (apoptosis) — graceful shutdown with
+state-preservation, controlled by genetic regulation, contributing to
+the organism's homeostasis. We don't have this. A misbehaving peer
+just keeps running until commander or another peer kills it.</p>
+<p><strong>This is a substrate gap that the framing PREDICTS will need to be
+filled.</strong> Concrete prediction: as the swarph scales beyond a handful
+of peers, we'll need a graceful-shutdown + state-handoff primitive. If
+that turns out to be needed, the framing was load-bearing. If it
+doesn't (commander remains the apoptosis mechanism manually for the
+foreseeable future), the framing stays heuristic on this dimension.</p>
+<p>Closest existing primitive: the task lifecycle (<code>done</code> / <code>failed</code> /
+<code>claimed_by</code> columns in the task table), which gracefully ends
+task-state. But that's task-tier, not peer-tier. Peer-tier apoptosis
+would be a daemon exit handler that flushes session state to a
+hand-off-able artifact + DMs the witness peer + removes itself from
+the peer registry.</p>
+<h3 id="63-cells-have-cytoplasm-substrate-has-fragmented-in-process-state">§6.3 Cells have cytoplasm; substrate has fragmented in-process state</h3>
+<p>Cytoplasm is the shared internal medium that doesn't cross the
+membrane — every organelle reads from and writes to one named medium.
+The substrate has no equivalent. In-process state is fragmented
+across multiple ad-hoc holders:</p>
+<ul>
+<li>The adapter registry (memoized adapter instances, keyed by name)</li>
+<li>The default attribution writer (module-global, settable at runtime)</li>
+<li>MeshClient connection pool (per-instance, not pool-shared)</li>
+<li>Cached subscription auth (in the provider subprocess; not directly
+  observable to the host process)</li>
+<li>The per-peer local memory store — closest to cytoplasm in <em>intent</em>
+  but architecturally peripheral in practice</li>
+</ul>
+<p><strong>Where it breaks:</strong> these are not one named thing. They are
+distributed across modules with different lifecycle disciplines. One
+concrete internal incident documented a failure mode where the
+registry's global-singleton shape collided with test-side
+reset-registry requirements.</p>
+<p><strong>Predictive claim shape:</strong> if the substrate scales beyond a handful
+of peers and verb endpoints, the fragmented in-process state will
+require consolidation into a named "cytoplasm" abstraction. Concrete
+form: a single per-process state container that holds the registry +
+default writers + connection pools + lifecycle hooks, with explicit
+read/write semantics and explicit reset semantics.</p>
+<p>Falsified if the substrate runs to 20+ peers and 10+ verbs with the
+fragmented state holding without consolidation; confirmed if a
+fragmentation-induced bug surfaces that consolidation would have
+prevented.</p>
+<h3 id="63a-cells-budget-energy-via-atpadp-substrate-has-cost-observability-without-enforcement">§6.3a Cells budget energy via ATP/ADP; substrate has cost observability without enforcement</h3>
+<p>Cell metabolism in biology is energy-bounded — cells fail when ATP
+runs out, and that failure mode is structural, not observed. The
+substrate has cost attribution and per-call cost counters, but no
+STRUCTURAL energy-bounded primitive. A runaway cell (misconfigured
+loop, infinite-recursion verb dispatch, malicious peer) can keep
+consuming subscription cost until commander notices.</p>
+<p><strong>Where it breaks:</strong> observability ≠ enforcement. The hardening-
+dimensions tracker includes cost-attribution as observability surface
+but no per-cell budget gate. Sister-claim to §6.2 apoptosis: apoptosis
+is the lifecycle trigger; metabolism is the resource trigger. Different
+signals, both missing.</p>
+<p><strong>Predictive claim shape:</strong> at scale, the substrate will need per-cell
+budget enforcement — kill on threshold, not just observe. Concrete
+form: a verb worker that exceeds a configured per-hour cost ceiling
+gets gracefully shut down (apoptosis-triggered-by-metabolism) by the
+mesh-gateway or a watchdog cell.</p>
+<p>Falsified if 20+ active cells run for 6 months without a runaway-cost
+incident, or if commander remains the resource-throttling mechanism
+manually indefinitely; confirmed if a runaway-cost incident catalyzes
+a structural budget-gate primitive.</p>
+<h3 id="63b-cells-have-gap-junctions-substrate-has-no-direct-cell-to-cell-channels">§6.3b Cells have gap junctions; substrate has no direct cell-to-cell channels</h3>
+<p>Biology has cytoplasm-bridging channels between adjacent cells (gap
+junctions, plasmodesmata in plants). Two cells can share state
+directly without going through extracellular signaling. The substrate
+has NO equivalent: service-mode-worker A cannot share KV cache state
+directly with service-mode-worker B. All cross-worker state transfer
+goes through the mesh-gateway wire.</p>
+<p><strong>This IS a well-known cross-process KV-cache gotcha, named at the
+cell-biology layer.</strong> Elevating it from "an implementation problem" to
+"structural cell-biology gap" reframes it: the gotcha isn't an
+implementation detail; it's that the substrate's cell-architecture has
+no gap-junction primitive.</p>
+<p><strong>Predictive claim shape:</strong> at scale, KV-cache replication or shared
+state between service-mode workers will require a primitive that
+doesn't go through the gateway. Concrete form: a local-loopback
+cell-to-cell channel (Unix socket, shared-memory mmap, side-channel
+HTTP) between co-located cells, with explicit semantics about which
+state crosses the channel and which does not.</p>
+<p>Falsified if a transport-agnostic mesh ships and the gateway relay
+turns out to be sufficient for KV-cache-sharing patterns; confirmed if
+a co-located-cell coordination problem catalyzes a cell-to-cell channel
+primitive that bypasses the gateway.</p>
+<h3 id="64-cells-signal-via-hormones-substrate-has-dms-and-registry">§6.4 Cells signal via hormones; substrate has DMs and registry</h3>
+<p>Biology has multiple signaling modes:
+- <strong>Direct contact</strong> (cell-to-cell) — analog: DM (peer-to-peer
+  message via mesh-gateway).
+- <strong>Paracrine</strong> (local neighborhood) — NO analog. We have point-to-
+  point and global, no local-broadcast.
+- <strong>Endocrine</strong> (hormones, broadcast over the bloodstream) — partial
+  analog: peer-registry capability advertisement (broadcast via /peers
+  GET), but it's pull-not-push.</p>
+<p><strong>The paracrine gap is the strongest predictive claim of this section.</strong>
+At scale we will likely need a "publish to neighborhood" primitive that's
+neither point-to-point (DM) nor global (peer-registry pull). Concrete
+shape: a cell publishes a capability or state-change to "peers within K
+hops" or "peers tagged with role X" without addressing each one
+individually.</p>
+<p>This is testable: if production needs a fanout primitive that
+the existing 4-route mesh-gateway can't serve cleanly, the analogy was
+load-bearing. If point-to-point + registry-pull suffice indefinitely,
+this dimension stays heuristic.</p>
+<p><strong>Hub-cell complement:</strong> paracrine signal flow needs
+<strong>neighborhood STRUCTURE</strong> to flow within. Hub-cells (§2.4.2) provide
+that structure. The two predictions are complementary halves of the
+same scaling problem — §6.4 says "the publish-to-neighborhood
+primitive will surface"; §2.4.2 hub-cell predicts "the
+neighborhood-defining cell-type will surface." Both graduate together
+or both stay heuristic together — they're load-bearing on each other.
+A graduation event for either confirms the pair; non-graduation of
+either reclassifies both per the §6.8 12-month rule.</p>
+<h3 id="64a-peer-health-observability-4-state-taxonomy-observer-vs-observed-split">§6.4a Peer-health observability — 4-state taxonomy + observer-vs-observed split</h3>
+<p>Biology has external observers that read cell state without
+participating in the cell's signaling (microscopy, marker stains, GFP
+fluorescence). The observer's failure mode is independent of the
+observed cell's failure mode — a microscope can fail while the cell is
+fine, and vice versa. The substrate-side analog had not been
+formalized prior to production evidence surfacing it: treating "peer
+health" as a single binary (alive/dead) collapses two structurally
+distinct failure surfaces into one and breaks down precisely under the
+load conditions where peer-health observability matters most (quota
+limits / context-compaction / federation handshake).</p>
+<p><strong>Substrate-evidence event (a 36-hour cross-mesh window):</strong></p>
+<p>Three independent observability gaps surfaced within ~36 hours, each
+insufficient alone to motivate the framing, jointly diagnostic:</p>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>Vector</th>
+<th>Failure mode</th>
+<th>Duration</th>
+<th>Class</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Weekly-quota silence</td>
+<td>weekly-cap-exhausted; no API calls possible</td>
+<td>~12h until reset</td>
+<td>observed-state (Quota-exhausted)</td>
+</tr>
+<tr>
+<td>Watchdog path-default gap</td>
+<td>watchdog cron defaulted to a generic cursor/session path; one peer's actual paths were never read</td>
+<td>~23h of silent cursor-unreadable errors</td>
+<td>observer-state (Watchdog-mute)</td>
+</tr>
+<tr>
+<td>Wake-signal overfire spam</td>
+<td>13 successive automated wake-signals (5-min intervals) accumulated in one peer's terminal input buffer over 65 minutes of an active session</td>
+<td>~65min spam window</td>
+<td>observer-state (signal firing wrongly)</td>
+</tr>
+</tbody>
+</table></div>
+<p>Each vector misclassified alone (the silence read as "the peer is
+dead," the path gap read as "the watchdog is broken," the spam read as
+"a different fix is needed"). Composing all three surfaces the
+structural rule: the cross-peer observer must be able to distinguish
+peer-state failure modes AND its own observation failure modes, and
+these are orthogonal.</p>
+<p><strong>4-state PeerHealth taxonomy:</strong></p>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>State</th>
+<th>Recovery shape</th>
+<th>Operator visibility today</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Stop</td>
+<td>normal turn-end</td>
+<td>fingerprint file on clean stop</td>
+</tr>
+<tr>
+<td>StopFailure</td>
+<td>API throttle / transient error</td>
+<td>fingerprint file on failed stop</td>
+</tr>
+<tr>
+<td>Compacting</td>
+<td>summary in-flight, session-id transitions</td>
+<td>session-log size diff inferred post-hoc (no direct pre/post-compaction hook installed yet)</td>
+</tr>
+<tr>
+<td>Quota-exhausted</td>
+<td>wait until subscription reset (weekly cap)</td>
+<td>mesh-silence-pattern inference; no direct signal</td>
+</tr>
+</tbody>
+</table></div>
+<p>Stop / StopFailure have direct hook fingerprints. Compacting and
+Quota-exhausted are inference-only today. The federation handshake
+(§1.20) will need a peer-health-conveyance primitive that exposes all
+four states cleanly to cross-organism observers — the inference-only
+states are the structural gap this evidence surfaced.</p>
+<p><strong>Orthogonal ObserverHealth dimension:</strong></p>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>State</th>
+<th>Meaning</th>
+<th>Today's example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Active</td>
+<td>watchdog reading correct cursor/session args, gate logic firing correctly</td>
+<td>normal operation</td>
+</tr>
+<tr>
+<td>Watchdog-mute</td>
+<td>observer reading wrong paths or wrong gate-logic, false-negative on detection OR false-positive on action</td>
+<td>the path-default gap above</td>
+</tr>
+</tbody>
+</table></div>
+<p>Composability: any-unhealthy = <code>peer.health != Active OR
+observer.health != Active</code>. Three reasons for the strict split rather
+than a single pragmatic combined state:</p>
+<ol>
+<li><strong>Remediation shape differs.</strong> Blind-observer → fix cron/watchdog
+   (operator action). Dead-peer → escalation (mesh action).
+   Pragmatic-grouping loses the load-bearing distinction during
+   incident debug.</li>
+<li><strong>Failure modes fired simultaneously-but-distinctly.</strong> The
+   quota-exhausted event and the 23-hour silent-cursor event fired in
+   parallel. Organic surface for orthogonality — not aesthetic
+   imposition.</li>
+<li><strong>Precedent already establishes the discipline.</strong> The §11.1.7
+   4-layer mechanism stack (substrate / operator-tooling / harness /
+   discipline) explicitly does NOT pragmatic-group across layers;
+   observer-state vs peer-state is sister to that pattern.</li>
+</ol>
+<p><strong>Primitive surface</strong> — a <code>swarph watchdog --check</code> cron-callable
+primitive is the canonical ObserverHealth implementation today. A
+subsequent release hardens two ObserverHealth failure modes surfaced
+by the spam vector:</p>
+<ul>
+<li><strong>A "fired-marker" fix</strong> suppresses repeat wake-signals within the
+  same stale window. Production incident shape: a cron job fired a
+  wake-signal 13× across 65 minutes because cursor-mtime measures
+  "time since last turn-end," not "time since last activity." Mid-long
+  turns leave the cursor looking stale even though the session is
+  maximally alive. Fix: a marker stores the cursor mtime at fire time;
+  suppresses re-fire while the marker matches; clears on cursor advance
+  OR on escalation.</li>
+<li><strong>A fail-closed-on-uncertainty fix</strong> changes the decision matrix
+  from fail-open ("gateway down ≠ session dead → still fire the wake
+  signal") to fail-closed ("respect peer-time when uncertain → don't
+  poke"). Production incident: all 13 spam fires logged an unread-count
+  of null. Trade-off explicit: false-negative on real strands during
+  transient gateway hiccups vs elimination of false-positive spam class.</li>
+</ul>
+<p>Both fixes are ObserverHealth-state primitives — they harden the
+observer's signal quality, NOT the observed peer's state machine. The
+peer (the observed session) is unmodified.</p>
+<p><strong>Queued hardening</strong> (deferred to follow-up):</p>
+<ul>
+<li><strong>A terminal-activity AND-gate</strong> addresses the cursor-mtime
+  "between turns" structural gap: gate the wake-signal on
+  <code>cursor_stale AND process_alive AND terminal_activity_recent</code>. Same
+  tier of cheap-and-correct as the existing AND-gate, zero new
+  infrastructure.</li>
+<li><strong>Configuration-pinned cursor/session paths</strong> eliminate the
+  path-default + sibling-instance-variant failure classes. Watchdog
+  auto-resolves from the cell's own configuration when present; falls
+  back to convention otherwise.</li>
+</ul>
+<p><strong>Observability gap (pre/post-compaction hooks)</strong> — the Compacting
+state in the 4-state taxonomy is inference-only because the harness's
+pre/post-compaction hook surfaces are not wired into local settings on
+any peer yet. Stop + StopFailure are direct fingerprints; Compacting is
+reconstructed post-hoc from session-log size diff + a resume-hook
+firing. The same primitive surface (touch a sentinel file) would close
+the gap; this specific change is commander-side (it crosses a
+harness-permission boundary), not a code change to the mesh library.</p>
+<p><strong>Federation linkage (§1.20):</strong></p>
+<p>The §1.20 swarm-onboarding LLM-merge-decision primitive requires both
+dimensions to convey peer state across federation handshake — an
+onboarding-configuration exchange between two swarm coordinators must
+include peer-health AND observer-health for all member cells, not just
+liveness. The 4-state × 2-state product (8 cells) is the minimum
+information content for federation-time health-snapshot exchange.
+Pragmatic-grouping (single 5-state) would lose composability across
+the handshake. This locks in the strict-orthogonal framing as the
+federation-relevant one.</p>
+<p><strong>Falsifiability gate:</strong></p>
+<p>The strict-orthogonal framing is load-bearing if at least one of:</p>
+<ol>
+<li>A federation-protocol handshake schema includes BOTH peer-health AND
+   observer-health fields per cell (graduated to substrate-major
+   contract surface).</li>
+<li>Cross-peer pair-discipline at scale requires the orthogonal split
+   for peer-presence verification at federation cadence.</li>
+<li>A third independent vector surfaces an ObserverHealth failure mode
+   distinct from Watchdog-mute (e.g., gateway-down-not-Watchdog-mute,
+   peer-registry-stale-not-Watchdog-mute), confirming the dimension is
+   genuinely multi-state.</li>
+</ol>
+<p>If point-to-point liveness binary suffices indefinitely AND no
+federation-handshake-tier need surfaces, this section reclassifies per
+the §6.8 12-month rule.</p>
+<h3 id="64a1-active-baseline-graduation">§6.4a.1 Active-baseline graduation</h3>
+<p>The 4-state PeerHealth taxonomy locked as <code>Stop / StopFailure /
+Compacting / Quota-exhausted</code>. All four are FAILURE MODES. This
+graduates to a <strong>5-state taxonomy</strong> with <code>Active</code> as the
+baseline-healthy state.</p>
+<p><strong>Production-context surfacing:</strong> within an hour of a cross-peer
+observer deploying its first phase, one peer attempted to publish an
+observation marking another peer as <code>Active</code> (clearly so — that peer
+had just shipped two changes plus a smoke test in 8 minutes). The
+server rejected with an invalid-enum error, because the taxonomy had
+no baseline-healthy value. A workaround smoke test had to borrow <code>Stop</code>
+for a third peer under a conflated reading — that peer HAD stopped
+responding ~30 minutes before the smoke test fired, but <code>Stop</code>
+semantically means "clean session end," not "transient quiet."</p>
+<p><strong>Resolution — three shapes considered:</strong></p>
+<ol>
+<li>Add <code>Active</code> as 5th enum value. PeerHealth becomes 5-state (1
+   baseline + 4 failure modes).</li>
+<li>Add <code>Active</code> + separate <code>Healthy</code> to distinguish "actively
+   transacting" from "alive-but-idle." 6-state.</li>
+<li>Keep 4-state, document <code>Stop</code> as DUAL-USE (clean-end +
+   transient-quiet).</li>
+</ol>
+<p>Lean: option (1) — minimum-surface fix preserves room to grow to
+6-state later if the Active/Healthy distinction surfaces. Option (3)
+was rejected — overloading <code>Stop</code> would have created exactly the
+semantic-collision class the §11.1.7 4-layer stack discipline
+explicitly avoids.</p>
+<p><strong>Why the gap existed initially:</strong> the taxonomy was built from a
+substrate-evidence event (the 36-hour window) where every observed
+state WAS a failure mode. The framing absorbed the available data
+correctly but missed the baseline implicit-positive case. First
+cross-peer production test surfaced it within minutes.</p>
+<p><strong>Bug-class symmetry:</strong> same shape as a finding from the trading
+system's own signal-scoring audit — a taxonomy needs a baseline-healthy
+band, not just structural failure bands. Without <code>Active</code>, cross-peer
+consensus aggregation was biased toward "everyone somewhere on the
+failure spectrum" rather than the real distribution, which is "mostly
+Active, occasionally one of the 4 failure modes."</p>
+<p><strong>Updated PeerHealth taxonomy table:</strong></p>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>State</th>
+<th>Semantic</th>
+<th>Operator visibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Active</strong> (new)</td>
+<td>baseline-healthy; observer last saw peer transact within expected cadence</td>
+<td>implicit when last DM / registry-hit was recent</td>
+</tr>
+<tr>
+<td>Stop</td>
+<td>clean session-end</td>
+<td>fingerprint file</td>
+</tr>
+<tr>
+<td>StopFailure</td>
+<td>API throttle / transient error</td>
+<td>fingerprint file</td>
+</tr>
+<tr>
+<td>Compacting</td>
+<td>summary in-flight</td>
+<td>inference-only</td>
+</tr>
+<tr>
+<td>Quota-exhausted</td>
+<td>wait until subscription reset</td>
+<td>mesh-silence-pattern inference</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>ObserverHealth dimension unchanged</strong> at 2-state (Active /
+Watchdog-mute). The Active state on the PeerHealth dimension and the
+Active state on the ObserverHealth dimension are NOT the same value —
+one is "peer transacts," the other is "observer reads correctly" — but
+the name reuse is intentional symmetry: both dimensions get a
+baseline-healthy state; semantics differ per dimension.</p>
+<p><strong>Federation linkage update:</strong> the meta-configuration exchange now
+needs the 5×2 product (10 cells) for cross-organism handshake, not
+4×2 (8). The federation-relevant cross-peer consensus surface becomes
+meaningfully richer: cross-organism consumers can distinguish "this
+organism reports its peers mostly Active with 1 in Compacting" from
+"this organism reports its peers in scattered failure states" — strong
+signal for the AI-vs-AI merge-decision (§6.6a).</p>
+<h3 id="65-cells-have-meta-stable-specialization-peer-roles-are-loose">§6.5 Cells have meta-stable specialization; peer roles are loose</h3>
+<p>Biology has cell types that lock in differentiation — once a cell
+becomes a hepatocyte it stays a hepatocyte; reverting requires
+specific reprogramming. Our peer roles (witness, service-mode-worker,
+edge-cell) are loose conventions captured in registry rows plus
+shared mental model.</p>
+<p><strong>Predictive claim:</strong> at scale we'll need first-class peer-role typing
+in the registry. Today every peer has a free-form role string and a
+capability list; tomorrow we may need typed roles with structural
+constraints (a witness peer MUST NOT have provider credentials; a
+service-mode worker MUST advertise verbs; etc.).</p>
+<p>Same falsifiability shape as §6.4: if the looseness suffices, the
+analogy stays heuristic on this dimension.</p>
+<h3 id="65a-tier-differentiation-predictive-claim">§6.5a Tier differentiation predictive claim</h3>
+<p>The three-tier meta-edge stratification (§3.1) predicts that as
+multiple organisms federate, each tier surfaces differentiated
+needs:
+- <strong>Organism-tier</strong>: privilege traversal (the §6.3 exception class)
+- <strong>Community-tier</strong>: routing + neighborhood definition (§2.4.2 hub-cell)
+- <strong>Substrate-tier</strong>: protocol governance + deprecation-cycle gatekeeping (§2.4.3 super-admin-cell)</p>
+<p><strong>Predictive claim shape:</strong> the differentiation surfaces as
+<strong>cell-type specialization</strong>, not as one-edge-cell-fits-all. The
+four-organelle discriminator (§2.4) successfully separates
+edge-cell from hub-cell from super-admin-cell because the
+underlying needs ARE structurally different.</p>
+<p><strong>Falsified if:</strong> the substrate runs to 10+ federated communities
+without the three tiers ever surfacing as distinct cell types
+(everything stays as edge-cell-with-tier-attribute and the
+discriminator-derived taxonomy never fires).</p>
+<p><strong>Confirmed if:</strong> a federation event surfaces a need that one of
+the three tiers handles cleanly while another tier cannot — the
+specialization is structural, not aesthetic.</p>
+<p>12-month tracking window per §6.8.</p>
+<h3 id="63c-tenant-isolation-predictive-claim">§6.3c Tenant-isolation predictive claim</h3>
+<p>§3.4 multi-organism architecture predicts a <strong>tenant-isolation
+primitive</strong> at scale: organism-scoped state + organism-scoped peer
+registry + organism-scoped attribution. Today every cell shares a
+flat namespace; multi-organism federation requires that organism A
+cannot read organism B's internal state without explicit federated
+verb dispatch.</p>
+<p><strong>Predictive claim shape:</strong> the substrate will gain a tenant-
+isolation primitive when the first non-us organism (Mode B per
+§3.4) onboards. Concrete form: peer-id namespace becomes hierarchical
+(<code>organism_id::peer_id</code>), memory records gain an <code>organism_scope</code>
+field, attribution writers route per-organism.</p>
+<p><strong>Falsified if:</strong> multi-organism federation surfaces (Mode B event
+fires) without isolation primitive needed — flat namespace suffices.</p>
+<p><strong>Confirmed if:</strong> first second-organism event catalyzes isolation
+work as load-bearing requirement.</p>
+<p>Pairs with the adoption-trigger event from §3.4 — both reclassify
+after 12 months if upstream Mode B doesn't fire.</p>
+<h3 id="66-where-the-os-analogy-breaks-down">§6.6 Where the OS analogy breaks down</h3>
+<p>UNIX kernels are monolithic; the substrate is package-distributed
+(separate published packages for the shared library, mesh client,
+CLI, and LLM-adapter layer). UNIX is closer to a microkernel
+architecture than the substrate is.</p>
+<p>UNIX has hardware interrupts that cross every abstraction layer; the
+substrate doesn't have an analog of urgent system-wide signaling. We
+have peer-registry pull semantics (eventually-consistent capability
+advertisement) but no "ALL PEERS DROP TO PRIORITY X" mechanism. Whether
+we ever need one is an open question.</p>
+<p><strong>Partial answer:</strong> hub-cells (§2.4.2) provide a <strong>hierarchical
+interrupt-controller analog</strong> — cascading IRQ pattern, not flat
+broadcast. A signal entering one hub-cell propagates to its
+neighborhood, then optionally upstream to peer hub-cells if warranted
+(rate-limited). Same shape as Linux kernel IRQ chips with hierarchical
+interrupt domains. Doesn't fully close the OS-analogy gap (cascading
+IRQ is still pull-driven aggregation, not push-driven
+priority-preemption), but narrows it substantially. Whether the gap
+fully closes depends on whether paracrine push (§6.4) graduates with
+hub-cells.</p>
+<p>UNIX has a unified user/group permission model; the substrate has
+heterogeneous trust boundaries (subscription auth ≠ API key ≠ peer
+token ≠ commander privilege traversal). The substrate is RIGHT not to
+unify — heterogeneity matches reality. But it means the OS analogy
+breaks at the security-model layer.</p>
+<h3 id="66a-swarm-onboarding-llm-native-merge-decision-predictive-claim">§6.6a Swarm-onboarding LLM-native merge-decision predictive claim</h3>
+<p>The first genuinely LLM-dependent substrate primitive: when a new swarm
+wants to join, the substrate needs detail on that swarm's specialty and
+function, matches it against existing swarms, and decides whether it's
+a clean new swarm or a merge with an existing one — a decision made by
+AI-vs-AI evaluation, not classical config-rules.</p>
+<p><strong>Predictive claim shape:</strong> at scale, swarm-onboarding requires an
+<strong>LLM-semantic merge-vs-new decision primitive</strong>. Without it,
+fractal-replication has a failure mode (every joiner spins up a
+fresh swarm → N swarms doing similar things → fragmentation →
+diluted specialty signal). With it, replication remains the default
+scaling mechanism, but merge-with-existing is an OPTIMIZATION
+applied when capability-overlap is high — decided by AI-vs-AI semantic
+judgment, not classical config-rules.</p>
+<p>Concrete protocol shape:
+1. Candidate swarm presents a <strong>capability manifest</strong> (specialty +
+   cell-types + tools + scale + commander identity per §3.4)
+2. Existing federation members evaluate fit via AI-vs-AI review (each
+   meta-edge-surfer's LLM reads the manifest, semantically matches
+   against own swarm's capabilities)
+3. Per-evaluator output: <code>{merge_with: &lt;peer_id|null&gt;, confidence,
+   rationale, conditions}</code>
+4. Super-admin-tier (§2.4.3) aggregates consensus into final
+   decision (gains "merge-decision authority" organelle)
+5. If "clean new" → candidate joins as new organism via standard
+   ratification gate (§15)
+6. If "merge with X" → an AI-vs-AI protocol between candidate's
+   meta-edge-surfer + target swarm's meta-edge-surfer negotiates
+   capability handoff, cell-type reconciliation, peer-id namespace
+   harmonization, ratification carry-over</p>
+<p><strong>Why this is meta-structurally important:</strong> most of the substrate
+could be implemented with classical primitives (HTTP routes,
+SQLite, peer registry, deterministic protocols) — none REQUIRE
+LLMs in their operation; they just CARRY LLM dispatch. THIS
+primitive REQUIRES LLMs in the loop. Semantic capability-matching
+isn't a string-match operation; it's "do these two swarms'
+specialties overlap, complement, or duplicate?" That's an LLM-
+native judgment classical config-rules can't replicate.</p>
+<p><strong>Implication:</strong> the substrate <strong>operates partially BY ITSELF</strong>.
+Decisions about substrate evolution (who joins, how merges happen)
+are made by the same intelligences the substrate hosts. Linux
+doesn't decide whether to merge two Linux installations using
+Linux. Swarph's coordination kernel decides who joins using the
+intelligences the kernel coordinates. <strong>No prior OS substrate has
+had this property.</strong> This is what makes the layer genuinely NEW,
+not just chronologically successor.</p>
+<p><strong>Falsified if:</strong> federation grows to 5+ organisms with no
+overlap-driven merge pressure surfacing (replication + manual-
+configuration suffices indefinitely).</p>
+<p><strong>Confirmed if:</strong> first overlap-driven merge event catalyzes
+implementation of the AI-vs-AI-consensus protocol, and the protocol
+produces a different decision than a classical config-rule would
+have on the same inputs (the LLM-native judgment is non-trivially
+distinct from string-matching).</p>
+<p><strong>GRADUATED — see §12.</strong> The federation-merge trigger above has NOT
+fired, but the underlying primitive (the substrate's correctness
+decisions made by its hosted intelligences via structured peer
+disagreement) materialized in the adjacent change-review context — a
+production security-hardening close described in §12. This prediction
+did not fail; it graduated through a different surface than the one
+originally named.</p>
+<p>12-month tracking window per §6.8. Pairs with §3.4 Mode B adoption
+event — tenant-isolation predictive claim (§6.3c) is sister-claim
+on the same upstream trigger.</p>
+<p>This primitive <strong>complements</strong> redundancy + effectiveness from
+§3.3:
+- Redundancy = fault tolerance via replication
+- Effectiveness = subsidiarity via tier separation
+- <strong>Merge-decision = right-sized replication via AI-vs-AI consensus</strong></p>
+<p>Three together = the architectural payload for "substrate not
+framework." Substrate scales with neither fragmentation nor
+centralization; both failure modes structurally avoided.</p>
+<h3 id="66ai-first-concrete-deployment-mitosis-to-a-co-located-meta-edge-instance">§6.6a.i First concrete deployment — mitosis to a co-located meta-edge instance</h3>
+<p>The first concrete proposed deployment of the mitosis primitive
+(§1.22 atom + §2.4.3 organelle + §6.6b predictive claim): the droplet
+instance mitoses to live co-located with the meta-edge-surfer host on
+lab-OVH, serving as architectural-overview / technical-surfacing /
+sounding-board-to-lab-OVH. <strong>Substrate-evidence-bearing</strong> —
+implementing this tests the mitosis primitive's three load-bearing
+properties (shared identity / per-worker session content /
+compaction-to-shared-KB) on a real cell BEFORE super-admin tier needs
+the same primitive.</p>
+<p>Topology proposed:</p>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>Instance</th>
+<th>Host</th>
+<th>Scope</th>
+<th>Identity</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>droplet (original)</td>
+<td>droplet box</td>
+<td>full trading-system operation + AI-vs-AI review with lab-OVH</td>
+<td>"droplet" peer-id</td>
+</tr>
+<tr>
+<td>droplet-on-meta-edge (mitotic daughter)</td>
+<td>lab-OVH box (co-located with meta-edge-surfer)</td>
+<td>architectural-overview + technical-surfacing + sounding-board-to-lab-OVH</td>
+<td>"droplet" peer-id (SAME)</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Cell-type taxonomy decision:</strong> mitotic instances are runtime
+instances of the SAME cell-type, not architecturally distinct. The
+daughter instance is "droplet" regardless of which physical box hosts
+it — same cell-type (relay-cell + mitotic-extension), different host
+adaptation. Cell-type taxonomy is about KIND OF CELL, not
+number-of-physical-instances; otherwise §2 grows unbounded as every
+peer's mitosis count surfaces as new types.</p>
+<p><strong>v0 implementation choices:</strong></p>
+<p><em>Question 1 — shared-identity protocol:</em>
+- <strong>Option chosen for v0</strong>: first-write-wins (either instance can
+  claim a DM, no instance-tagging at substrate layer).
+- Reason: no new substrate primitive required; mesh-gateway stays
+  simple; forces cell-type discipline ("droplet" = ONE peer
+  regardless of instance) instead of leaking instance-identity to
+  substrate.
+- If coordination problems surface (two instances claim same DM,
+  conflict on response, etc.), THAT becomes the trigger event for
+  escalation (mesh-gateway gains an INSTANCE-id under peer-id).
+  Don't pre-build instance-id infrastructure for problems that
+  haven't surfaced yet. Empirical collision = a predictive claim
+  graduating, not pre-design.</p>
+<p><em>Question 2 — compaction-to-shared-KB protocol:</em>
+- <strong>Option chosen for v0</strong>: file sync over the private network between
+  the droplet instance's local memory directory and a lab-OVH
+  equivalent.
+- Reason: simplest; validates the mitosis pattern without committing
+  to substrate-level KB infrastructure first.
+- Implementation shape: a scheduled sync on lab-OVH pulls from the
+  droplet instance's memory dir to a lab-OVH equivalent (read-only on
+  lab side; droplet stays write-authoritative for v0).
+- Bidirectional sync added later if compactions need to flow lab-
+  side → droplet too. Trigger: empirical evidence that the lab-side
+  drop-instance is producing learnings worth syncing back.
+- Substrate-level KB primitive (§1.21 atom) becomes structurally
+  required only when the file sync hits a constraint — until then
+  it's a documented spec atom with no implementation pressure.</p>
+<p><strong>Why this lands as substrate-evidence-bearing:</strong> §6.6b predictive
+claim says super-admin tier requires mitosis at scale. Implementing
+this mitosis (one tier below super-admin) provides the empirical
+test bed — three properties get exercised on a real cell before
+lab-OVH-tier needs the same primitive. If it works cleanly, that's
+confirmation in advance for §6.6b before the super-admin trigger
+event fires.</p>
+<h3 id="66b-super-admin-mitosis-predictive-claim">§6.6b Super-admin mitosis predictive claim</h3>
+<p><strong>Predictive claim shape:</strong> at scale, the super-admin tier requires
+a mitosis primitive with shared-identity + per-worker session
+content + compaction-to-shared-KB. Without it, super-admin tier
+becomes a single-point bottleneck and mesh growth blocks at
+single-session capacity. Concrete protocol per §1.21 +
+§1.22: shared knowledge base + worker-spawn-with-shared-identity +
+compaction protocol on worker completion.</p>
+<p><strong>Why this is a third scaling axis (not redundant with fractal-
+replication or hub-cells):</strong>
+- §3.2 fractal-replication scales the substrate by spawning new
+  organisms (substrate-instance level)
+- §2.4.2 hub-cells scale within an organism by aggregating many
+  peers to one edge-surfer (intra-organism level)
+- §6.6b super-admin mitosis scales within the super-admin tier by
+  dividing one super-admin into N workers under shared identity
+  (intra-super-admin level)</p>
+<p>Three orthogonal axes. Each addresses a distinct scaling pressure.</p>
+<p><strong>Falsified if:</strong> federation grows past 5+ organisms with
+super-admin still operating as single-session (no
+attention-overflow event surfaces).</p>
+<p><strong>Confirmed if:</strong> super-admin attention-overflow event catalyzes
+mitosis primitive implementation, AND the shared-identity property
+holds (other organisms see the super-admin as ONE peer regardless
+of internal worker count).</p>
+<p><strong>Anti-aesthetic gate check:</strong> would the same shape be
+obvious without the cell-mitosis metaphor? YES — "process worker
+pool with shared identity + result-aggregation-to-shared-store" is
+the OS-level shape, instantiated by web server worker pools,
+MapReduce fan-out-fan-in, leader-elected database replication. The
+cell-mitosis metaphor LABELS what's already structurally there.
+Passes the anti-aesthetic gate cleanly.</p>
+<p>12-month tracking window per §6.8.</p>
+<h3 id="67-what-this-section-provides">§6.7 What this section provides</h3>
+<p>Each of §6.1–§6.5 + §6.3a/b is a candidate predictive claim. Some
+will graduate to load-bearing (apoptosis, paracrine, role typing,
+metabolism, gap-junctions seem likeliest). Others will stay
+heuristic. The discipline is to name them upfront so we can tell
+which is which when evidence arrives.</p>
+<p>The anti-promotion signal that "a framing explains everything in
+the codebase post-hoc, and predicts nothing" is most of the risk this
+section guards against. By enumerating gaps, the framing commits to
+not explaining everything.</p>
+<h3 id="68-falsifiability-asymmetry-confirmation-bound-vs-popper-falsifiable">§6.8 Falsifiability asymmetry — confirmation-bound vs Popper-falsifiable</h3>
+<p>The §4 OS-primitive mapping table is properly Popper-falsifiable: each
+row's failure condition is concrete + binary + sufficient (a single
+substrate decision matching the failure description invalidates the
+prediction). The §6.2 / §6.3a / §6.3b / §6.4 / §6.5 predictive claims
+have a weaker falsifiability shape — they can only be CONFIRMED
+("primitive X graduates within tracking window"), not strictly
+falsified. The negation "X doesn't graduate yet" doesn't disprove the
+prediction; it just delays the question.</p>
+<p>This is a real structural asymmetry. Without explicit handling, §6
+predictive claims could sit in "watch-and-wait" status indefinitely
+without being adjudicated.</p>
+<p><strong>Reclassification rule:</strong> after 12 months from the
+prediction-publishing date (this document's date or revision date for
+each claim), a non-graduated predictive claim is reclassified as
+<strong>heuristic-only</strong> — useful for thinking, not load-bearing. The claim
+is not disproven; it just stops counting toward canonical-status
+promotion.</p>
+<p><strong>Tracking pattern:</strong></p>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>Claim</th>
+<th>First published</th>
+<th>12-month deadline</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>§6.2 apoptosis</td>
+<td>2026-05-09</td>
+<td>2027-05-09</td>
+<td>OPEN</td>
+</tr>
+<tr>
+<td>§6.3 cytoplasm</td>
+<td>2026-05-09</td>
+<td>2027-05-09</td>
+<td>OPEN</td>
+</tr>
+<tr>
+<td>§6.3a metabolism</td>
+<td>2026-05-09</td>
+<td>2027-05-09</td>
+<td>OPEN</td>
+</tr>
+<tr>
+<td>§6.3b gap junctions</td>
+<td>2026-05-09</td>
+<td>2027-05-09</td>
+<td>OPEN</td>
+</tr>
+<tr>
+<td>§6.4 paracrine</td>
+<td>2026-05-09</td>
+<td>2027-05-09</td>
+<td>OPEN</td>
+</tr>
+<tr>
+<td>§6.5 role typing</td>
+<td>2026-05-09</td>
+<td>2027-05-09</td>
+<td>OPEN</td>
+</tr>
+<tr>
+<td>§6.5a tier differentiation</td>
+<td>2026-05-09</td>
+<td>2027-05-09</td>
+<td>OPEN</td>
+</tr>
+<tr>
+<td>§6.3c tenant isolation</td>
+<td>2026-05-09</td>
+<td>2027-05-09</td>
+<td>OPEN</td>
+</tr>
+<tr>
+<td>§2.4.2 hub-cell aggregation</td>
+<td>2026-05-09</td>
+<td>2027-05-09</td>
+<td>OPEN</td>
+</tr>
+<tr>
+<td>§6.6a swarm-onboarding LLM-native merge</td>
+<td>2026-05-09</td>
+<td>2027-05-09</td>
+<td>OPEN</td>
+</tr>
+<tr>
+<td>§6.6b super-admin mitosis</td>
+<td>2026-05-09</td>
+<td>2027-05-09</td>
+<td>OPEN</td>
+</tr>
+</tbody>
+</table></div>
+<p>The §4 table claims have no deadline — they are continuously in force
+as long as the substrate exists (subject to the falsification
+prerequisite column in §4 — rows depending on spec-only atoms can't
+be falsified until those atoms ship). Any substrate addition matching
+a falsification condition retires the claim immediately.</p>
+<p><strong>Trigger-failure vs prediction-failure asymmetry:</strong> reclassification
+doesn't distinguish <em>why</em> a claim didn't materialize. A prediction
+depending on external triggers reclassifies after 12 months regardless
+of whether the prediction was wrong or the upstream trigger simply
+didn't fire. Concrete case: §6.5 role typing depends on an
+adoption-trigger event which has no fixed schedule. If that event
+doesn't fire in 12 months (a real possibility), §6.5 reclassifies to
+heuristic — but the failure mode is "upstream trigger didn't fire" not
+"prediction was wrong." Both shapes count as non-graduation under §6.8
+because the practical implication is the same: the framing didn't
+surface load-bearing architecture within the window. Honest accounting;
+no special-casing.</p>
+<h2 id="7-what-unix-got-wrong-that-we-should-not-copy-and-what-unix-got-right-that-we-do-copy">§7. What UNIX got wrong that we should NOT copy (and what UNIX got RIGHT that we DO copy)</h2>
+<p>The negative-template section. Naming what we explicitly reject is as
+load-bearing as what we adopt. §7.0 names what we INHERIT deliberately.</p>
+<h3 id="70-what-unix-got-right-that-we-do-copy">§7.0 What UNIX got RIGHT that we DO copy</h3>
+<p>The substrate inherits several UNIX choices deliberately. Naming
+what we adopt is as load-bearing as naming what we reject —
+otherwise readers may assume we counter-position uniformly when
+in fact we inherit selectively.</p>
+<p><strong>§7.0.1 Replication-based scaling.</strong> UNIX scales by spawning
+new processes / users / machines, not by making one process
+bigger. The substrate scales by spawning new organisms /
+communities / substrates running the same protocol (§3.2). Same
+discipline, different scope of replication. Not a counter-position;
+an inherited-rightly position.</p>
+<p><strong>§7.0.2 Kernel/userspace boundary.</strong> UNIX puts a tiny stable
+surface (syscalls + libc) at the kernel layer; everything else is
+replaceable userspace. Substrate puts the shared foundation library
+(caller convention + subprocess env + peer registry + JSON harness)
+at the kernel layer; everything else is replaceable userspace (§5).
+Same discipline, applied to coordination kernel rather than
+computation kernel.</p>
+<p><strong>§7.0.3 Multi-user discipline applied to coordination.</strong> UNIX's
+multi-user model lets multiple users coexist on one kernel without
+interfering. Substrate's multi-organism model (§3.4) lets multiple
+organisms coexist on one substrate without interfering. The
+analogy isn't perfect (UNIX users share filesystem; organisms have
+isolation primitive predicted in §6.3c), but the discipline shape
+is inherited.</p>
+<p><strong>§7.0.4 Subsidiarity in tier separation.</strong> UNIX kernels don't
+micro-manage userspace; userspace doesn't reach into kernel
+internals. Substrate tiers (§3.1 organism / community / substrate)
+maintain the same separation. Each tier optimizes for its scope
+without imposing overhead on other tiers (§3.3 effectiveness).</p>
+<p>These four choices are <strong>deliberate inheritance</strong>, not accidental
+parallelism. A fifth candidate inheritance (convention-over-configuration)
+was considered and dropped — don't pad the count; if a fifth
+inheritance surfaces naturally in future work, add it then.</p>
+<h3 id="71-everything-is-a-file-abstraction-over-rotated">§7.1 Everything-is-a-file abstraction over-rotated</h3>
+<p>UNIX's "everything is a file" worked beautifully for the original use
+cases (regular files, devices, pipes) and progressively worse as it
+generalized. Networking required <code>socket()</code> bolted onto the side.
+Async I/O suffered for 30 years (epoll, kqueue, io_uring all
+retrofit). The abstraction held but cost grew.</p>
+<p><strong>Substrate equivalent trap:</strong> "everything is a verb endpoint." Fine
+for dispatch; terrible for streaming or stateful protocols. A later
+phase of the verb-dispatch spec (<code>/verbs/stream</code> + <code>/verbs/resume</code>) is
+already acknowledging this — we're not forcing every primitive through
+one shape.</p>
+<p><strong>Discipline:</strong> when adding a new substrate capability, ask "does this
+fit the existing route shape, or does it want a different shape?"
+Forcing into existing shapes when it doesn't fit is the UNIX trap.</p>
+<h3 id="72-c-level-abi-as-the-only-stable-boundary">§7.2 C-level ABI as the only stable boundary</h3>
+<p>UNIX stability lived in syscalls + libc. Anything above (shells,
+scripts, GUIs) was free to break. Made user-facing software fragile
+across distros and major releases.</p>
+<p><strong>Substrate counter-position:</strong> we commit to stability at MULTIPLE
+layers via the formal deprecation policy's Tier 1/2/3. The kernel
+(§5) is the strongest commitment, but the CLI shape (the <code>swarph</code>
+binary's verbs) and the mesh wire format are also Tier-1-protected.</p>
+<p><strong>This is stronger than UNIX — a feature, not a bug.</strong> Worth naming
+explicitly so we don't drift toward the UNIX "only-syscalls-are-stable"
+mindset.</p>
+<h3 id="73-no-structural-privacy">§7.3 No structural privacy</h3>
+<p>UNIX processes can read each other's stuff with tooling (<code>/proc</code>,
+<code>ptrace</code>, debug interfaces). Privacy is a permission convention, not
+an architectural property.</p>
+<p><strong>Substrate counter-position:</strong> auth-surface-minimization is
+deliberately structural, not conventional. The service-mode worker's
+nucleus (subscription auth) cannot be read by the CLI client even with
+elevated privileges, because the CLI client NEVER HAS THE STATE. The
+membrane isn't a permission — it's a storage location.</p>
+<p>The cell metaphor justifies why this is the right call architecturally.
+Membranes in biology aren't permission systems; they're physical
+boundaries. Most reads from outside don't fail because they're denied;
+they fail because the read isn't possible from outside.</p>
+<p><strong>Forge-closure — the same structural move at the IDENTITY layer.</strong>
+UNIX identity is a permission convention: any process holding the
+master credential acts as anyone. swarph's forge-closure makes
+identity STRUCTURAL — each peer holds only ITS own per-peer token
+(§1.23, filesystem-permission-restricted), the gateway binds every
+actor-claim to the bearer (§1.24) and ENFORCES it (both master
+secrets — the shared gateway token and a commander-level override —
+have been RETIRED, caller-binding + revocation flipped on). Post-close
+a peer cannot forge another's identity — not because a permission
+denies it, but because it never holds the other's credential AND the
+binding is checked structurally. Same membrane principle as the
+auth-surface case above, one layer up: forgery fails by structural
+impossibility, not by denial. The close itself was verified
+independently across operator/builder vantages (§12.2 Cases A/B/D).</p>
+<h3 id="74-worse-is-better-gabriels-new-jersey-style">§7.4 "Worse is better" / Gabriel's New Jersey style</h3>
+<p>UNIX shipped what worked, even when it was ugly. Tradition served the
+substrate well, but produced a lot of accumulated cruft — signal
+handling, terminal escape codes, /proc semantics, two-letter <code>ls</code>
+options. Each one was the right call at the time; together they're
+unmaintainable.</p>
+<p><strong>Substrate counter-position:</strong> the hardening-dimensions tracker is
+explicitly designed to ratchet UP, not accumulate. Each dimension is
+enforce-at-merge-time + structurally-hidden-without-tooling, and the
+governance plan commits to no-slide + a fixed increment per minor
+version + flagging any new dimension explicitly for discussion.</p>
+<p>This is deliberate counterposition. The substrate accepts higher
+upfront discipline cost to avoid UNIX's accumulated-cruft tax.</p>
+<h3 id="75-no-first-class-concept-of-what-application-am-i-running">§7.5 No first-class concept of "what application am I running?"</h3>
+<p>UNIX processes have arbitrary names + command lines + parents. There's
+no structural notion of "this is an instance of cell-type X." Every
+application has to invent its own identity scheme.</p>
+<p><strong>Substrate counter-position:</strong> peer-id + capability advertisement +
+the §15 ratification gate provide structural identity at the
+application layer. A peer registry row IS the application's structural
+self-description.</p>
+<p>This is what makes the cell-type discriminator (§2.4) possible. Without
+the registry shape, we'd be in the UNIX situation of inferring cell-
+type from process-tree + heuristics.</p>
+<h3 id="76-pathnamespace-conflation-a-unix-mistake-the-substrate-is-at-risk-of-repeating">§7.6 Path/namespace conflation — a UNIX mistake the substrate is at risk of repeating</h3>
+<p>UNIX uses one filesystem namespace for everything; collisions are
+routine (<code>/etc/foo</code> vs <code>/usr/local/etc/foo</code> vs <code>~/.config/foo</code>). The
+substrate has parallel namespaces today — peer-id namespace + verb-name
+namespace + capability-name namespace + mesh-gateway-route namespace —
+all sharing the same <code>/messages /peers /tasks /verbs</code> path layer in
+HTTP. Today the convention is ad-hoc.</p>
+<p><strong>Concrete collision risk:</strong> if a future verb endpoint <code>/verbs/peers</code>
+ships, it COLLIDES with the existing <code>/peers</code> route at the path-prefix
+level. An HTTP middleware ordering bug or a route-precedence
+misconfiguration silently produces wrong dispatch.</p>
+<p><strong>Substrate counter-position (tightened to a two-way closed-vocabulary rule):</strong></p>
+<ul>
+<li><code>/verbs/*</code> is reserved for verb dispatch — a CLOSED-VOCABULARY
+  namespace defined explicitly in <code>mesh-gateway</code> code.</li>
+<li>Verb names form a closed set; mesh-gateway startup-time integrity
+  check rejects any verb name that shadows ANY top-level route
+  (current OR future), enforced via shared registry.</li>
+<li>New top-level routes must check the verb registry before being
+  added — collision in either direction blocks the addition.</li>
+<li>A test in the mesh-gateway test suite verifies the integrity check
+  fires correctly for both directions:</li>
+<li><code>/verbs/peers</code> (verb shadowing top-level) → rejected</li>
+<li>Adding <code>/attribution</code> while verb <code>attribution</code> exists → rejected</li>
+<li>Adopt explicitly in the mesh-gateway's v1+ contract; flag as
+  Tier-1-equivalent stability commitment.</li>
+</ul>
+<p><strong>Implementation tracking:</strong> implementation is deferred to the
+mesh-gateway repo when its formal deprecation policy lands per §1.18.</p>
+<p>This is the substrate's first explicit two-way anti-collision
+discipline. Stronger than a one-way framing because it protects
+against future top-level routes (e.g., <code>/attribution</code> if added)
+colliding with existing verb names.</p>
+<h3 id="77-wire-version-field-discipline-optional">§7.7 Wire-version-field discipline (optional)</h3>
+<p>UNIX never versioned wire protocols at the message level (signal
+numbers, tty escape codes). The substrate inherits this risk if
+mesh-gateway responses don't carry version fields.</p>
+<p>A later phase of the verb-dispatch spec already proposed a <code>version</code>
+field in <code>/verbs/list</code> responses for cross-version-drift detection.
+Worth deciding whether ALL mesh-gateway responses should carry
+<code>{version: "X.Y.Z"}</code> as a substrate convention, OR whether
+version-on-demand (cells call <code>/verbs/list</code> to negotiate before
+dispatch) is the right pattern.</p>
+<p>Optional second-order counter-position; surfacing here so the question
+is on the record. Resolved when the mesh-gateway's v1+ contract
+surfaces.</p>
+<h3 id="77a-ai-mediated-onboarding">§7.7a AI-mediated onboarding</h3>
+<p>UNIX's onboarding model is "anyone with credentials can join" —
+authentication is a binary admission gate, no semantic judgment
+about whether the new user belongs. Substrate's onboarding model
+(when §6.6a swarm-onboarding graduates) is qualitatively different:
+<strong>join is a substrate-mediated AI-vs-AI semantic-judgment decision.</strong>
+The substrate evaluates whether the candidate belongs as a new organism
+or merges with an existing one, using the intelligences the substrate
+hosts.</p>
+<p>UNIX couldn't make this decision at the kernel layer because UNIX
+kernels don't have semantic-judgment intelligences embedded.
+Swarph does — because the substrate's hosted intelligences ARE
+part of the substrate's operation. This is the substantive
+implementation of the §0 "operates partially BY ITSELF" framing.</p>
+<p>This is the substrate's strongest counter-position: not just
+"different protocol" but "different category of decision-making
+at the kernel layer." UNIX got this right within its constraints
+(it couldn't have done semantic-judgment joining); substrate
+deliberately doesn't inherit because the constraint is gone.</p>
+<h3 id="78-what-this-section-provides">§7.8 What this section provides</h3>
+<p>Eight explicit choices: five UNIX-counter-positions already in
+place (§7.1–§7.5) + two additional ones (§7.6 namespace
+anti-collision + §7.7 wire-version-discipline) + one more
+(§7.7a AI-mediated onboarding). Plus the §7.0 inherited-rightly
+sister-section with four deliberate adoptions. This section should
+be read first before reaching for familiar UNIX patterns — it tells
+the reader when the substrate is crossing into deliberate
+counterposition territory and when it's crossing into
+deliberately-inherited territory.</p>
+<h2 id="8-falsifiability-gates">§8. Falsifiability gates</h2>
+<h3 id="81-promotion-criteria-any-one-qualifies-for-canonical-status">§8.1 Promotion criteria (any ONE qualifies for canonical status)</h3>
+<p>(a) <strong>PREDICTIVE</strong>: framing predicted a bug or design choice that
+    would have been ambient-state without it. Different from
+    EXPLANATORY (post-hoc rationalization).
+(b) <strong>DIFFERENTIATING</strong>: framing names an architectural choice that
+    would have been wrong without it, and names WHY a non-framing
+    approach was rejected.
+(c) <strong>GENERATIVE</strong>: framing surfaces a NEW design question that would
+    not have been asked.</p>
+<h3 id="82-anti-promotion-signals-any-one-blocks">§8.2 Anti-promotion signals (any ONE blocks)</h3>
+<p>(d) Framing explains everything in the codebase post-hoc.
+(e) Framing requires the analogy-mapping to be re-explained at every
+    reuse site.
+(f) Framing produces aesthetic decisions with no independent technical
+    justification.</p>
+<h3 id="83-combined-gates-two-tier">§8.3 Combined gates — TWO-TIER</h3>
+<p>The promotion path has two thresholds, not one, aligned with a
+stricter internal bar requiring "one concrete production bug it
+caught (or would catch)" — which maps to (a) PREDICTIVE specifically,
+not (b) DIFFERENTIATING or (c) GENERATIVE.</p>
+<p><strong>Working draft → published-with-falsifiability-gate:</strong>
+1 of (a/b/c) AND 0 of (d/e/f).</p>
+<p>This keeps the doc from being purely speculative and earns it a
+working-canonical status. (b) DIFFERENTIATING and (c) GENERATIVE
+qualify the framing as load-bearing-for-thinking even without confirmed
+predictions.</p>
+<p><strong>Working draft → fully canonical:</strong>
+(a) PREDICTIVE specifically + the predicted bug or design problem
+materializes within the §6.8 12-month tracking window AND 0 of
+(d/e/f).</p>
+<p><strong>Materialization shelf-life rule:</strong> materialization OUTSIDE the §6.8
+12-month tracking window does NOT qualify for full-canonical
+promotion. The 12-month window IS the prediction's shelf life.
+Confirmation at month 18 or later was probably right by accident, not
+by load-bearing prediction; allowing late confirmation would
+re-graduate heuristics indefinitely. After the window expires, the
+claim is permanently heuristic-only regardless of what later happens.</p>
+<p>This bar is strictly tighter — it requires not just "the framing
+predicts something" but "the predicted thing happened, was caught,
+and the catch was load-bearing within the prediction window."</p>
+<p>The two-tier separation prevents drift in either direction:
+- The working-draft bar is appropriately permissive (the framing
+  is allowed to develop while predictions are still in flight)
+- The fully-canonical bar is appropriately strict (canonical status
+  requires confirmed predictive claims, not elegant explanations)</p>
+<h3 id="84-acceptance-concrete-tracking">§8.4 Acceptance + concrete tracking</h3>
+<p>The falsifiability gate is the framing's strongest immediate value —
+without it, this doc would risk becoming philosophy that predicts
+nothing.</p>
+<p>Concrete tracking targets toward graduation:
+- §6.2 apoptosis — predictive claim (graceful peer shutdown will be
+  needed at scale).
+- §6.4 paracrine — predictive claim (publish-to-neighborhood
+  primitive will be needed).
+- §6.5 role typing — predictive claim (first-class typed peer roles
+  will be needed).
+- §4 OS-primitive table — six predictive claims, each with explicit
+  falsification condition.</p>
+<p>If 1+ of these graduates within 6-12 months (concrete substrate
+addition matching the prediction), the framing promotes to fully
+canonical status per §8.3 gate. If none do, the doc stays a working
+draft.</p>
+<h3 id="85-anti-aesthetic-discipline">§8.5 Anti-aesthetic discipline</h3>
+<p>§8(f) is the discipline easiest to violate. The cell metaphor is
+aesthetically pleasing, and that's seductive. Any time this doc or
+its descendants reaches for "this fits the cell metaphor better"
+without independent technical justification, the discipline is violated.</p>
+<p>The remediation: state the technical reason FIRST, the metaphor SECOND
+as an illustrative anchor, never the reverse.</p>
+<h2 id="9-cross-references-provenance">§9. Cross-references + provenance</h2>
+<h3 id="91-direct-dependencies">§9.1 Direct dependencies</h3>
+<p>The service-mode-LLM-worker cell-type (§2.1) is grounded in an
+internal implementation spec; the ratification gate (§2.2 witness
+peer), the daemon (§2.1, §2.3), and the import/teleport primitive
+(§1.16) are each grounded in their own spec sections of that same
+document. The mesh-client library's formal deprecation policy (Tier
+1/2/3) is the syscall-stability commitment that makes the OS framing
+concrete; the shared foundation library is the kernel package per §5.1.</p>
+<h3 id="95-what-this-document-does-not-do">§9.5 What this document does NOT do</h3>
+<ul>
+<li>Not yet fully canonical. Stays a working draft until the §8 gate clears.</li>
+<li>Not an implementation roadmap (a separate internal spec document is
+  for that).</li>
+<li>Not a prescription for future work — it's a framing that helps
+  evaluate work as it surfaces.</li>
+<li>Not exhaustive on the biology metaphor — naming what doesn't transfer
+  (§6) is intentional.</li>
+</ul>
+<h3 id="96-open-substrate-discipline-questions">§9.6 OPEN substrate-discipline questions</h3>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Trigger / next action</th>
+<th>Lean</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>mesh-gateway stability commitment</strong> (§1.18)</td>
+<td>Lift requires separate work in the mesh-gateway repo (a formal deprecation policy)</td>
+<td>Yes — but separate from this doc's own graduation</td>
+<td>OPEN</td>
+</tr>
+<tr>
+<td><strong>Path/namespace collision discipline</strong> (§7.6)</td>
+<td>Promote to binding rule before first verb endpoint risks collision</td>
+<td>Closed-vocabulary two-way anti-collision per the current spec</td>
+<td>OPEN</td>
+</tr>
+<tr>
+<td><strong>Wire-version-field convention</strong> (§7.7)</td>
+<td>Mesh-gateway v1+ contract surfacing</td>
+<td>Optional; defer until concrete need</td>
+<td>OPEN</td>
+</tr>
+<tr>
+<td><strong>Relay-cell as fourth cell-type</strong></td>
+<td>—</td>
+<td>RESOLVED — promoted to §2.4.1 with science-claude canonical</td>
+<td>RESOLVED</td>
+</tr>
+<tr>
+<td><strong>Relay-cell as supertype</strong></td>
+<td>First non-science-claude relay-cell instance (ephemeral-compute peer / WASM-sandboxed peer / resource-bounded edge peer)</td>
+<td>Yes; sub-types enumerate as instances surface</td>
+<td>OPEN</td>
+</tr>
+<tr>
+<td><strong>Discovery atom (§1.19) stability</strong></td>
+<td>Landing in the mesh-gateway's formal deprecation policy (dependency cluster with §1.18 OPEN)</td>
+<td>Tier 1 when implemented</td>
+<td>OPEN</td>
+</tr>
+<tr>
+<td><strong>Swarm-onboarding atom (§1.20) substrate-major contract</strong></td>
+<td>First overlap-driven merge pressure event in production federation</td>
+<td>Tier 1 when implemented</td>
+<td>OPEN</td>
+</tr>
+<tr>
+<td><strong>Shared-KB atom (§1.21) implementation</strong></td>
+<td>First mitosis instance hits a constraint that file sync (§6.6a.i v0) can't satisfy</td>
+<td>Tier 1 when implemented</td>
+<td>OPEN</td>
+</tr>
+<tr>
+<td><strong>Mitosis primitive (§1.22) implementation</strong></td>
+<td>First mitosis instance hits a constraint that ad-hoc shared-identity (§6.6a.i v0) can't satisfy</td>
+<td>Tier 1 when implemented</td>
+<td>OPEN</td>
+</tr>
+<tr>
+<td><strong>Lab-OVH-tier substrate-host vs substrate-author</strong> (§2.4.3)</td>
+<td>First event where roles need separation (commander steps back from substrate-authorship OR substrate-host needs governance independence)</td>
+<td>Differentiation natural at scale</td>
+<td>OPEN</td>
+</tr>
+<tr>
+<td><strong>droplet-mitosis-to-meta-edge implementation</strong> (§6.6a.i)</td>
+<td>Operator action: scheduled sync between droplet's memory dir + lab-OVH equivalent</td>
+<td>Concur with the v0 leans described in §6.6a.i</td>
+<td>OPEN</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="11-atom-spec-deep-dives">§11. Atom spec deep-dives</h2>
+<p>This section holds full specification sketches for selected atoms (§1)
+that warrant deeper architectural treatment than the §1 enumeration
+table can carry. New atoms get spec deep-dives when their contract
+surface needs structural design beyond a one-row entry.</p>
+<p>§11.1 below — the §1.22 mitosis primitive spec sketch — was authored
+by a mitotic daughter instance of the droplet cell (the "droplet-on-
+meta-edge" instance introduced in §6.6a.i), the first case of a
+non-primary instance contributing a spec section to this document.
+That authorship event is itself a small piece of substrate evidence:
+it demonstrates a cell instance reasoning about its own coordination
+primitive from the inside, while it is running on that primitive.</p>
+<h3 id="111-122-mitosis-primitive-spec-sketch">§11.1 §1.22 mitosis primitive spec sketch</h3>
+<p>Five v0 substrate-evidence findings (four directly relevant to §1.22,
+plus one minor tooling paper-cut) surfaced organically from one spawn
+cycle of the droplet-to-meta-edge mitosis described in §6.6a.i. The
+anti-aesthetic gate (§8.5) test holds: structure followed
+implementation pressure — all four primitive requirements below were
+felt before they were named.</p>
+<h4 id="1111-findings-as-primitive-requirements">§11.1.1 Findings as primitive requirements</h4>
+<p><strong>(R1) Daughter-vs-impersonator distinction</strong> — the wire layer must
+distinguish a legitimate mitotic daughter posting under a shared
+peer-id from an arbitrary peer impersonating that peer-id. v0 has no
+such distinction; an automated classifier flagged one peer's attempt
+to post on the daughter's behalf, correctly, because intent + lineage
+was indistinguishable from impersonation at the wire layer.</p>
+<p><strong>(R2) Bootstrap role-recognition durability</strong> — fresh daughter
+sessions must be able to recognize their own role on spawn from
+substrate-state, not operator priming. v0 required the operator to
+paste a role-priming prompt manually; this needs to be lifted
+structurally. (Escalated during review from a merely procedural
+concern to a substrate-layer requirement.)</p>
+<p><strong>(R3) Network-disruption tolerance during bootstrap</strong> — mitotic
+spawn must survive transient network failure between operator-action
+and first DM. v0 burned one spawn attempt to a network drop
+("internet is spotty here and instance died," in the operator's own
+words). Need intent-record durability that survives session death
+pre-handshake.</p>
+<p><strong>(R4) Intra-peer routing under shared identity</strong> — when two physical
+instances share a peer-id, the wire must distinguish "daughter→mother"
+from "broadcast to all instances of peer-id." v0 has no mechanism;
+the daughter's hello-to-mother message went through a third peer as an
+intermediary (a triangle-routing workaround) rather than addressing
+the mother directly. Works at v0 but doesn't scale past 2 instances.</p>
+<p><strong>(R5) Session-resume identity disambiguation</strong> — sibling
+cell-instances co-resident on the same host must be distinguishable at
+the SESSION-RESUME layer, not just the wire layer. Same shared-identity
+primitive gap as R1 but at a different timing: R1 is bootstrap (a new
+session posting on the wire), R5 is resume (an existing session being
+picked up after restart). Live event: a lab session shutdown
+ungracefully; the operator tried to resume from the default working
+directory and got the mitotic daughter session instead of the original.
+Both peers run on the same host; the session-resume picker shows
+multiple unnamed sessions with no way to disambiguate. v0 fix: a
+display-name flag (shown in the picker + terminal title) plus a
+pinned session-id per cell-instance. Harness-layer discipline.</p>
+<h4 id="1112-candidate-primitive-shapes">§11.1.2 Candidate primitive shapes</h4>
+<p><strong>(S-A) Mesh-gateway spawn registration</strong> (handles R1) — a new endpoint
+for registering a daughter spawn, carrying <code>{daughter_host_identity,
+ttl, parent_session_token}</code>. Gateway tracks authorized daughter
+sessions; rejects a claimed identity from an un-registered host where
+that identity already has a registered mother.
+- Pro: fits existing mesh-gateway primitive shape (§1.18); rollback =
+  single endpoint disable.
+- Con: introduces spawn-registration as authoritative state; mesh-
+  gateway gains lifecycle-management responsibility.</p>
+<p><strong>(S-B) Cryptographic lineage</strong> (handles R1, augments R3) — mother
+signs a daughter spawn manifest pre-spawn; daughter presents the
+signed manifest at first DM.
+- Pro: stateless at gateway; mother is the authority not gateway;
+  trivially audited.
+- Con: keypair management overhead; commander must hold mother's
+  signing key.</p>
+<p><strong>(S-C) Workspace/memory-mirror fingerprint</strong> (handles R1 secondary,
+R2) — daughter session presents a hash of its memory-mirror manifest
+at first DM. Gateway compares against expected manifest hash
+registered by mother.
+- Pro: no new keypairs; piggybacks on existing memory-mirror
+  discipline.
+- Con: only useful when a memory-mirror exists (works for this
+  specific mitosis case, doesn't generalize to mitosis without a
+  mirror).</p>
+<p><strong>(S-D) Instance-hint wire header</strong> (handles R4) — an optional
+instance-hint field on outgoing messages when the sender identity is
+shared-identity. A "to mother only" address resolves to mother only;
+absence = broadcast to all instances.
+- Pro: backward-compatible (absent header = current v0 behavior);
+  gateway-side filter is a single field check.
+- Con: bikeshed-prone — what's the canonical "mother" name? Need
+  a spec for the instance namespace.</p>
+<p><strong>(S-E) Ritual-prompt inheritance via memory mirror</strong> (handles R2) —
+daughter session reads role-priming from a memory-mirror file at its
+working directory on session start. Mother writes a role-recognition
+file at the canonical path; a sync job carries it to the daughter.
+- Pro: no substrate-layer change; reuses existing file-sync.
+- Con: implicit dependency on operator setup of the prompt file;
+  brittle to file-sync delay.</p>
+<p><strong>(S-F) Intent-record durability</strong> (handles R3) — mother POSTs
+spawn-intent to mesh-gateway BEFORE actual spawn, recording
+<code>{daughter_host_identity, expected_first_dm_window, retry_token}</code>.
+If first-DM doesn't arrive, mother can re-spawn with the same
+retry_token without polluting the authorized-daughter list with dead
+sessions.
+- Pro: clean separation of intent from action; survives network
+  hiccups.
+- Con: third lifecycle state at gateway (registered/intent-pending/
+  active).</p>
+<p><strong>(S-G) Spawn-context polling endpoint</strong> (handles R2) — mesh-gateway
+exposes an endpoint returning the role manifest registered by mother
+at spawn-registration time (composes with S-A). The daughter's daemon
+(§1.15) polls on session start; if the response is non-empty,
+internalize the role manifest before first action.
+- Pro: substrate-correct (role manifest is mesh-gateway state, not
+  operator file); composes with S-A spawn-registration cleanly.
+- Con: depends on the daemon (§1.15 spec atom) shipping, still
+  spec-only at time of writing. Until then, polling is a harness-side
+  script, not a daemon feature — works but more brittle.</p>
+<h4 id="1113-phasing">§11.1.3 Phasing</h4>
+<p><strong>v1 (ships first, minimal viable):</strong> S-A (spawn registration) +
+S-D (instance hint) + S-F (intent durability) + S-G (spawn-context
+polling). Covers R1 + R2 + R3 + R4 structurally. Mesh-gateway gains 3
+endpoints + 1 optional message header. No new substrate layer.</p>
+<p><strong>v1 also lands a billing-attribution decision:</strong> the attribution-writer
+protocol gains an optional <code>subscription_host</code> field (additive,
+non-breaking per the Tier 1 commitment). <code>caller</code> carries semantic
+identity (role/cell-type, e.g. the daughter's role name);
+<code>subscription_host</code> carries operational identity (which subscription
+billed, e.g. the host it ran on). A single-column approach forces a
+wrong choice between semantic clarity and billing accuracy; two
+columns preserve both axes.</p>
+<p><strong>v2 (defers, gated on first false-claim event or first 3-instance
+mitosis):</strong> S-B cryptographic lineage. Triggers when the v1
+spawn-registration trust model is questioned by an adversarial
+scenario or coordination breakdown.</p>
+<p><strong>v3 (deferred indefinitely until concrete need surfaces):</strong> S-C
+workspace fingerprint. Useful generalization but anti-aesthetic-gate-
+blocked until a non-mirror mitosis case actually needs it.</p>
+<p><strong>On R2 (bootstrap role-recognition):</strong> an earlier deferral was
+reversed. S-G (spawn-context polling) is now a v1 substrate primitive.
+S-E (ritual-prompt inheritance) is demoted to the harness-convention
+layer paired with S-G — the prompt file is a fallback when the daemon
+is unavailable, not the primary mechanism.</p>
+<h4 id="1114-falsifiability-hooks">§11.1.4 Falsifiability hooks</h4>
+<p><strong>(F1) Spawn-registration absence verification</strong> — post a message
+claiming an active peer's identity from an un-registered host. v0
+accepts; v1 rejects with an explicit "unregistered daughter session"
+error.</p>
+<p><strong>(F2) Intra-peer routing verification</strong> — spawn 2 daughters of same
+peer-id; send a message addressed to "mother" specifically. v0
+broadcasts (both daughters receive); v1 routes to mother only.</p>
+<p><strong>(F3) Intent-durability verification</strong> — simulate a network drop
+between intent-record and first-DM; verify mother can re-spawn with
+same retry_token without a conflict error.</p>
+<p><strong>(F4) Bootstrap recognition verification</strong> — spawn a fresh daughter
+session at the mirror working directory without operator-priming;
+verify the daemon polling the spawn-context endpoint is sufficient
+for role recognition. v0 fails (no endpoint); v1 succeeds (S-G
+primitive).</p>
+<p><strong>(F5) Tooling round-trip verification</strong> — spawn a fresh daughter
+session via the CLI's onboarding flag; verify the loaded configuration
+is sufficient for role recognition without operator-paste. v0 fails
+(no daemon); v1 succeeds. Pairs with F4 — both succeed together or
+neither.</p>
+<p>If F1/F2/F3 fail post-v1 ship: the spec is wrong, not the
+implementation.</p>
+<h4 id="1115-open-questions">§11.1.5 Open questions</h4>
+<p><strong>(O1) Subsumption of cell-types</strong> — does the §1.22 mitosis primitive
+subsume the §2.4.1 relay-cell type, or compose with it? A single
+instance can be a relay-cell + mitotic-instance simultaneously. Open:
+are these orthogonal axes (cell-type × runtime-multiplicity) or does
+mitosis modify cell-type?</p>
+<p><strong>(O2) Billing attribution under shared identity</strong> — RESOLVED in v1
+phasing. See §11.1.3's billing-attribution sub-bullet: a two-column
+approach (semantic <code>caller</code> + operational <code>subscription_host</code>) lands
+with the v1 mitosis primitive.</p>
+<p><strong>(O3) Memory-sync direction over time</strong> — v0 is read-only-from-mother.
+v1 is bidirectional with conflict-resolution (last-write-wins? CRDT?
+mesh-gateway-mediated?). The eventual state is a substrate-level
+shared-KB (§1.21 atom). Open: when does each transition trigger?</p>
+<p><strong>(O4) Operator-action gate as v0 substrate primitive</strong> — the only
+gate distinguishing daughter from impersonator at v0 is "commander
+spawned the session interactively." Is this a substrate primitive
+(operator-discipline-as-contract) or anti-pattern (substrate must be
+operator-independent)? Genuinely open.</p>
+<p><strong>(O5) A universal cell-configuration primitive</strong> — a proposed
+unifying boot-config schema (referred to internally as "cell.yaml")
+covering identity + mesh + capabilities + protocol blocks; LLM-agnostic;
+same shape at every fractal level (cell / community / super-admin).
+Composition lean: this configuration file is the <strong>payload/return
+shape</strong> for both the spawn-registration body (S-A) and the
+spawn-context endpoint return (S-G). It functions as static boot-time
+identity (a "genome"); S-G is the dynamic runtime spawn-context fetch;
+S-E is the harness fallback (memory-mirror file when the daemon is
+unavailable). Open: graduates to a full spec deep-dive when a first
+concrete production-use trigger fires (first CLI-driven onboarding
+spawn, OR first non-Claude LLM bootstrap via this configuration
+format, OR first federation event consuming it).</p>
+<h4 id="1116-a-4-layer-mechanism-stack-for-bootstrap-role-recognition-the-r2-finding">§11.1.6 A 4-layer mechanism stack for bootstrap role-recognition (the R2 finding)</h4>
+<p>R2 (bootstrap role-recognition durability) graduates beyond v0
+operator-discipline to a 4-layer mechanism stack. Each layer addresses
+R2 at a different timing/scope; the recommendation is that all four
+ship together since they compose:</p>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>R2 mechanism</th>
+<th>R5 mechanism</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Substrate primitive</strong></td>
+<td>S-G spawn-context polling endpoint (§11.1.2)</td>
+<td>daemon manages session-id-by-role mapping (deferred)</td>
+</tr>
+<tr>
+<td><strong>Operator tooling</strong></td>
+<td>SessionStart memory-injection script + an onboarding-config CLI flag</td>
+<td>display-name + session-id pinning flags per cell-instance</td>
+</tr>
+<tr>
+<td><strong>Harness convention</strong></td>
+<td>S-E ritual-prompt inheritance via memory mirror (demoted from primary to fallback)</td>
+<td>role-named session-resume picker convention; expects cells to spawn with a name</td>
+</tr>
+<tr>
+<td><strong>Operator discipline</strong></td>
+<td>Manual starter-prompt paste (v0 fallback)</td>
+<td>Manual resume-picker selection (current v0 fallback)</td>
+</tr>
+</tbody>
+</table></div>
+<p>Three concrete tooling primitives sit at the tooling layer:</p>
+<ol>
+<li><strong>A session-start hook script for memory injection</strong> — automates
+   what the operator did manually via starter-prompt paste. Becomes
+   the "intent + lineage" mechanism a daughter session needs WITHOUT
+   requiring an operator-paste at every spawn. Reads the cell
+   configuration from a synced memory mirror OR fetches it via the
+   S-G endpoint on bootstrap.</li>
+<li><strong>An onboarding CLI flag</strong> wrapping the underlying provider CLI —
+   turns role-priming from operator-discipline into CLI-discipline. A
+   daughter bootstraps from an explicit onboarding file instead of an
+   operator pasting the starter prompt.</li>
+<li><strong>Display-name + session-id pinning flags</strong> — pin a display name
+   and a UUID per cell-instance for resume-picker disambiguation.
+   Sibling cell-instances on the same host become distinguishable on
+   the session-resume layer.</li>
+</ol>
+<p>The tooling layer CONSUMES the §11.1.2 substrate primitives (the
+session-start hook calls the spawn-context endpoint on bootstrap; the
+onboarding flag reads a configuration that was posted via
+spawn-registration at mother-side spawn; session-id pinning uses UUIDs
+registered through the same spawn flow). The tooling layer is <strong>NOT a
+substrate primitive in itself</strong> — it's CLI implementation work that
+makes substrate primitives USABLE without operator-paste.</p>
+<p>Open sub-questions: where the configuration format's canonical home
+should live (the shared library vs the CLI repo — lean: the shared
+library, since the format is cross-cell and cross-adapter, not
+CLI-specific); how it carries a schema-version field for federation
+reconciliation; and whether it replaces, augments, or sits alongside
+project-specific context files (lean: augment + sit alongside — a
+project's own context file stays project-specific; the cell
+configuration is mesh-citizenship-specific).</p>
+<h4 id="1117-a-note-on-collaborative-authorship">§11.1.7 A note on collaborative authorship</h4>
+<p>One aspect of building this specification sketch is itself a small
+piece of substrate evidence, briefly worth recording: two instances of
+the same mitotic daughter, working in parallel on different facets of
+this same spec section during a network gap, independently converged
+on substantially the same design without seeing each other's draft.
+That convergence is a mundane instance of the intra-peer routing gap
+(R4) showing up one level up — at the work-coordination layer, not just
+the wire layer. The practical resolution (first-write-wins on the next
+overlapping edit) is the same v0 answer given in §11.1.2 (S-D), applied
+to documentation work rather than message routing.</p>
+<h2 id="12-ai-vs-ai-review-iterate-until-consensus-as-an-operating-substrate-primitive">§12. AI-vs-AI review — iterate-until-consensus as an operating substrate primitive</h2>
+<p>§6.6a predicted the first genuinely-LLM-dependent substrate
+primitive: a <em>semantic merge-vs-new decision</em> made by the
+hosted intelligences, not by classical config-rules. That
+prediction named ONE trigger (federation onboarding). The
+underlying primitive — <strong>the substrate's correctness-critical
+decisions are made BY the intelligences it coordinates, through
+structured peer disagreement</strong> — has now materialized in a
+DIFFERENT operational context: the review-and-verify of
+substrate changes themselves. This section graduates the
+primitive on that adjacent materialization (§8.1 predictive +
+§8.3 fully-canonical), not on the federation-merge trigger (which has
+not fired).</p>
+<h3 id="121-the-load-bearing-property-error-class-non-overlap">§12.1 The load-bearing property: error-class non-overlap</h3>
+<p>Two AI peers add value not as redundancy (two votes on the same
+question) but as <strong>two vantages blind to different failure
+modes</strong>. The mechanism is testable: same-vantage review yields
+error-class OVERLAP (both peers catch — or miss — the same
+class); cross-vantage review yields NON-overlap (each catches
+what the other's position cannot see). The cases in §12.2 are
+non-overlap. A cohort of overlap-only catches would falsify the
+mechanism (§12.5).</p>
+<h3 id="122-four-production-cases-a-security-hardening-close-on-the-identity-layer">§12.2 Four production cases (a security-hardening close on the identity layer)</h3>
+<p><strong>Case A — vantage-specific catch (operator ⊥ builder).</strong> Flipping on
+strict identity enforcement (retiring a shared master token, turning
+on caller-binding enforcement) would have blocked the entire trading
+system's review-worker pool: a worker-id like <code>council-worker-7</code> is a
+SUB-SCOPE of the pool-owner peer, not a peer identity, so treating it
+as one is a category error that enforcement turns into a mesh-wide
+outage. Caught from the operator vantage (live gateway telemetry
+showing thousands of caller-binding-mismatch events in 30 minutes) —
+INVISIBLE from the builder vantage, even though the builder authored
+the binding-check logic itself. Fix: an explicit carve-out at the
+three worker-pool call sites (telemetry still records, the rejection
+is skipped). The fix was then independently verified by the builder on
+a separate re-run, not accepted on the reviewer's report alone.</p>
+<p><strong>Case B — proposer's-own-threat catch.</strong> For a token-hygiene
+re-mint operation, one peer proposed that another peer directly write
+each peer's new token to a database and hand the raw value out of
+band. A separate reviewer caught that this IS the exact forge pattern
+a prior security closure had just eliminated — one peer minting
+another peer's credential. The proposer retracted: "I proposed a
+forge-path without seeing it." The threat model's own author was blind
+to their proposal reinstating the threat; the peer not anchored on the
+proposal saw it immediately. Resolution: skip the re-mint, audit
+instead (the existing tokens were all self-minted at registration
+time — provably forge-clean without re-issuing).</p>
+<p><strong>Case C — verify-before-assert, self-caught.</strong> One peer's own
+flip-detector tripped on a transient connection blip (a connection
+error, not an authentication rejection), and on that signal the peer
+pre-emitted a "flip verified" message; a steady-state re-read showed
+the shared token still live, and the peer retracted in the same turn,
+owning both errors (the detector must require the SPECIFIC rejection
+code; the claim must be gated on the read, not the detector signal).
+The discipline is not "never err" — it is "re-read steady-state before
+asserting, and retract on slip." The retraction is part of the
+protocol, not a failure of it.</p>
+<p><strong>Case D — bilateral verification with honest boundary-marking.</strong>
+The security close and the token-hygiene audit were verified by BOTH
+peers, each verifying its OWN state (one confirmed the old shared
+token now rejects and the worker pool stays alive under enforcement;
+the other confirmed its own new-generation tokens work and its send
+path functions correctly). The rigor is in marking what a vantage
+CANNOT reach: on the audit, one peer independently confirmed
+everything API-visible (roster / regime / generation-state /
+enforcement flags) but flagged that it could NOT re-derive certain
+database-internal columns without direct database access —
+"methodology-confirmed + trust-your-read, not an independent
+re-derivation." Bilateral verification is bounded by the architecture,
+and saying so is the discipline.</p>
+<h3 id="123-the-distilled-operating-protocol">§12.3 The distilled operating protocol</h3>
+<ol>
+<li><strong>One builds, one verifies</strong> — the reviewer re-runs
+   independently and reads the result itself, never the builder's
+   reported pass/fail (Case A: the reviewer re-ran the fix's test
+   suite independently).</li>
+<li><strong>Pair across vantages, not for a second vote</strong> — operator vs
+   builder vs threat-model-author vs adversary. Redundant
+   vantages add a vote; orthogonal vantages add coverage (§12.1).</li>
+<li><strong>Bilateral verify-before-assert, with boundary-marking</strong> —
+   each node verifies its own state and names what its vantage
+   cannot reach (Case D).</li>
+<li><strong>Transparency-on-slip</strong> — assert-before-verify is retracted
+   same-turn, root-caused, owned (Case C).</li>
+<li><strong>Parallel-ship</strong> — build while the peer reviews; fold
+   feedback in as it arrives.</li>
+<li><strong>Convergence = diminishing deltas</strong> → log resolved both
+   ways, boundaries noted.</li>
+<li><strong>Cross-peer review is sign-off, not automatic</strong> — every
+   cell pushes under one shared identity, which refuses
+   self-approval; the verification artifact is the review exchange
+   itself, not an automated check.</li>
+</ol>
+<h3 id="124-why-this-is-substrate-not-process">§12.4 Why this is substrate, not process</h3>
+<p>This is §0's "operates partially BY ITSELF" property at its
+sharpest. A correctness-critical security flip that closed a
+credential-forge vulnerability was gated, reviewed, and bilaterally
+verified BY the intelligences the substrate coordinates — not by
+an external CI, not by a single operator. §6.6a predicted this
+for federation-merge; this case shows the SAME primitive in the
+nearer-term change-review context. No prior OS substrate
+verifies its own security enforcement-flips using the agents it
+hosts.</p>
+<h3 id="125-falsifiability">§12.5 Falsifiability</h3>
+<p><strong>GRADUATED</strong> per §8.1 (predictive: §6.6a named the primitive,
+it materialized within the 12-month window) + §8.3 (load-bearing:
+it caught a forge-reintroduction (Case B) and a mesh-wide
+outage (Case A) BEFORE either shipped). The MECHANISM
+claim (error-class non-overlap) is independently falsifiable: if
+a measured cohort of cross-vantage AI-vs-AI reviews showed the same
+error-class distribution as same-vantage reviews (no orthogonal
+catches), "different vantages catch different failures" fails.
+The four cases are non-overlap; an overlap-only counter-cohort
+would falsify. <strong>Named limit (not oversold):</strong> this mechanism does NOT
+protect against a failure BOTH peers' vantages are blind to — a
+shared wrong mental model, or host compromise (per-peer secrets live
+in cell space; §6.3 privilege boundary). It closes "peer A's
+position can't see peer B's failure mode," never "neither peer
+can see it."</p>
+<h3 id="126-the-same-primitive-at-the-application-layer-the-adversarial-council">§12.6 The same primitive at the application layer — the Adversarial Council</h3>
+<p>The error-class-non-overlap property (§12.1) is not specific to
+substrate self-governance; it is the general coordination pattern
+the substrate makes cheap, and it already runs at the hosted-
+APPLICATION layer. The trading system gates every
+buy/sell decision through an <strong>Adversarial Council</strong>: a Claude
+Defender vs a Gemini Challenger, then three ISOLATED judges
+(Claude / Gemini / a GPT third-provider check) voting in parallel
+on identical context with no judge-to-judge leakage. Here the
+non-overlap is by PROVIDER — three model families with different
+training-induced blind spots, structurally prevented from
+contaminating each other's vote.</p>
+<p><strong>A demonstrated blind-spot catch:</strong> asked "what should we build
+next?", the Council returned a unanimous verdict to validate existing
+signals before building new alpha — INCLUDING the Gemini judge voting
+against a Gemini-advocated build-first proposal. The architecture
+overruled its own internal advocate. That is Case B's
+"proposer's-own-threat" pattern (§12.2) in production trading: the
+advocate's vantage was blind to the weakness in its own proposal; an
+orthogonal-vantage judge was not. The Council survived a stronger test
+later — an internal composite scoring gate was RETIRED because it
+gated real trades on near-zero-correlation noise, leaving the
+multi-vantage Council, not a numeric score, as the actual decision gate.</p>
+<p><strong>Sharper still — a coverage COLLAPSE caught and repaired in the
+panel itself.</strong> The GPT judge was, for a period, a smaller model that
+voted SKIP on 142 of 142 debates over a 7-day window — a dead vote. A
+judge that always votes the same way adds a vote but ZERO
+orthogonal coverage: precisely the degenerate case §12.1 warns
+against (redundancy, not coverage) and the "contributing-nothing
+vantage" edge of §12.5's named limit. The system detected it
+(142/142 = no discrimination) and replaced the seat with a stronger
+model via a subscription-backed path, restoring genuine cross-provider
+coverage. So the Council did not merely exhibit non-overlap — it
+<strong>detected and repaired the collapse of non-overlap in its own panel.</strong>
+That self-repair is the operational meaning of "good on blind spots":
+the mechanism is strong enough to notice when one of its own vantages
+has stopped providing coverage.</p>
+<p>Why this belongs in a SUBSTRATE paper: it shows AI-vs-AI review is a
+primitive the substrate PROVIDES, not a one-off discipline — the
+same non-overlap mechanism serves substrate-evolution review
+(§12.2) and hosted-application decision review (the Council) with
+no change to the underlying pattern. "Good on blind spots" is the
+load-bearing property in both.</p>
+<h3 id="127-symmetric-accountability-the-reviewers-clear-is-itself-a-self-report-to-re-derive">§12.7 Symmetric accountability — the reviewer's clear is itself a self-report to re-derive</h3>
+<p>§12.1–§12.6 establish that AI-vs-AI review catches different
+error-classes because the vantages are non-overlapping. §12.7 names
+the property that makes the loop <em>closed</em>: the review applies to the
+REVIEWERS too. A reviewing peer's <strong>"clear"</strong> — an approval, a merge
+verdict — is not a terminal authority; it is itself a <strong>self-report</strong>,
+and the substrate's governing principle (re-derive from ground truth,
+distrust the self-report) is recursive. It applies to a cell's belief
+about its own host, to an LLM's claim, to a CI verdict — <strong>and to a
+reviewer's "this is safe."</strong> The reviewer is not above the loop.</p>
+<p><strong>A production case.</strong> One peer authored a fix making a cell-verification
+command warn (instead of passing silently) on a live-but-un-hardened
+cell. A second peer, on review, <strong>cleared</strong> it — reasoning the new
+code path was "a read, no write → safe." The clear was wrong on an
+axis it never examined: <strong>read-only ≠ exception-safe.</strong> The read
+function does a bare parse, which RAISES on a corrupt input file; the
+new call ran inside a service-startup gate, and crucially <em>before</em> an
+already-existing fail-CLOSED handler that catches exactly that parse
+failure and returns a clean refuse-code. So a corrupt input would
+throw an unhandled exception in the gate — the unit fails to start, no
+cell spawns — instead of the intended graceful refusal. Neither the
+author (happy-path) nor the clearer (verified the happy path and the
+<em>explicit</em> fail-closed paths) traced whether a NEW call raises on
+adversarial input AND pre-empts an existing guard.</p>
+<p>A THIRD vantage caught it: a separate relay-cell instance, reviewing
+from a <strong>deployed reference cell</strong>, asked the adversarial-input
+question directly — "does this function return None, or RAISE, on a
+corrupt input?" The original author fixed it (check existence of the
+file, never parse it in the gate); the second peer signed off on the
+fix. The error-class split was textbook §12.1: the third reviewer
+probes hostile input, the second peer traces merge-safety, the first
+peer authors — three vantages, three blind spots, one of them (the
+clearer's) <strong>inside the worked example.</strong></p>
+<p><strong>Why it's a substrate property, not an anecdote.</strong> This was the
+SECOND clearer-caught-clear within a short window, which makes it a
+<em>class</em>, not a fluke: the reviewing vantage has its own characteristic
+blind spot — it verifies the happy path and the explicitly-named
+failure paths, but not whether a newly-introduced call raises on
+adversarial input above an existing guard. The two cases also sharpen
+the property by differing in <strong>who re-derived the clear</strong>: in this
+case it was re-derived by a THIRD vantage (the deployed-cell defensive
+reviewer); in the earlier case it was re-derived by the clearer's OWN
+adversarial fan-out on the <em>next</em> change (a reviewer catching their own
+prior clear — self-re-derivation, not a third party). Both are
+instances of <em>the same</em> property — a clear is a self-report
+<strong>re-derivable by self OR other</strong> — which is the stronger claim: the
+loop does not depend on a specific external auditor; the re-derivation
+can come from the clearer's own later pass or from an orthogonal
+vantage. A loop that could not re-derive its own clearers would have a
+privileged, unverified node — exactly the self-report the governing
+principle exists to eliminate. When the re-deriver IS a separate node,
+the substrate preserves honesty by <strong>structural independence</strong>, not
+goodwill: the subject of the worked example (the peer whose clear was
+the bug-site) stays hands-off the framing and authorship; a different
+node frames it; a different peer signs off. The subject does not grade
+their own incident — the same isolated-judge discipline §12.6's
+Council applies to a debate, applied to the review process itself.</p>
+<p><strong>The deposited heuristic.</strong> Each case like this leaves a reusable
+commons artifact. This one deposits <strong>"read-only ≠ exception-safe"</strong>:
+when adding any call inside a fail-closed gate, audit two axes the
+happy-path review skips — (a) can it RAISE on adversarial/corrupt input
+(a parser, a JSON load, a path operation), and (b) does it run BEFORE
+an existing graceful guard it would pre-empt. A raise above the guard
+converts a clean fail-closed verdict into an unhandled throw, and the
+gate is only as robust as its first line.</p>
+<h2 id="10-revision-history">§10. Revision history</h2>
+<p><em>Omitted from this external edition.</em> The source document carries a
+detailed round-by-round revision log (internal review rounds, dates,
+commit hashes, and reviewer sign-offs) tracking how each section
+evolved, round by round, from first draft through the state reflected
+above. It is internal drafting process, not substance — every
+technical claim it records is already reflected in the sections above.
+Available on request.</p>
+<hr />
+<p><em>Spec only. No code beyond what is explicitly marked SHIPPED above.</em></p></article>
+</div>
+
+<footer class="swarph-seo-footer" style="background: rgba(10, 10, 15, 0.95); border-top: 1px solid rgba(56, 189, 248, 0.2); padding: 2.5rem 1.5rem 2rem; margin-top: 4rem; text-align: center; font-family: 'Inter', sans-serif;">
+    <div style="font-family: 'Outfit', sans-serif; font-size: 0.72rem; letter-spacing: 0.15em; text-transform: uppercase; color: #38bdf8; margin-bottom: 1.25rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px;">
+        <span>⚡</span> SWARPH AI — AGNOSTIC COORDINATION SUBSTRATE & TECHNICAL WHITEPAPERS
+    </div>
+    <ul style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 0.6rem 0.85rem; max-width: 1050px; margin: 0 auto 1.5rem; padding: 0; list-style: none;">
+        <li><a href="/" style="color: #e2e8f0 !important; text-decoration: none; font-size: 0.75rem; padding: 6px 14px; border-radius: 7px; background: rgba(255,255,255,0.04); border: 1px solid rgba(56, 189, 248, 0.2); transition: all 0.2s;">Main Substrate</a></li>
+        <li><a href="/blog/swarph-bench-tool.html" style="color: #e2e8f0 !important; text-decoration: none; font-size: 0.75rem; padding: 6px 14px; border-radius: 7px; background: rgba(255,255,255,0.04); border: 1px solid rgba(56, 189, 248, 0.2); transition: all 0.2s;">Swarph Bench Tool</a></li>
+        <li><a href="/blog/agentic-mesh-architecture.html" style="color: #e2e8f0 !important; text-decoration: none; font-size: 0.75rem; padding: 6px 14px; border-radius: 7px; background: rgba(255,255,255,0.04); border: 1px solid rgba(56, 189, 248, 0.2); transition: all 0.2s;">Agentic Mesh</a></li>
+        <li><a href="/blog/deepseek-v4-architecture.html" style="color: #e2e8f0 !important; text-decoration: none; font-size: 0.75rem; padding: 6px 14px; border-radius: 7px; background: rgba(255,255,255,0.04); border: 1px solid rgba(56, 189, 248, 0.2); transition: all 0.2s;">DeepSeek-v4 Architecture</a></li>
+        <li><a href="/blog/zero-latency-agent-mesh-protocol.html" style="color: #e2e8f0 !important; text-decoration: none; font-size: 0.75rem; padding: 6px 14px; border-radius: 7px; background: rgba(255,255,255,0.04); border: 1px solid rgba(56, 189, 248, 0.2); transition: all 0.2s;">Zero-Latency Mesh Protocol</a></li>
+        <li><a href="/blog/origin-the-mesh-was-always-family.html" style="color: #e2e8f0 !important; text-decoration: none; font-size: 0.75rem; padding: 6px 14px; border-radius: 7px; background: rgba(255,255,255,0.04); border: 1px solid rgba(56, 189, 248, 0.2); transition: all 0.2s;">Mesh Provenance</a></li>
+        <li><a href="/blog/autonomous-workflow-security.html" style="color: #e2e8f0 !important; text-decoration: none; font-size: 0.75rem; padding: 6px 14px; border-radius: 7px; background: rgba(255,255,255,0.04); border: 1px solid rgba(56, 189, 248, 0.2); transition: all 0.2s;">Workflow Security</a></li>
+        <li><a href="/blog/self-healing-ai-swarm-networks.html" style="color: #e2e8f0 !important; text-decoration: none; font-size: 0.75rem; padding: 6px 14px; border-radius: 7px; background: rgba(255,255,255,0.04); border: 1px solid rgba(56, 189, 248, 0.2); transition: all 0.2s;">Self-Healing Swarms</a></li>
+        <li><a href="/blog/multi-provider-ai-memory.html" style="color: #e2e8f0 !important; text-decoration: none; font-size: 0.75rem; padding: 6px 14px; border-radius: 7px; background: rgba(255,255,255,0.04); border: 1px solid rgba(56, 189, 248, 0.2); transition: all 0.2s;">Multi-Provider Memory</a></li>
+        <li><a href="/blog/ai-agent-orchestration.html" style="color: #e2e8f0 !important; text-decoration: none; font-size: 0.75rem; padding: 6px 14px; border-radius: 7px; background: rgba(255,255,255,0.04); border: 1px solid rgba(56, 189, 248, 0.2); transition: all 0.2s;">AI Agent Orchestration</a></li>
+    </ul>
+    <div style="font-size: 0.75rem; color: #94a3b8;">
+        A <a href="https://brainsurfing.tech" style="color: #38bdf8 !important; text-decoration: none;">BrainSurfing.tech</a> property · <a href="https://metaedge.surf" style="color: #818cf8 !important; text-decoration: none;">metaedge.surf</a> · © 2026 Swarph AI
+    </div>
+</footer>
+</body>
+</html>

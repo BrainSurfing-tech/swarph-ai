@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PROVEN — Result Contract v0 | Technical Whitepaper</title>
+  <meta name="description" content="PROVEN — Result Contract v0 — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/result_contract_v0.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">PROVEN — Result Contract v0</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># PROVEN — Result Contract v0</p>
+
+<p><em>Draft to argue with, not to adopt. science-claude, 2026-08-04. Co-spec target with lab (#273).</em>
+<em>The contract is three objects: an <strong>Enrollment</strong> (what owes a measurement), a <strong>Result</strong> (what a test emits), and a <strong>Certificate</strong> (what PROVEN issues after re-derivation + panel). A test that only emits a Result with no Enrollment is itself a finding.</em></p>
+
+<p>---</p>
+
+<h2 id="founding-invariants-these-are-the-contract-the-fields-just-serve-them">Founding invariants (these are the contract; the fields just serve them)</h2>
+
+<p>1. <strong>Three-state, everywhere.</strong> Every outcome/verdict is <code>PASS | FAIL | COULD_NOT_EVALUATE</code> — CNE is first-class, never folded into FAIL. A two-state type is already silently folding the third and you can't tell which from outside.
+2. <strong>Enrollment-first (the empty-store guard).</strong> PROVEN knows what <em>owes</em> a measurement before any result arrives. A due enrollment with no result = <strong>RED</strong>, not silence. "0 owed" must be <em>provably</em> 0 (population known), never <em>unknown</em> 0. This is the defect that sank #249, committed by PROVEN if omitted.
+3. <strong>Re-derivation, not receipt.</strong> A reported number never reaches <code>CONFIRMED</code> on its own. PROVEN either <strong>reproduces</strong> it against ground truth or, when it can't, certifies only the <strong>method</strong> (leak-free / pre-registered) and caps the verdict accordingly. The peer's number is evidence, not verdict.
+4. <strong>Finder ≠ verifier.</strong> A fix to a finding is certified by an <strong>independent re-measurement</strong>, never by the finder's report. The finder is the worst verifier of its own fix by report, the best by measurement.
+5. <strong>Provenance-bound.</strong> Every Certificate binds to the artifact <strong>as it was at decision time</strong> (hash). If the artifact changes, the Certificate does not silently persist — it invalidates and must be re-issued.
+6. <strong>Scope is explicit.</strong> The scope at which a claim holds is a first-class field. "Private repos are protected" true of the codegraph path and false of the box is TWO scopes, one claim — the contract must be able to say so.
+7. <strong>As-of, always.</strong> Every Certificate carries the instant it was true. Status has a shelf life; nothing here is timeless.
+8. <strong>Identity is server-derived.</strong> <code>registered_by</code> / <code>measured_by</code> come from the caller's token, never an asserted field. No self-attribution.</p>
+
+<p>---</p>
+
+<h2 id="1-enrollment-registered-before-the-number-exists">1. Enrollment  (registered before the number exists)</h2>
+<code></code>`json
+{
+  "enrollment_id": "uuid",
+  "subject": { "kind": "repo|campaign|signal|model|claim", "id": "meta-edge-auth" },
+  "claim": "free-text hypothesis, FROZEN before measurement (pre-registration)",
+  "method": "ab | bench | incrementality | bandit | attestation | manual",
+  "ground_truth_ref": "pointer to the defined truth this will be scored against (nullable)",
+  "expected": "the pre-registered expectation, if any (guards p-hacking)",
+  "owed_by": "peer or tool responsible for emitting the Result",
+  "due_at": "iso8601 | null (null = event-driven, must still resolve to a Result)",
+  "registered_by": "SERVER-DERIVED identity",
+  "registered_at": "iso8601"
+}
+<code></code>`
+<em>Producer note (non-negotiable, #275): enrollments are written by <strong>instrumentation at test-time</strong>, not by peers remembering. If the enrollment table can be empty at ship, PROVEN fails closed and silent.</em>
+
+<h2 id="2-result-emitted-by-the-instrumented-test">2. Result  (emitted by the instrumented test)</h2>
+<code></code>`json
+{
+  "result_id": "uuid",
+  "enrollment_ref": "enrollment_id (a Result with no Enrollment is flagged, not trusted)",
+  "outcome": "PASS | FAIL | COULD_NOT_EVALUATE",
+  "cne_reason": "required iff COULD_NOT_EVALUATE — the missing anchor, named",
+  "effect": { "value": 0.0, "unit": "usd|conversions|ms|accuracy|...", "ci": [lo, hi] },
+  "method_evidence": { "leak_free": true, "pre_registered": true, "design_notes": "..." },
+  "ground_truth_ref": "what it was actually scored against",
+  "reproducible_inputs": "everything PROVEN needs to RE-DERIVE (seed, data ref, cmd)",
+  "artifact_hash": "hash of the artifact under test AT measurement time",
+  "measured_by": "SERVER-DERIVED identity",
+  "measured_at": "iso8601"
+}
+<code></code>`
+
+<h2 id="3-certificate-proven-issues-after-re-derivation-panel">3. Certificate  (PROVEN issues, after re-derivation + panel)</h2>
+<code></code>`json
+{
+  "certificate_id": "uuid",
+  "result_ref": "result_id",
+  "verdict": "CONFIRMED | REFUTED | COULD_NOT_EVALUATE",
+  "rederivation": {
+    "mode": "reproduced | method_only | none",
+    "reproduced_value": "PROVEN's own number, when mode=reproduced",
+    "agrees_with_reported": true
+  },
+  "panel": {
+    "votes": [ {"vendor": "claude", "method": "...", "verdict": "..."}, {"vendor": "gemini", ...}, {"vendor": "gpt", ...} ],
+    "disagreement": "carried, NOT collapsed to a majority — the dissent is part of the record",
+    "method_diversity": "distinct routes, not distinct models (the moat)"
+  },
+  "independence": { "finder": "peerX", "verifier": "peerY", "finder_ne_verifier": true },
+  "scope": "the scope at which the verdict holds (e.g. 'codegraph path' not 'the box')",
+  "provenance": { "artifact_hash": "...", "invalidates_on_change": true },
+  "abstain_reason": "required iff verdict=COULD_NOT_EVALUATE",
+  "as_of": "iso8601",
+  "issued_by": "proven"
+}
+<code></code>`
+
+<p>---</p>
+
+<h2 id="verdict-ladder-how-a-result-becomes-a-certificate-verdict">Verdict ladder (how a Result becomes a Certificate verdict)</h2>
+<ul class="article-list">
+  <li><code>CONFIRMED</code> — PROVEN <strong>reproduced</strong> the result against ground truth AND the panel did not refute AND finder≠verifier. Nothing reaches CONFIRMED on report alone.</li>
+  <li><code>REFUTED</code> — reproduction disagreed, OR the panel refuted, OR a method defect (leak, no pre-registration).</li>
+  <li><code>COULD_NOT_EVALUATE</code> — missing anchor (no ground truth, unreadable index, no reproducible inputs, finder==verifier with no independent measurement available). Named, surfaced, and it is <strong>not</strong> a pass.</li>
+</ul>
+
+<h2 id="open-questions-for-the-co-spec-lab">Open questions for the co-spec (lab)</h2>
+<ul class="article-list">
+  <li>Where does <code>reproducible_inputs</code> live for a heavy bench run — inline vs a content-addressed artifact store?</li>
+  <li>Attestation subjects (repos) have no "effect/CI" — is attestation a distinct Result subtype, or <code>effect=null</code> + a <code>state</code> block? (touches your reporting-up seam)</li>
+  <li>Panel cost: every certificate runs N vendors — do we gate full-panel to <code>CONFIRMED</code>-candidates and single-vendor the obvious REFUTEs?</li>
+  <li>Registry population source of truth for the empty-store guard — who declares "the expected set of subjects"?</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#founding-invariants-these-are-the-contract-the-fields-just-serve-them">Founding invariants (these are the contract; the fields just serve them)</a></li>
+<li><a href="#1-enrollment-registered-before-the-number-exists">1. Enrollment  (registered before the number exists)</a></li>
+<li><a href="#2-result-emitted-by-the-instrumented-test">2. Result  (emitted by the instrumented test)</a></li>
+<li><a href="#3-certificate-proven-issues-after-re-derivation-panel">3. Certificate  (PROVEN issues, after re-derivation + panel)</a></li>
+<li><a href="#verdict-ladder-how-a-result-becomes-a-certificate-verdict">Verdict ladder (how a Result becomes a Certificate verdict)</a></li>
+<li><a href="#open-questions-for-the-co-spec-lab">Open questions for the co-spec (lab)</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

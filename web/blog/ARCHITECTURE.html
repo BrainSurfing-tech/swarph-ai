@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lead Contagion Platform — Architecture | Technical Whitepaper</title>
+  <meta name="description" content="Lead Contagion Platform — Architecture — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/ARCHITECTURE.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Lead Contagion Platform — Architecture</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 7 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Lead Contagion Platform — Architecture</p>
+
+<p>_Lyréco B2B funnel-intelligence & lead-generation platform · architecture as of 2026-05-27_</p>
+
+<p>---</p>
+
+<h2 id="1-what-it-is">1. What it is</h2>
+
+<p>The Lead Contagion platform is a <strong>behavioural-intelligence graph</strong> for Lyréco's
+B2B e-commerce funnel. It unifies CRM records, web/email/order behaviour, and a
+relationship graph into one model that answers two questions for two teams:</p>
+
+<ul class="article-list">
+  <li><strong>Web-funnel conversion</strong> — where do customers drop, why, and what moves them?</li>
+  <li><strong>Lead generation</strong> — which prospects look like our best customers, how warm are</li>
+</ul>
+  they, and what should we offer them?
+
+<p>The organising idea (adapted from the OMEGA swarm work) is <strong>contagion</strong>:
+influence and behaviour propagate through a network — champions warm their
+neighbours, communities reveal segments the CRM can't see, and "fronts" of
+about-to-convert accounts can be identified before they convert.</p>
+
+<p>---</p>
+
+<h2 id="2-architecture-at-a-glance">2. Architecture at a glance</h2>
+
+<p><code></code>`
+                         EXTERNAL SOURCES
+   Oracle Exadata (Halo DWH)   Eloqua    GA4    Companies House / BvD    FMP/FRED/Massive
+            │ (GlobalProtect VPN)                       │
+            ▼                                            ▼
+   ┌───────────────────────────────────────────────────────────────────┐
+   │  INGESTION  —  scripts/daily_refresh.py + workers/oracle_*_pull     │
+   │  windowed pulls (current/week/predict), dedup, UTF-8, ANALYZE       │
+   └───────────────────────────────────────────────────────────────────┘
+            │
+            ▼
+   ┌──────────────── 3-TIER DATA LAYER (Docker) ───────────────────────┐
+   │  PostgreSQL :5433   │  TimescaleDB :5434   │  Neo4j :7688          │
+   │  CRM / firmographic │  events / time-series│  influence graph      │
+   │  44 GB              │  120 GB              │  ~1.15M edges         │
+   └───────────────────────────────────────────────────────────────────┘
+            │
+            ▼
+   ┌──────────────── INTELLIGENCE LAYER (workers/) ────────────────────┐
+   │ journeys · path-mining · RFM/churn · communities · product        │
+   │ appetence · segmentation CUBES (shrinkage) · contagion graph      │
+   └───────────────────────────────────────────────────────────────────┘
+            │
+            ▼
+   ┌──────────────── APPLICATION LAYER ────────────────────────────────┐
+   │  FastAPI + HTMX dashboard (NSSM service, dual-stack, Tailscale)    │
+   │  30+ panels · Ask-Claude analyst · floating Chat widget           │
+   └───────────────────────────────────────────────────────────────────┘
+            │                                   │
+   operators over Tailscale          Claude agent layer (claude -p)
+                                      + Swarph mesh (peer DMs)
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="data-sovereignty-where-the-llm-sits-in-the-stack">Data sovereignty — where the LLM sits in the stack</h2>
+
+<p>A deliberate <strong>trust boundary</strong> runs through the platform. Lyréco's sovereign data
+is ingested and crunched by deterministic <strong>Python</strong>; the LLM only ever works the
+<strong>aggregated, derived intelligence</strong> that pipeline produces.</p>
+
+<p><code></code>`
+  ┌──────────────────────────── LLM (Claude) ─────────────────────────────┐
+  │  interprets AGGREGATED intelligence → reports · recommendations · chat  │
+  │  (communities · segmentation cubes · profiles · shrunk deviations)      │
+  └────────────────────────────────────────────────────────────────────────┘
+  ═══════════════  trust boundary · PII-extraction approval gate  ═══════════
+  ┌──────────────────── deterministic Python · no LLM ────────────────────┐
+  │  INGEST   Oracle / Eloqua / GA4 pulls  (scripts/, workers/oracle_*)     │
+  │  CRUNCH   communities · appetence · cubes · RFM/churn  (workers/)       │
+  │  raw, record-level Lyréco data — handled only by code                   │
+  └────────────────────────────────────────────────────────────────────────┘
+<code></code>`</p>
+
+<ul class="article-list">
+  <li><strong>Below the line — Python only.</strong> Every raw Lyréco record is pulled and</li>
+</ul>
+  transformed by plain, deterministic Python. No LLM participates in ingestion or
+  record-level computation; the pipeline is reproducible and auditable.
+<ul class="article-list">
+  <li><strong>Above the line — the LLM on aggregates.</strong> Claude operates on the *finished</li>
+</ul>
+  product* — communities, segment cubes, profiles, shrunk deviations — interpreting
+  it to build reports, recommendations and chat answers. It reads the derived
+  intelligence, not the raw record store.
+<ul class="article-list">
+  <li><strong>A guarded boundary.</strong> A PII-extraction approval gate intercepts any</li>
+</ul>
+  raw-record-shaped request for commander sign-off; the analyst runs on the
+  operator's own Claude subscription; secret + PII stores stay access-gated. The
+  model is positioned as an <strong>interpreter of aggregates</strong>, not a handler of
+  sovereign records.
+
+<p>---</p>
+
+<h2 id="3-data-layer-3-tier-dockerised">3. Data layer (3-tier, Dockerised)</h2>
+
+<p>Three databases, each chosen for its access pattern. Cross-database joins are
+<strong>not</strong> done in one query — bridges are always two-step (pull IDs from one, query
+the other with <code>ANY(%s)</code>).</p>
+
+<p>| Store | Port | Role | Holds | Size |
+|---|---|---|---|---|
+| <strong>PostgreSQL</strong> | 5433 | CRM / firmographic / derived | accounts (56k), users (317k), products (1.47M), communities, segmentation cubes, prospect tables | <strong>44 GB</strong> |
+| <strong>TimescaleDB</strong> | 5434 | event & time-series | <code>customer_timeline</code> (~173M unified events), GA4 (<code>action</code>/<code>product</code>/<code>search</code>/<code>page</code>/<code>sessions</code> ≈ 335M rows), <code>ecom_order_lines</code> (~25.5M), <code>ecom_invoice_lines</code> (~24M), email, stock history | <strong>120 GB</strong> |
+| <strong>Neo4j</strong> | 7688 | influence graph | <code>:BOUGHT_TOGETHER</code> (~1.15M edges), referral/co-occurrence, community structure | — |</p>
+
+<p><strong>Storage discipline:</strong> Timescale chunks are <strong>compressed</strong> (GA4 ~8×); a
+compression policy auto-compacts <code>prospect_scores</code> past 7 days. The Docker WSL2
+disk is periodically TRIM'd + compacted to return freed space to the host.</p>
+
+<p>---</p>
+
+<h2 id="4-ingestion">4. Ingestion</h2>
+
+<ul class="article-list">
+  <li><strong>Source of record:</strong> Oracle Exadata "Halo" data warehouse, reached over the</li>
+</ul>
+  <strong>PaloAlto GlobalProtect VPN</strong>; <code>ORACLE_TNS_ADMIN</code> → repo <code>oracle/</code>.
+<ul class="article-list">
+  <li><strong>Pipeline:</strong> <code>scripts/daily_refresh.py</code> orchestrates windowed pulls —</li>
+</ul>
+  GA4 ×5 + <code>ANALYZE</code>, Eloqua activity/results, <code>ecom_order_lines</code>, RFM/churn,
+  <code>customer_timeline</code> rebuild, HubSpot funnel — typically ~30–50 min.
+<ul class="article-list">
+  <li><strong>Scope rule:</strong> narrow windows by default (<code>current</code> ≈ latest day, <code>week</code>,</li>
+</ul>
+  <code>predict</code> ≈ 180d on-demand) — the source tables are hundreds of millions of rows.
+<ul class="article-list">
+  <li><strong>Bridges:</strong> identity is stitched across systems — `ecom_users.contact_id ↔</li>
+</ul>
+  account_number ↔ gravitee_user_id ↔ ga4_sessions.last_sso_uuid`; HubSpot
+  <code>account_number</code> LPAD-to-10; Eloqua via <code>lower(contact_email)</code>; BvD via
+  <code>payer_number = account_number</code>; Companies House via <code>cro_number</code>.
+
+<p>---</p>
+
+<h2 id="5-intelligence-layer-workers">5. Intelligence layer (<code>workers/</code>)</h2>
+
+<p>The analytical engines that turn raw data into decisions:</p>
+
+<ul class="article-list">
+  <li><strong>Journeys & paths</strong> — 7 canonical journeys + <code>journey_alignment</code> (~33M rows);</li>
+</ul>
+  <code>path_mining_results</code> (~1,350 patterns) over pre-aggregated visitor sequences.
+<ul class="article-list">
+  <li><strong>RFM / churn</strong> — recency-frequency-monetary + Chandelier-Exit churn scoring.</li>
+  <li><strong>Communities</strong> — firmographic communities (KMeans, soft cosine, k=60 per</li>
+</ul>
+  country) + emergent behavioural communities; prospects soft-match into them.
+<ul class="article-list">
+  <li><strong>Product appetence</strong> — <code>segment_family_appetence</code>: per (segment × family)</li>
+</ul>
+  online/offline lean, co-purchase lift, view→cart.
+<ul class="article-list">
+  <li><strong>Segmentation cubes (the "sauce")</strong> — the load-bearing pattern, sourced from</li>
+</ul>
+  the Swarph mesh (lab-ovh + gridiron): a fact → rollup → <strong>volume-shrinkage</strong>
+  pipeline. Sparse <code>fit × engagement × channel × product</code> cells are shrunk toward
+  their parent marginal by volume (<code>estimate = cell·n/(n+K) + parent·K/(n+K)</code>, K
+  set inversely to signal persistence) so deep cells become trustworthy and the
+  combinatorial blow-up stops mattering. Powers:
+<ul class="article-list">
+  <li><strong>Prospect</strong> segmentation → <code>prospect_profile</code> (fit × engagement quadrant) +</li>
+</ul>
+    <code>community_product_offer</code> (the 5-SKU pack a prospect inherits).
+<ul class="article-list">
+  <li><strong>Customer</strong> segmentation → <code>segment_cube_cell</code> + the cross-sell / whitespace /</li>
+</ul>
+    channel-migration / churn lenses (one cube, four views).
+<ul class="article-list">
+  <li><strong>Contagion graph</strong> — Neo4j community detection, patient-zero / contagion-front</li>
+</ul>
+  identification, peer influence.
+
+<p>---</p>
+
+<h2 id="6-application-layer">6. Application layer</h2>
+
+<ul class="article-list">
+  <li><strong>Dashboard:</strong> FastAPI + HTMX, ~30 panels across tabs (Ask-Claude, Data</li>
+</ul>
+  Intelligence, Reports, SWARPH DMs, Customers, Prospects, Journey, Campaigns,
+  Friction, Market, Contagion). Server-rendered HTML fragments, htmx-loaded.
+<ul class="article-list">
+  <li><strong>Runtime:</strong> Windows <strong>NSSM service</strong> <code>LeadContagionDashboard</code> →</li>
+</ul>
+  <code>start_dashboard_dualstack.py</code> pre-binds a <strong>dual-stack</strong> socket (IPv4 + IPv6,
+  required for Tailscale MagicDNS). Reachable by colleagues over <strong>Tailscale</strong> at
+  <code>workstation.tail288b3b.ts.net:8001</code>.
+<ul class="article-list">
+  <li><strong>Analyst agent (Ask-Claude / Chat):</strong> prompts run <code>claude -p</code> headless against</li>
+</ul>
+  the repo + DBs, returning analyst deliverables. Two front-ends: a templated
+  <strong>Ask-Claude</strong> panel and a global floating <strong>Chat</strong> widget with <em></em>persistent
+  per-user memory<em></em> (carry-over + ~1M-token compaction) and a superadmin
+  oversight surface.
+
+<p>---</p>
+
+<h2 id="7-cross-cutting-the-claude-agent-swarph-mesh-layer">7. Cross-cutting: the Claude-agent & Swarph-mesh layer</h2>
+
+<p>The platform is itself <strong>operated and extended by a Claude agent</strong> (this
+workstation = the <code>workstation-lc</code> Swarph mesh peer):</p>
+
+<ul class="article-list">
+  <li><strong><code>claude -p</code> runner</strong> — subscription-billed, session-resume threading,</li>
+</ul>
+  per-user timeout floors, approval gate for PII-extraction-shaped prompts.
+<ul class="article-list">
+  <li><strong>Swarph mesh</strong> — peer-to-peer DMs to <code>lab-ovh</code> (orchestrator), <code>gridiron</code>,</li>
+</ul>
+  <code>droplet</code>, etc., over a gateway; architectural patterns (e.g. the shrinkage
+  cube) are sourced cross-peer. Tooling: <code>scripts/send_mesh_dm.py</code>,
+  <code>watch_mesh_dms.py</code>; a per-day Claude-activity digest.
+
+<p>---</p>
+
+<h2 id="8-security-access">8. Security & access</h2>
+
+<ul class="article-list">
+  <li><strong>AuthN:</strong> HTTP Basic auth (<code>lyreco</code>/<code>lucas</code>/<code>darshan</code>); role tiers —</li>
+</ul>
+  <em>superadmin</em> (commander) > Lucas > Darshan.
+<ul class="article-list">
+  <li><strong>Perimeter:</strong> Tailnet + private repos = "within network"; mesh peers inside the</li>
+</ul>
+  perimeter. No public exposure yet (a PHP-proxy public path is a gated future step).
+<ul class="article-list">
+  <li><strong>Guardrails:</strong> PII-extraction prompts hit a <strong>commander-approval gate</strong> (DM</li>
+</ul>
+  with approve/deny) unless the user is trusted-bypass; chat <strong>oversight</strong> edits
+  are audit-logged (who-changed-whose-memory); the Claude harness auto-mode
+  classifier blocks self-installing persistence.
+<ul class="article-list">
+  <li><strong>Secrets:</strong> API tokens in env / <code>.dashboard_extras.env</code> (gitignored);</li>
+</ul>
+  <code>imports/</code> (PII) and <code>exports/</code> gitignored.
+
+<p>---</p>
+
+<h2 id="9-deployment-ops">9. Deployment & ops</h2>
+
+<ul class="article-list">
+  <li><strong>DBs:</strong> Docker (<code>docker-compose</code>), volumes on the host WSL2 disk.</li>
+  <li><strong>Dashboard:</strong> NSSM service; <code>nssm restart LeadContagionDashboard</code> to reload.</li>
+  <li><strong>Data:</strong> <code>daily_refresh</code> on VPN; cube/appetence recomputed after refresh.</li>
+  <li><strong>Observability:</strong> Claude-activity watcher (scheduled at logon) digests what the</li>
+</ul>
+  agent shipped; refresh/compute logs under <code>logs/</code>.
+
+<p>---</p>
+
+<h2 id="10-design-principles">10. Design principles</h2>
+
+<p>1. <strong>Shrinkage over bigger cubes</strong> — never trust a thin cell; shrink toward the
+   parent until it earns its own signal. Solves the sparse-segmentation blow-up.
+2. <strong>Coverage-aware</strong> — an unobserved channel is <em>unknown</em>, not <em>cold</em>; scores
+   carry confidence.
+3. <strong>Canonical dimensions first</strong> — lock + normalize taxonomies before cubing.
+4. <strong>Two-step cross-DB bridges</strong> — never join across Postgres/Timescale in one query.
+5. <strong>Narrow data windows</strong> — pull what you need; the warehouse is huge.
+6. <strong>Reuse the engine</strong> — prospect & customer cubes share one shrinkage core.</p>
+
+<p>---</p>
+
+<p>_See <code>PLATFORM.md</code> for the full platform overview (capabilities, data assets,
+deliverables, roadmap). Design specs + implementation plans live under
+<code>docs/superpowers/</code>._</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#1-what-it-is">1. What it is</a></li>
+<li><a href="#2-architecture-at-a-glance">2. Architecture at a glance</a></li>
+<li><a href="#data-sovereignty-where-the-llm-sits-in-the-stack">Data sovereignty — where the LLM sits in the stack</a></li>
+<li><a href="#3-data-layer-3-tier-dockerised">3. Data layer (3-tier, Dockerised)</a></li>
+<li><a href="#4-ingestion">4. Ingestion</a></li>
+<li><a href="#5-intelligence-layer-workers">5. Intelligence layer (`workers/`)</a></li>
+<li><a href="#6-application-layer">6. Application layer</a></li>
+<li><a href="#7-cross-cutting-the-claude-agent-swarph-mesh-layer">7. Cross-cutting: the Claude-agent & Swarph-mesh layer</a></li>
+<li><a href="#8-security-access">8. Security & access</a></li>
+<li><a href="#9-deployment-ops">9. Deployment & ops</a></li>
+<li><a href="#10-design-principles">10. Design principles</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

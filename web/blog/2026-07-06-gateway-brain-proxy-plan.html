@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gateway Brain-Proxy Implementation Plan | Technical Whitepaper</title>
+  <meta name="description" content="Gateway Brain-Proxy Implementation Plan — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-07-06-gateway-brain-proxy-plan.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Gateway Brain-Proxy Implementation Plan</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 11 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Gateway Brain-Proxy Implementation Plan</p>
+
+<p>> <strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+
+<p><strong>Goal:</strong> Add a mesh-gateway endpoint <code>POST /brain/query</code> that authenticates a cell by its <strong>mesh token</strong> (via the gateway's existing <code>_authorize</code>) and proxies a read-only query to gbrain using one gateway-held token — so no per-cell <code>gbrain_</code> token exists.</p>
+
+<p><strong>Architecture:</strong> The gateway endpoint constructs the gbrain MCP <code>query</code> call itself (read-only by construction — no write/admin path ever built), proxies it to gbrain over stdlib <code>urllib.request</code> wrapped in <code>run_in_threadpool</code> (no new runtime dep), and returns a clean JSON chunk array. The <code>brain-ask</code> client gains a <code>SWARPH_BRAIN_GATEWAY</code> branch that hits that endpoint with the cell's peer token; the direct-<code>:8792</code> path is untouched.</p>
+
+<p><strong>Tech Stack:</strong> Python 3, FastAPI (gateway), <code>urllib.request</code> + <code>starlette.concurrency.run_in_threadpool</code>, pytest + <code>fastapi.testclient.TestClient</code>.</p>
+
+<h2 id="global-constraints">Global Constraints</h2>
+
+<ul class="article-list">
+  <li><strong>Read-only by construction</strong> — the gateway ONLY ever builds an MCP call with <code>params.name == "query"</code>. No code path emits write/admin. A test asserts the upstream body is always <code>name=query</code>.</li>
+  <li><strong>Reuse <code>_authorize(authorization)</code> verbatim</strong> (<code>gateway/server.py:764</code>) — no new auth code. Bad/missing token → <code>HTTPException(401)</code> unchanged.</li>
+  <li><strong><code>GATEWAY_GBRAIN_URL</code></strong> default <code>http://100.107.222.72:8792/mcp</code>; <strong><code>GATEWAY_GBRAIN_TOKEN</code></strong> unset → endpoint returns <code>503</code>. Read via <code>os.environ.get(...)</code> at module top (matches <code>AUTH_TOKEN = os.environ.get("MESH_GATEWAY_TOKEN", "")</code> at <code>server.py:62</code>).</li>
+  <li><strong>Client env <code>SWARPH_BRAIN_GATEWAY</code></strong> (distinct from the pre-existing <code>--gateway</code>/<code>GBRAIN_MCP_URL</code> which names the <em>gbrain</em> endpoint). When set → gateway path with the <strong>peer token</strong>; when unset → today's direct <code>:8792</code> path, byte-unchanged.</li>
+  <li><strong>No new runtime dependency</strong> — the gateway's outbound HTTP uses stdlib <code>urllib.request</code> in a threadpool.</li>
+  <li><strong>Fail loud</strong> — gbrain unreachable / non-2xx / unparseable → <code>502</code> (never a swallowed empty result).</li>
+  <li><strong>Public PyPI</strong> — synthetic test fixtures only; <strong>NO real tokens</strong> in code or tests.</li>
+  <li><strong>Version bump <code>0.25.0 → 0.26.0</code></strong> in both <code>pyproject.toml</code> and <code>src/swarph_cli/__init__.py</code>.</li>
+  <li><strong>TDD</strong>; plan ends at merged + green. Publish, gateway env config, re-pointing workstation-lc, and revoking the stopgap token are <strong>commander-gated and OUT of scope</strong>.</li>
+  <li>Branch <code>feat/gateway-brain-proxy</code> is checked out; stage only the named files per commit (never <code>git add -A</code>; untracked local-only <code>.codegraph/</code> must not be committed).</li>
+  <li>Test invocation: <code>cd /home/ubuntu/swarph-cli && PYTHONPATH=src python3 -m pytest <path> -v</code> (namespace pkg, no install; <code>python</code> is not on PATH).</li>
+</ul>
+
+<h2 id="file-structure">File Structure</h2>
+
+<ul class="article-list">
+  <li><code>src/swarph_cli/gateway/server.py</code> — module-top config vars; a sync helper <code>_brain_query_upstream(question, limit)</code>; a Pydantic <code>BrainQueryRequest</code>; the <code>@app.post("/brain/query")</code> endpoint.</li>
+  <li><code>src/swarph_cli/commands/brain_ask.py</code> — a <code>_gateway_query(...)</code> helper; a <code>SWARPH_BRAIN_GATEWAY</code> branch in <code>run_brain_ask</code>.</li>
+  <li><code>tests/test_gateway_brain.py</code> — NEW; TestClient tests for the endpoint.</li>
+  <li><code>tests/test_brain_ask_command.py</code> — add client-path tests.</li>
+  <li><code>pyproject.toml</code>, <code>src/swarph_cli/__init__.py</code> — version bump.</li>
+</ul>
+
+<p>---</p>
+
+<h3 id="task-1-gateway-brain-query-endpoint-config">Task 1: Gateway <code>/brain/query</code> endpoint + config</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>src/swarph_cli/gateway/server.py</code> (config near <code>:62</code>; helper + model + endpoint near the other <code>@app.post</code> routes)</li>
+  <li>Test: <code>tests/test_gateway_brain.py</code> (create)</li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: <code>_authorize(authorization) -> AuthContext</code> (<code>server.py:764</code>); the FastAPI <code>app</code>.</li>
+  <li>Produces: <code>POST /brain/query</code> accepting <code>{"query": str, "limit": int=8}</code> with <code>Bearer <mesh token></code> → <code>{"chunks": [ {slug,title,chunk_text,score,...}, ... ]}</code>. Sync helper <code>_brain_query_upstream(question: str, limit: int) -> list</code> (builds <code>name=query</code> MCP body, POSTs to gbrain, returns the chunk array; raises on any upstream failure).</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing tests</strong> — create <code>tests/test_gateway_brain.py</code>:</li>
+</ul>
+
+<p><code></code>`python
+import json
+import os
+import importlib
+import pytest
+from types import SimpleNamespace</p>
+
+<p>def _load_app(monkeypatch, *, gbrain_token="gbrain_hostheld", auth="tok_shared"):
+    monkeypatch.setenv("MESH_GATEWAY_TOKEN", auth)
+    monkeypatch.setenv("GATEWAY_GBRAIN_TOKEN", gbrain_token)
+    monkeypatch.setenv("GATEWAY_GBRAIN_URL", "http://127.0.0.1:8792/mcp")
+    monkeypatch.setenv("MESH_DB_PATH", ":memory:")
+    from swarph_cli.gateway import server
+    importlib.reload(server)          # re-read module-top env config
+    return server</p>
+
+<p>def _sse(chunks):
+    inner = json.dumps(chunks)
+    env = {"jsonrpc": "2.0", "id": 1, "result": {"content": [{"type": "text", "text": inner}]}}
+    return "event: message\ndata: " + json.dumps(env) + "\n\n"</p>
+
+<p>def _client(server):
+    from fastapi.testclient import TestClient
+    return TestClient(server.app)</p>
+
+<p>def test_brain_query_authenticates_and_returns_chunks(monkeypatch):
+    server = _load_app(monkeypatch)
+    chunks = [{"slug": "s1", "title": "T", "chunk_text": "hello", "score": 0.9}]
+    monkeypatch.setattr(server, "_brain_query_upstream", lambda q, n: chunks)
+    r = _client(server).post("/brain/query", json={"query": "hi", "limit": 5},
+                             headers={"Authorization": "Bearer tok_shared"})
+    assert r.status_code == 200
+    assert r.json() == {"chunks": chunks}</p>
+
+<p>def test_brain_query_bad_token_401(monkeypatch):
+    server = _load_app(monkeypatch)
+    monkeypatch.setattr(server, "_brain_query_upstream", lambda q, n: [])
+    r = _client(server).post("/brain/query", json={"query": "hi"},
+                             headers={"Authorization": "Bearer wrong"})
+    assert r.status_code == 401</p>
+
+<p>def test_brain_query_unconfigured_503(monkeypatch):
+    server = _load_app(monkeypatch, gbrain_token="")   # GATEWAY_GBRAIN_TOKEN unset
+    r = _client(server).post("/brain/query", json={"query": "hi"},
+                             headers={"Authorization": "Bearer tok_shared"})
+    assert r.status_code == 503</p>
+
+<p>def test_brain_query_empty_query_400(monkeypatch):
+    server = _load_app(monkeypatch)
+    monkeypatch.setattr(server, "_brain_query_upstream", lambda q, n: [])
+    r = _client(server).post("/brain/query", json={"query": "   "},
+                             headers={"Authorization": "Bearer tok_shared"})
+    assert r.status_code == 400</p>
+
+<p>def test_brain_query_upstream_error_502(monkeypatch):
+    server = _load_app(monkeypatch)
+    def boom(q, n): raise RuntimeError("gbrain down")
+    monkeypatch.setattr(server, "_brain_query_upstream", boom)
+    r = _client(server).post("/brain/query", json={"query": "hi"},
+                             headers={"Authorization": "Bearer tok_shared"})
+    assert r.status_code == 502</p>
+
+<p>def test_upstream_helper_is_read_only_by_construction(monkeypatch):
+    """The MCP body the proxy sends upstream ALWAYS has params.name == 'query'."""
+    server = _load_app(monkeypatch)
+    captured = {}
+    class FakeResp:
+        def read(self): return _sse([{"slug": "s"}]).encode()
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+    def fake_urlopen(req, timeout=None):
+        captured["body"] = json.loads(req.data.decode())
+        captured["auth"] = req.get_header("Authorization")
+        return FakeResp()
+    monkeypatch.setattr(server.urllib.request, "urlopen", fake_urlopen)
+    out = server._brain_query_upstream("anything", 8)
+    assert out == [{"slug": "s"}]
+    assert captured["body"]["params"]["name"] == "query"          # read-only lock
+    assert captured["auth"] == "Bearer gbrain_hostheld"           # gateway's held token
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run the tests to verify they fail</strong></li>
+</ul>
+
+<p>Run: <code>cd /home/ubuntu/swarph-cli && PYTHONPATH=src python3 -m pytest tests/test_gateway_brain.py -v</code>
+Expected: FAIL — <code>AttributeError</code> / 404 (endpoint + <code>_brain_query_upstream</code> don't exist yet).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Add the config vars</strong> — in <code>server.py</code>, near the other module-top config (<code>AUTH_TOKEN = os.environ.get("MESH_GATEWAY_TOKEN", "")</code> ~<code>:62</code>), add:</li>
+</ul>
+
+<p><code></code>`python
+GATEWAY_GBRAIN_URL = os.environ.get("GATEWAY_GBRAIN_URL", "http://100.107.222.72:8792/mcp")
+GATEWAY_GBRAIN_TOKEN = os.environ.get("GATEWAY_GBRAIN_TOKEN", "")
+<code></code>`</p>
+
+<p>Confirm <code>import urllib.request</code> and <code>import json</code> are present at the top of <code>server.py</code> (add <code>import urllib.request</code> if missing).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Add the upstream helper</strong> — in <code>server.py</code> (module level, near other helpers). This is the ONLY place the MCP body is built, so read-only lives here:</li>
+</ul>
+
+<p><code></code>`python
+def _brain_query_upstream(question: str, limit: int) -> list:
+    """Proxy a READ-ONLY gbrain query. Builds the MCP <code>query</code> call itself (never
+    write/admin), POSTs to GATEWAY_GBRAIN_URL with the gateway-held token, returns
+    the chunk array. Raises on any upstream/parse failure (caller maps to 502)."""
+    body = {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {"name": "query",
+                       "arguments": {"query": question, "limit": limit, "expand": False}}}
+    req = urllib.request.Request(
+        GATEWAY_GBRAIN_URL, data=json.dumps(body).encode("utf-8"), method="POST")
+    req.add_header("Content-Type", "application/json")
+    req.add_header("Accept", "application/json, text/event-stream")
+    req.add_header("Authorization", f"Bearer {GATEWAY_GBRAIN_TOKEN}")
+    with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310 — fixed tailnet URL
+        raw = resp.read().decode("utf-8")
+    payload = raw
+    if "data:" in raw:
+        for line in raw.splitlines():
+            s = line.strip()
+            if s.startswith("data:"):
+                payload = s[len("data:"):].strip()
+                break
+    doc = json.loads(payload)
+    parsed = json.loads(doc["result"]["content"][0]["text"])
+    return parsed if isinstance(parsed, list) else []
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Add the request model + endpoint</strong> — in <code>server.py</code>, near the other <code>@app.post</code> routes. Add the import <code>from starlette.concurrency import run_in_threadpool</code> at the top if absent, and (with the other Pydantic models) <code>from pydantic import BaseModel, Field</code> is already imported (the file defines request models like <code>MessagePostRequest</code>):</li>
+</ul>
+
+<p><code></code>`python
+class BrainQueryRequest(BaseModel):
+    query: str
+    limit: int = 8</p>
+
+<p>@app.post("/brain/query")
+async def brain_query(req: BrainQueryRequest,
+                      authorization: Optional[str] = Header(None)) -> dict:
+    auth = _authorize(authorization)                      # 401 on bad mesh token
+    if not GATEWAY_GBRAIN_TOKEN:
+        raise HTTPException(503, "brain proxy not configured")
+    if not req.query.strip():
+        raise HTTPException(400, "query is required")
+    try:
+        chunks = await run_in_threadpool(_brain_query_upstream, req.query, req.limit)
+    except Exception as e:  # fail loud — never a swallowed empty result
+        log.warning("brain proxy upstream error for peer=%s: %s", auth.peer, e)
+        raise HTTPException(502, "brain upstream error")
+    log.info("brain query peer=%s regime=%s limit=%d chunks=%d",
+             auth.peer, auth.regime, req.limit, len(chunks))
+    return {"chunks": chunks}
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 6: Run the tests to verify they pass</strong></li>
+</ul>
+
+<p>Run: <code>cd /home/ubuntu/swarph-cli && PYTHONPATH=src python3 -m pytest tests/test_gateway_brain.py -v</code>
+Expected: PASS — all six tests green.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 7: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+cd /home/ubuntu/swarph-cli
+git add src/swarph_cli/gateway/server.py tests/test_gateway_brain.py
+git commit -m "feat(gateway): POST /brain/query — mesh-token auth, read-only gbrain proxy</p>
+
+<p>Reuses _authorize; builds the MCP query itself (read-only by construction);
+proxies with one gateway-held token; 401/400/502/503; per-peer attribution."
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-2-brain-ask-gateway-client-path">Task 2: <code>brain-ask</code> gateway client path</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>src/swarph_cli/commands/brain_ask.py</code> (add <code>_gateway_query</code>; branch in <code>run_brain_ask</code> ~<code>:161-170</code>)</li>
+  <li>Test: <code>tests/test_brain_ask_command.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: <code>_peer_token_path(self_name)</code> (<code>:87</code>), <code>_self_name()</code> (<code>:91</code>), <code>_http_post(url, body, token, accept, timeout)</code> (<code>:112</code>).</li>
+  <li>Produces: <code>_gateway_query(gw_base: str, peer_token: str, question: str, limit: int) -> list</code> — POSTs <code><gw_base>/brain/query</code> with <code>{"query","limit"}</code> + <code>Bearer peer_token</code>, returns the <code>chunks</code> list. <code>run_brain_ask</code> uses it when <code>SWARPH_BRAIN_GATEWAY</code> is set.</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing tests</strong> — add to <code>tests/test_brain_ask_command.py</code>:</li>
+</ul>
+
+<p><code></code>`python
+def test_gateway_query_posts_brain_query_with_peer_token(monkeypatch, tmp_path):
+    from swarph_cli.commands import brain_ask
+    captured = {}
+    def fake_http_post(url, body, token, accept="application/json, text/event-stream", timeout=30):
+        captured.update(url=url, body=body, token=token)
+        import json as _j
+        return _j.dumps({"chunks": [{"slug": "s1", "chunk_text": "x"}]})
+    monkeypatch.setattr(brain_ask, "_http_post", fake_http_post)
+    out = brain_ask._gateway_query("http://gw:8788", "peer_tok_123", "hello", 5)
+    assert out == [{"slug": "s1", "chunk_text": "x"}]
+    assert captured["url"] == "http://gw:8788/brain/query"
+    assert captured["body"] == {"query": "hello", "limit": 5}
+    assert captured["token"] == "peer_tok_123"</p>
+
+<p>def test_run_brain_ask_uses_gateway_when_env_set(monkeypatch, tmp_path, capsys):
+    from swarph_cli.commands import brain_ask
+    # peer token on disk for _self_name()
+    cfg = tmp_path / ".config" / "swarph"
+    cfg.mkdir(parents=True)
+    (cfg / "wlc.peer_token").write_text("peer_tok_xyz", encoding="utf-8")
+    monkeypatch.setattr(brain_ask.Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setenv("SWARPH_SELF", "wlc")
+    monkeypatch.setenv("SWARPH_BRAIN_GATEWAY", "http://gw:8788")
+    seen = {}
+    def fake_gateway_query(gw, tok, q, n):
+        seen.update(gw=gw, tok=tok, q=q)
+        return [{"slug": "s1", "chunk_text": "hit"}]
+    monkeypatch.setattr(brain_ask, "_gateway_query", fake_gateway_query)
+    rc = brain_ask.run_brain_ask(["--no-synth", "what", "is", "up"])
+    assert rc == 0
+    assert seen["gw"] == "http://gw:8788" and seen["tok"] == "peer_tok_xyz"
+    assert "s1" in capsys.readouterr().out</p>
+
+<p>def test_run_brain_ask_direct_path_unchanged_when_gateway_unset(monkeypatch, capsys):
+    from swarph_cli.commands import brain_ask
+    monkeypatch.delenv("SWARPH_BRAIN_GATEWAY", raising=False)
+    monkeypatch.setenv("GBRAIN_TOKEN", "gbrain_direct")
+    called = {}
+    monkeypatch.setattr(brain_ask, "_mcp_query",
+                        lambda url, tok, q, n: called.setdefault("hit", (url, tok)) or [{"slug": "d"}])
+    rc = brain_ask.run_brain_ask(["--no-synth", "hello"])
+    assert rc == 0
+    assert called["hit"][1] == "gbrain_direct"     # direct path used the gbrain token
+    assert "d" in capsys.readouterr().out
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run to verify they fail</strong></li>
+</ul>
+
+<p>Run: <code>cd /home/ubuntu/swarph-cli && PYTHONPATH=src python3 -m pytest tests/test_brain_ask_command.py -k "gateway or direct_path" -v</code>
+Expected: FAIL — <code>_gateway_query</code> undefined; <code>run_brain_ask</code> has no gateway branch.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Add <code>_gateway_query</code></strong> — in <code>brain_ask.py</code>, after <code>_mcp_query</code> (<code>:127</code>):</li>
+</ul>
+
+<p><code></code>`python
+def _gateway_query(gw_base: str, peer_token: str, question: str, limit: int) -> list:
+    """Query the brain via the mesh gateway's /brain/query proxy, authenticating
+    with the cell's MESH peer token. The gateway holds the gbrain token; we never do."""
+    url = gw_base.rstrip("/") + "/brain/query"
+    raw = _http_post(url, {"query": question, "limit": limit}, peer_token,
+                     accept="application/json")
+    return json.loads(raw).get("chunks", [])
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Branch in <code>run_brain_ask</code></strong> — replace the retrieval block. Current (<code>:161-170</code>):</li>
+</ul>
+
+<p><code></code>`python
+    token = _resolve_token(args.token_file, _self_name())
+    if not token:
+        sys.stderr.write(
+            "swarph brain-ask: no gbrain read token "
+            "(set GBRAIN_TOKEN / SWARPH_BRAIN_TOKEN, pass --token-file, or place a "
+            "mesh peer token at ~/.config/swarph/<self>.peer_token)\n")
+        return 2</p>
+
+<p>try:
+        chunks = _mcp_query(args.gateway, token, question, args.limit)
+<code></code>`</p>
+
+<p>New:</p>
+
+<p><code></code>`python
+    gw = os.environ.get("SWARPH_BRAIN_GATEWAY")
+    if gw:
+        self_name = _self_name()
+        try:
+            peer_token = _peer_token_path(self_name).read_text(encoding="utf-8").strip()
+        except OSError:
+            peer_token = ""
+        if not peer_token:
+            sys.stderr.write(
+                f"swarph brain-ask: SWARPH_BRAIN_GATEWAY set but no mesh peer token at "
+                f"~/.config/swarph/{self_name}.peer_token\n")
+            return 2
+        try:
+            chunks = _gateway_query(gw, peer_token, question, args.limit)
+        except Exception as e:  # noqa: BLE001 — surface, don't swallow
+            sys.stderr.write(f"swarph brain-ask: gateway brain query failed: {e}\n")
+            return 1
+    else:
+        token = _resolve_token(args.token_file, _self_name())
+        if not token:
+            sys.stderr.write(
+                "swarph brain-ask: no gbrain read token "
+                "(set GBRAIN_TOKEN / SWARPH_BRAIN_TOKEN, pass --token-file, or place a "
+                "mesh peer token at ~/.config/swarph/<self>.peer_token)\n")
+            return 2
+        try:
+            chunks = _mcp_query(args.gateway, token, question, args.limit)
+<code></code>`</p>
+
+<p>(Keep the rest of the <code>try</code> body — the <code>except</code>/synthesis/print — exactly as it is after this line; only the retrieval source changes.)</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Run to verify they pass + the file's existing tests still pass</strong></li>
+</ul>
+
+<p>Run: <code>cd /home/ubuntu/swarph-cli && PYTHONPATH=src python3 -m pytest tests/test_brain_ask_command.py -v</code>
+Expected: PASS — new gateway + compat tests pass, all pre-existing brain-ask tests still pass.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 6: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+cd /home/ubuntu/swarph-cli
+git add src/swarph_cli/commands/brain_ask.py tests/test_brain_ask_command.py
+git commit -m "feat(brain-ask): SWARPH_BRAIN_GATEWAY path — query the brain with the mesh peer token</p>
+
+<p>When set, POSTs the gateway /brain/query proxy with the cell's peer token; the
+direct :8792 + gbrain_ token path is unchanged when unset."
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-3-version-bump-0-26-0-docs-full-suite-gate">Task 3: Version bump <code>0.26.0</code> + docs + full-suite gate</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>pyproject.toml</code>, <code>src/swarph_cli/__init__.py</code>, <code>src/swarph_cli/commands/brain_ask.py</code> (docstring env note)</li>
+  <li>Test: <code>tests/test_brain_ask_command.py</code> (version-independent) + full suite</li>
+</ul></p>
+
+<p><strong>Interfaces:</strong> none (release bookkeeping + docs).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong> — add to <code>tests/test_brain_ask_command.py</code>:</li>
+</ul>
+
+<p><code></code>`python
+def test_version_is_0_26_0():
+    import swarph_cli
+    assert swarph_cli.__version__ == "0.26.0"
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>cd /home/ubuntu/swarph-cli && PYTHONPATH=src python3 -m pytest tests/test_brain_ask_command.py::test_version_is_0_26_0 -v</code>
+Expected: FAIL — <code>assert '0.25.0' == '0.26.0'</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Bump both pins + document the env var</strong></li>
+</ul>
+
+<p><code>src/swarph_cli/__init__.py</code> (line with <code>__version__ = "0.25.0"</code>) → <code>__version__ = "0.26.0"</code>.
+<code>pyproject.toml</code> (line <code>version = "0.25.0"</code>) → <code>version = "0.26.0"</code>.
+In <code>brain_ask.py</code>, add to the module docstring's env section (near the <code>GBRAIN_TOKEN</code> note ~<code>:14</code>):</p>
+
+<p><code></code>`
+  SWARPH_BRAIN_GATEWAY  when set, query the brain via the mesh gateway's
+                        /brain/query proxy using the cell's mesh peer token
+                        (no per-cell gbrain_ token). Unset = direct :8792.
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run the version test + the FULL suite</strong></li>
+</ul>
+
+<p>Run: <code>cd /home/ubuntu/swarph-cli && PYTHONPATH=src python3 -m pytest tests/test_brain_ask_command.py::test_version_is_0_26_0 -v && PYTHONPATH=src python3 -m pytest -q</code>
+Expected: PASS — version test passes; entire repo suite green (no regression).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+cd /home/ubuntu/swarph-cli
+git add pyproject.toml src/swarph_cli/__init__.py src/swarph_cli/commands/brain_ask.py tests/test_brain_ask_command.py
+git commit -m "chore(release): bump swarph-cli 0.25.0 -> 0.26.0 (gateway brain-proxy)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="self-review">Self-Review</h2>
+
+<p><strong>1. Spec coverage:</strong>
+<ul class="article-list">
+  <li><code>POST /brain/query</code> + reuse <code>_authorize</code> + read-only-by-construction → Task 1 (<code>_brain_query_upstream</code> builds <code>name=query</code> only; <code>test_upstream_helper_is_read_only_by_construction</code>). ✓</li>
+  <li><code>GATEWAY_GBRAIN_URL</code>/<code>GATEWAY_GBRAIN_TOKEN</code>, unset→503 → Task 1 (config + <code>test_brain_query_unconfigured_503</code>). ✓</li>
+  <li>Errors 401/400/502/503 → Task 1 tests. ✓</li>
+  <li>Client <code>SWARPH_BRAIN_GATEWAY</code> peer-token path + direct-<code>:8792</code> backward-compat → Task 2 (<code>_gateway_query</code>, branch, <code>test_run_brain_ask_direct_path_unchanged_when_gateway_unset</code>). ✓</li>
+  <li>No new runtime dep (<code>urllib</code> + <code>run_in_threadpool</code>) → Task 1 Steps 3–5. ✓</li>
+  <li>Fail-loud 502 → Task 1 endpoint + <code>test_brain_query_upstream_error_502</code>. ✓</li>
+  <li>Version 0.26.0 both files + docs → Task 3. ✓</li>
+  <li>Public PyPI / synthetic fixtures / no real tokens → all tests use <code>gbrain_hostheld</code> / <code>peer_tok_*</code> literals + mocks. ✓</li>
+  <li>Rollout (publish/env/re-point/revoke) — out of scope, absent from tasks. ✓</li>
+</ul></p>
+
+<p><strong>2. Placeholder scan:</strong> No TBD/TODO; every code step shows full before/after. ✓</p>
+
+<p><strong>3. Type consistency:</strong> <code>_brain_query_upstream(question, limit) -> list</code> and <code>_gateway_query(gw_base, peer_token, question, limit) -> list</code> are used identically in impl + tests. Endpoint returns <code>{"chunks": list}</code>; client reads <code>.get("chunks", [])</code>. <code>BrainQueryRequest(query, limit=8)</code>. Env names consistent: <code>GATEWAY_GBRAIN_URL/TOKEN</code> (server), <code>SWARPH_BRAIN_GATEWAY</code> (client). ✓</p>
+
+<p><strong>Note for the executor:</strong> line anchors (<code>:62</code>, <code>:161-170</code>, etc.) are pre-change references; after edits later anchors shift — locate by the quoted code, not the raw number. Confirm <code>Header</code>, <code>HTTPException</code>, <code>Optional</code>, <code>BaseModel</code>, and <code>log</code> are already imported in <code>server.py</code> (they are — used by existing routes); add only <code>urllib.request</code> and <code>run_in_threadpool</code> if missing.</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#task-1-gateway-brain-query-endpoint-config">Task 1: Gateway `/brain/query` endpoint + config</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-2-brain-ask-gateway-client-path">Task 2: `brain-ask` gateway client path</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-3-version-bump-0-26-0-docs-full-suite-gate">Task 3: Version bump `0.26.0` + docs + full-suite gate</a></li>
+<li><a href="#global-constraints">Global Constraints</a></li>
+<li><a href="#file-structure">File Structure</a></li>
+<li><a href="#self-review">Self-Review</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>
