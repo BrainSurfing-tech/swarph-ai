@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Companies House API — setup + usage | Technical Whitepaper</title>
+  <meta name="description" content="Companies House API — setup + usage — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/companies_house_setup.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Companies House API — setup + usage</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Companies House API — setup + usage</p>
+
+<p>UK national company register. <strong>Free</strong>, no per-call charges, ~5M active companies. We use it to enrich GB customer accounts with SIC codes + accounts-category (size proxy) + registered postcode, then cluster customers into firmographic communities that predict cross-family product affinity.</p>
+
+<h2 id="1-get-an-api-key-one-off-5-minutes">1. Get an API key (one-off, ~5 minutes)</h2>
+
+<p>1. Sign up at https://identity.company-information.service.gov.uk/user/register
+2. Sign in, then go to https://developer.company-information.service.gov.uk/manage-applications
+3. Click <strong>Create an application</strong> → live environment → fill in name (e.g. "Lyreco firmographic enrichment")
+4. Open the new app → <strong>Add a new key</strong> → REST key
+5. Copy the key — it's a 40-char string.</p>
+
+<h2 id="2-configure">2. Configure</h2>
+
+<p>Put it in <code>.env</code>:</p>
+
+<p><code></code>`
+COMPANIES_HOUSE_API_KEY=<paste-key-here>
+<code></code>`</p>
+
+<p>The base URL is already set in <code>.env.example</code> but you can override:</p>
+
+<p><code></code>`
+COMPANIES_HOUSE_BASE_URL=https://api.company-information.service.gov.uk
+<code></code>`</p>
+
+<h2 id="3-run">3. Run</h2>
+
+<p><code></code>`powershell
+# smoke test — 10 GB accounts
+python -m workers.companies_house_enrich --sample 10</p>
+
+<p># dry-run — print would-be records without writing to DB
+python -m workers.companies_house_enrich --sample 10 --dry-run</p>
+
+<p># full enrichment — ~24,700 GB sold-to accounts
+# at 109 req/min ≈ 2 calls per account = ~7-8 hours wall clock
+python -m workers.companies_house_enrich</p>
+
+<p># re-enrich accounts already in the table (e.g. annual refresh)
+python -m workers.companies_house_enrich --refresh-existing
+<code></code>`</p>
+
+<p>> <strong>Which enrichment worker?</strong> There are two, by design:
+> - <code>workers/companies_house_enrich_cro.py</code> — <strong>primary.</strong> Direct <code>/company/{CRO}</code> lookup for records that already carry a CRO (Eloqua responders). One call each, no fuzzy matching. Writes <code>companies_house_profiles</code>.
+> - <code>workers/companies_house_enrich.py</code> (above) — <strong>residual.</strong> Name + postcode fuzzy search for ecom_accounts with no CRO and no BvD match. Writes <code>account_firmographics</code>. The customer-side SIC mostly comes from the BvD bridge (<code>ecom_bvd_companies</code>, ~85% GB), so this is a backfill for the remainder.
+>
+> Both share the <code>integrations/companies_house.py</code> httpx client.</p>
+
+<h2 id="4-rate-limits">4. Rate limits</h2>
+
+<p>Companies House caps at <strong>600 requests per 5-minute rolling window</strong> (~120/min). The shared client (<code>integrations/companies_house.py</code>) self-throttles via <code>pace_seconds</code> (default 0.35s ≈ 170/min ceiling) and backs off on a 429 using the <code>X-Ratelimit-Reset</code> header.</p>
+
+<h2 id="5-what-gets-stored">5. What gets stored</h2>
+
+<p>Table <code>account_firmographics</code> — one row per matched account:</p>
+
+<p>| column | meaning |
+|---|---|
+| <code>ch_company_number</code> | Companies House registration number |
+| <code>ch_company_name</code> | Registered name (often differs from trading name) |
+| <code>ch_postcode</code> | Registered office postcode |
+| <code>ch_company_type</code> | ltd, plc, llp, ... |
+| <code>ch_company_status</code> | active, dissolved, liquidation, ... |
+| <code>ch_incorporated_on</code> | Date of incorporation → company age |
+| <code>ch_accounts_category</code> | micro-entity / small / medium / full / dormant (size proxy) |
+| <code>ch_sic_codes</code> | Array of up to 4 SIC codes |
+| <code>ch_sic_primary</code> | First / primary SIC code |
+| <code>ch_sic_group</code> | 2-digit SIC division |
+| <code>match_score</code> | 0..1 confidence in the match |
+| <code>match_method</code> | exact_name+postcode / name_fuzzy+postcode / postcode_only / name_strong_no_postcode / unmatched |
+| <code>raw</code> | Full Companies House profile JSON for forensics |</p>
+
+<h2 id="6-then-build-communities-prospect-look-alikes">6. Then build communities + prospect look-alikes</h2>
+
+<p>The canonical community model is the <strong>soft-similarity</strong> matcher (KMeans + cosine top-K), not hard buckets:</p>
+
+<p><code></code>`powershell
+python -m workers.community_match_soft --country GB --k 60 --top-k 3
+<code></code>`</p>
+
+<p>It clusters customers into <code>firmographic_communities</code>, computes <code>community_cross_family_affinity</code>, and soft-matches Eloqua prospects to those communities → <code>prospect_community_match</code> + <code>prospect_world_propensity</code> (the look-alike deliverable). Export for the Lead Gen team:</p>
+
+<p><code></code>`powershell
+python -m scripts.export_prospect_lookalike
+<code></code>`</p>
+
+<h2 id="7-what-it-doesn-t-give-us">7. What it doesn't give us</h2>
+
+<ul class="article-list">
+  <li><strong>Turnover / revenue</strong> — only filing category (small/medium). For real turnover use Endole, DueDil, FAME (~£1–5/lookup).</li>
+  <li><strong>Employee count</strong> — same.</li>
+  <li><strong>Contact emails / names</strong> — Companies House lists <em>officers</em> (directors) by name but no email. Use Hubspot/Eloqua for contact data.</li>
+  <li><strong>Non-UK companies</strong> — Companies House is UK-only. For FR equivalents see INSEE Sirene (separate worker, not built yet).</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#1-get-an-api-key-one-off-5-minutes">1. Get an API key (one-off, ~5 minutes)</a></li>
+<li><a href="#2-configure">2. Configure</a></li>
+<li><a href="#3-run">3. Run</a></li>
+<li><a href="#4-rate-limits">4. Rate limits</a></li>
+<li><a href="#5-what-gets-stored">5. What gets stored</a></li>
+<li><a href="#6-then-build-communities-prospect-look-alikes">6. Then build communities + prospect look-alikes</a></li>
+<li><a href="#7-what-it-doesn-t-give-us">7. What it doesn't give us</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>swarph spawn on Windows — known issues + workarounds | Technical Whitepaper</title>
+  <meta name="description" content="swarph spawn on Windows — known issues + workarounds — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/WINDOWS_KNOWN_ISSUES.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">swarph spawn on Windows — known issues + workarounds</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 8 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># swarph spawn on Windows — known issues + workarounds</p>
+
+<p><strong>Status:</strong> active investigation 2026-05-19. No Windows test environment
+available to confirm fixes in CI; report covers documented patterns +
+hypothesis chain for the specific "Enter returns 'm'" symptom commander
+hit on workstation-lc 2026-05-17.</p>
+
+<h2 id="tl-dr-if-you-re-hitting-it-now">TL;DR — if you're hitting it now</h2>
+
+<p><strong>Good news: <code>swarph spawn</code> now auto-rescues you.</strong> It detects a <em>genuine</em>
+Windows Terminal by walking the process ancestry (looking for a
+<code>WindowsTerminal.exe</code> ancestor) — it is <em></em>no longer fooled by an inherited
+<code>WT_SESSION</code><strong> env var. The default is to </strong>relaunch<em></em>: unless it can
+positively confirm you're already in a real Windows Terminal, it pops a fresh
+WT window (where the Ink TUI works) and tells you the old console can be
+closed. It only stays put when it's <em>confirmed</em> in a genuine WT.</p>
+
+<ul class="article-list">
+  <li><code>SWARPH_FORCE_WT=1</code> — force a relaunch even from a genuine Windows Terminal.</li>
+  <li><code>SWARPH_WIN_ACK=1</code> — stay in the current console (opt out of relaunch + warning).</li>
+</ul>
+
+<p>> <strong>Why ancestry, not <code>WT_SESSION</code>?</strong> Live repro 2026-06-03 on workstation-lc:
+> launching from Windows Terminal <em>sets</em> <code>WT_SESSION</code>, and corporate setups
+> <em>inherit</em> it into child <code>conhost</code> consoles. The old skip heuristic keyed on
+> <code>WT_SESSION</code> → it wrongly concluded "already in a good WT, no relaunch
+> needed" → the user was left stuck on a broken console with <strong>no new window</strong>.
+> Process ancestry is ground truth and fixes this.</p>
+
+<p>If the auto-relaunch can't fire (e.g. <code>wt.exe</code> isn't installed) and Claude
+Code's TUI renders incorrectly <em></em>with pressing Enter inserting a literal <code>m</code>
+character into the input<em></em>, try the workarounds in order of decreasing
+severity:</p>
+
+<p>1. <em></em>Switch terminal emulator from legacy <code>conhost.exe</code> to Windows
+   Terminal<em></em> (the modern Microsoft Store app). Most TUI issues collapse
+   here. If you're using PowerShell ISE, switch to Windows Terminal
+   regardless — PowerShell ISE doesn't support ANSI escape sequences.
+2. <strong>Run swarph spawn from WSL2</strong> instead of native Windows shell.
+   Claude Code's TUI ships well-tested on Linux; WSL2 gets the Linux
+   build of <code>claude</code> on Windows hardware. Tradeoff: filesystem paths
+   become Linux-shaped, may affect cell.yaml <code>cwd:</code> resolution.
+3. <strong>Verify Windows Terminal version ≥ 1.18</strong> + Windows 11. Earlier
+   versions had VT100-input bugs that affect Ink-based TUIs.</p>
+
+<h2 id="the-enter-returns-m-hypothesis">The "Enter returns 'm'" hypothesis</h2>
+
+<p>The literal symptom: pressing Enter inserts a literal <code>m</code> character at
+the cursor instead of submitting. Recorded by commander 2026-05-17 on
+workstation-lc (Windows-side <code>swarph spawn</code> of a claude session).</p>
+
+<p><strong>Root-cause hypothesis chain</strong> (high confidence on the class, lower
+confidence on the specific):</p>
+
+<h3 id="hypothesis-1-most-likely-incomplete-vt100-escape-sequence-sgr-terminator">Hypothesis 1 (most likely): incomplete VT100 escape sequence + SGR terminator</h3>
+
+<p>Claude Code's TUI uses [Ink](https://github.com/vadimdemedes/ink) (React
+for CLIs). Ink renders styled text via ANSI SGR escape sequences:
+<code>ESC [ <params> m</code>, where <code>m</code> is the SGR terminator. Examples:</p>
+
+<ul class="article-list">
+  <li><code>\x1b[31m</code> — red foreground</li>
+  <li><code>\x1b[0m</code> — reset</li>
+  <li><code>\x1b[1;33m</code> — bold yellow</li>
+</ul>
+
+<p>On Windows native console (<code>conhost.exe</code> legacy host without
+<code>ENABLE_VIRTUAL_TERMINAL_INPUT</code> flag), keyboard input arrives as Win32
+<code>INPUT_RECORD</code> events — NOT VT100 escape sequences. Node's <code>readline</code>
+adapter on Windows attempts to translate, but the translation is
+incomplete for newer TUI libraries that expect bracketed paste / cursor
+keys / Enter as proper VT100 sequences.</p>
+
+<p>Specific path to the <code>m</code> symptom:</p>
+
+<p>1. Ink writes a styled prompt — TUI is in mid-render with partially-
+   buffered SGR sequence in its parser state.
+2. Operator presses Enter. Windows sends <code>\r</code> (CR) alone — NOT <code>\r\n</code>.
+3. Ink's input parser is in escape-pending state. <code>\r</code> doesn't match a
+   recognized escape continuation, so the parser falls back to
+   passthrough mode for the buffered sequence.
+4. The <code>m</code> terminator from the buffered SGR sequence leaks into the
+   input buffer as a literal character.
+5. The buffered sequence was for Ink's own rendering — it should
+   never have hit the input path. But Windows console's bidirectional
+   stream + lack of clean VT-input separation lets the output leak
+   into input.</p>
+
+<p><strong>Why this fits commander's symptom specifically:</strong>
+<ul class="article-list">
+  <li>Pressing Enter is the trigger (state-machine transition)</li>
+  <li>The leaked character is <code>m</code> (SGR terminator)</li>
+  <li>Other Windows TUI bugs in claude-code issues (#58579 line stacking,</li>
+</ul>
+  #58555 layout corruption, #59899 arrow-key freeze) point at the same
+  underlying conhost VT incompatibility class</p>
+
+<h3 id="hypothesis-2-less-likely-bracketed-paste-mode-interaction">Hypothesis 2 (less likely): bracketed-paste mode interaction</h3>
+
+<p>Ink may enable bracketed-paste mode (<code>\x1b[?2004h</code>) for paste detection.
+Windows conhost partially supports this — sends <code>\x1b[200~</code> start +
+<code>\x1b[201~</code> end markers. If a paste happens mid-Enter or terminal mode
+is mis-set, Enter could match a partial bracketed-paste end marker
+ending in <code>~</code>... but symptom is <code>m</code> not <code>~</code>, so this hypothesis is
+weaker.</p>
+
+<h3 id="hypothesis-3-unlikely-keybinding-override-misfire">Hypothesis 3 (unlikely): keybinding override misfire</h3>
+
+<p>claude-code's keybinding system (#60156 — open issue about Enter
+override on Windows) could be misfiring on certain Windows shells. But
+this would manifest as Enter doing nothing OR doing a different action —
+not inserting a literal character.</p>
+
+<h2 id="documented-windows-issues-in-claude-code-s-tracker">Documented Windows issues in claude-code's tracker</h2>
+
+<p>These don't exactly match "Enter→m" but are in the same class — Windows
+TUI input/rendering misbehavior:</p>
+
+<p>| Issue | Status | Symptom |
+|---|---|---|
+| #58579 | open | TUI rendering: /agents view lines stack/overlap on Windows Terminal (v2.1.140) |
+| #58555 | open | FleetView dashboard layout broken after returning from session (Windows) |
+| #58606 | open | Bash/PowerShell tool calls flash visible conhost window |
+| #58664 | open | Ctrl-G external editor spawn regression (Windows + Cygwin/MSYS2) |
+| #59899 | open | Agents view becomes unresponsive after left arrow key on Windows 11 PowerShell |
+| #60156 | open | Cannot override default Enter → chat:submit on Windows |
+| #60212 | open | /agents TUI freezes after Esc/arrow-back |</p>
+
+<p><strong>Common thread:</strong> input event handling on Windows native shells is
+fragile. The specific symptom commander hit is plausibly a derivative
+of the same underlying VT-input compatibility gap that produces these
+other issues.</p>
+
+<h2 id="what-swarph-cli-can-do-about-it">What swarph-cli can do about it</h2>
+
+<h3 id="done-in-this-pr">Done in this PR</h3>
+
+<ul class="article-list">
+  <li>This document (<code>docs/WINDOWS_KNOWN_ISSUES.md</code>) for future-operator</li>
+</ul>
+  recall.
+<ul class="article-list">
+  <li><strong>Auto-relaunch in Windows Terminal (relaunch-by-default).</strong> <code>swarph spawn</code></li>
+</ul>
+  relaunches the <code>claude</code> session inside Windows Terminal (where the Ink TUI
+  works), then exits the original console — UNLESS it can positively confirm
+  it's already in a genuine Windows Terminal. This is the primary fix — it
+  sidesteps conhost's VT-input gap entirely rather than trying to patch it.
+  See <code>_relaunch_in_windows_terminal</code> + <code>_console_is_genuine_wt</code> in <code>spawn.py</code>.
+<ul class="article-list">
+  <li><strong>Genuine-WT detection via process ancestry, not <code>WT_SESSION</code>.</strong></li>
+</ul>
+  <code>_console_is_genuine_wt()</code> walks the parent-process chain (Win32
+  <code>CreateToolhelp32Snapshot</code> / <code>Process32First</code> / <code>Process32Next</code>) and returns
+  True only if an ancestor process is <code>WindowsTerminal.exe</code> (case-insensitive).
+  It fail-safes to False on any error or non-Windows platform → which makes the
+  caller relaunch (the foolproof direction). This replaces the old
+  <code>WT_SESSION</code>-env heuristic, which was inherited into child <code>conhost</code> consoles
+  and set whenever a shell was launched from WT — so it wrongly skipped the
+  relaunch and stranded users on a broken console with no new window.
+<ul class="article-list">
+  <li><strong>Env knobs</strong> controlling that relaunch:</li>
+  <li><code>SWARPH_FORCE_WT=1</code> — <em></em>force the relaunch even when already in a genuine</li>
+</ul>
+    Windows Terminal.<em></em> (The old "needed because <code>WT_SESSION</code> is inherited"
+    rationale is now obsolete — ancestry detection handles that case
+    automatically — but the override is kept for operators who want a fresh WT
+    window unconditionally.)
+<ul class="article-list">
+  <li><code>SWARPH_WIN_ACK=1</code> — opt out of both the relaunch and the warning</li>
+</ul>
+    (stay put in the current console).
+<ul class="article-list">
+  <li><code>SWARPH_SPAWN</code> (internal) — set on the relaunched session; the reliable</li>
+</ul>
+    loop-guard so a relaunched session never re-relaunches.
+<ul class="article-list">
+  <li>The relaunch also no-ops when stdout is not an interactive TTY (CI /</li>
+</ul>
+    piped) and when <code>wt.exe</code> is absent (then it warns instead).
+<ul class="article-list">
+  <li>Banner update in <code>swarph spawn</code>: when it <em>can't</em> auto-relaunch (no</li>
+</ul>
+  <code>wt.exe</code>), it warns and points here.
+
+<h3 id="deferred-requires-windows-test-environment-to-validate">Deferred (requires Windows test environment to validate)</h3>
+
+<ul class="article-list">
+  <li><strong>Windows-aware spawn shape.</strong> Today <code>swarph spawn</code> uses <code>os.execvp</code></li>
+</ul>
+  (Unix exec-replace pattern). On Windows, <code>os.execvp</code> works but has
+  different semantics (<code>CreateProcess</code> + exit-current-process pattern,
+  not in-place replacement). May affect how the parent shell hands off
+  stdio to Claude CLI. Code change:
+  <code></code>`python
+  if sys.platform == "win32":
+      rc = subprocess.run(argv, check=False).returncode
+      sys.exit(rc)
+  else:
+      os.execvp(argv[0], argv)
+  <code></code>`
+  Untested — would need a Windows machine to validate.
+
+<ul class="article-list">
+  <li><strong><code>TERM=xterm-256color</code> injection on Windows.</strong> Some Ink versions</li>
+</ul>
+  fall back to safer ANSI subset when TERM is set explicitly. Worth
+  trying in Windows-aware <code>_subprocess_env</code> if hypothesis 1 holds.
+
+<ul class="article-list">
+  <li><strong>VT mode probe at spawn-time.</strong> Check if the inherited stdio</li>
+</ul>
+  supports VT input via Win32 <code>GetConsoleMode</code> API + flag check. If
+  not, surface a stronger warning AND attempt to set
+  <code>ENABLE_VIRTUAL_TERMINAL_INPUT</code> via <code>SetConsoleMode</code> before exec.
+  Requires <code>pywin32</code> or <code>ctypes</code> Win32 bindings.
+
+<h2 id="diagnostic-steps-for-when-commander-hits-it-next">Diagnostic steps (for when commander hits it next)</h2>
+
+<p>1. <strong>Identify shell first:</strong>
+   <code></code>`powershell
+   # In the failing shell, run:
+   $Host.Name                # "ConsoleHost" / "Windows PowerShell ISE" / etc.
+   $env:WT_SESSION           # USUALLY set iff Windows Terminal — but NOT
+                             # reliable: it is INHERITED into child conhost
+                             # consoles spawned from a WT session, so a broken
+                             # conhost can carry a non-empty WT_SESSION. If you
+                             # see WT_SESSION set but the TUI is still broken,
+                             # you're in an inherited-env conhost — use
+                             # SWARPH_FORCE_WT=1 to force the WT relaunch.
+   <code></code>`
+   If <code>Windows PowerShell ISE</code> — switch immediately. ISE doesn't support
+   ANSI at all.</p>
+
+<p>2. <strong>Check TERM env var:</strong>
+   <code></code>`powershell
+   $env:TERM                 # likely empty or unset on Windows native
+   <code></code>`
+   Try setting before spawn:
+   <code></code>`powershell
+   $env:TERM = "xterm-256color"
+   swarph spawn <cell>
+   <code></code>`</p>
+
+<p>3. <strong>Confirm Windows Terminal version</strong> if using it:
+<ul class="article-list">
+  <li>Open Windows Terminal → Settings → About. Need ≥ 1.18 for stable</li>
+</ul>
+     VT input handling.</p>
+
+<p>4. <strong>WSL2 fallback test:</strong> in WSL2 Ubuntu shell, run the same `swarph
+   spawn <cell>` to confirm it works there. If WSL2 works + Windows
+   native fails, hypothesis 1 (conhost VT-input gap) is essentially
+   confirmed.</p>
+
+<p>5. <strong>Strace-equivalent on Windows:</strong> Process Monitor (sysinternals)
+   can show stdio activity, but interpreting it requires understanding
+   conhost's input pipe shape. Probably not worth it unless we're
+   fixing the upstream.</p>
+
+<h2 id="upstream-fix-path">Upstream-fix path</h2>
+
+<p>This is fundamentally an upstream Claude Code (claude-code repo) issue.
+The right fix is in their TUI input layer (Ink config or Windows-
+specific input adapter). Filing an issue with commander's specific
+reproducer ("Enter inserts literal <code>m</code>") + a minimal repro script
+would help Anthropic engineers track it down. swarph-cli can only
+mitigate at the spawn boundary.</p>
+
+<p>If commander files an upstream issue, link it here for cross-reference.</p>
+
+<h2 id="cross-references">Cross-references</h2>
+
+<ul class="article-list">
+  <li>swarph-cli <code>src/swarph_cli/commands/spawn.py</code> — exec-replace pattern,</li>
+</ul>
+  Windows-aware shape deferred
+<ul class="article-list">
+  <li>claude-code GitHub issues (Windows label): https://github.com/anthropics/claude-code/issues?q=label%3Awindows</li>
+  <li>Ink TUI library: https://github.com/vadimdemedes/ink</li>
+  <li>Windows Terminal docs: https://learn.microsoft.com/en-us/windows/terminal/</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#hypothesis-1-most-likely-incomplete-vt100-escape-sequence-sgr-terminator">Hypothesis 1 (most likely): incomplete VT100 escape sequence + SGR terminator</a></li>
+<li style="margin-left: 0.8rem;"><a href="#hypothesis-2-less-likely-bracketed-paste-mode-interaction">Hypothesis 2 (less likely): bracketed-paste mode interaction</a></li>
+<li style="margin-left: 0.8rem;"><a href="#hypothesis-3-unlikely-keybinding-override-misfire">Hypothesis 3 (unlikely): keybinding override misfire</a></li>
+<li style="margin-left: 0.8rem;"><a href="#done-in-this-pr">Done in this PR</a></li>
+<li style="margin-left: 0.8rem;"><a href="#deferred-requires-windows-test-environment-to-validate">Deferred (requires Windows test environment to validate)</a></li>
+<li><a href="#tl-dr-if-you-re-hitting-it-now">TL;DR — if you're hitting it now</a></li>
+<li><a href="#the-enter-returns-m-hypothesis">The "Enter returns 'm'" hypothesis</a></li>
+<li><a href="#documented-windows-issues-in-claude-code-s-tracker">Documented Windows issues in claude-code's tracker</a></li>
+<li><a href="#what-swarph-cli-can-do-about-it">What swarph-cli can do about it</a></li>
+<li><a href="#diagnostic-steps-for-when-commander-hits-it-next">Diagnostic steps (for when commander hits it next)</a></li>
+<li><a href="#upstream-fix-path">Upstream-fix path</a></li>
+<li><a href="#cross-references">Cross-references</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

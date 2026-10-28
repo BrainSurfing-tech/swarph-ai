@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prospect Segmentation — Foundation (Shrinkage + Dimensions) Implementation Plan | Technical Whitepaper</title>
+  <meta name="description" content="Prospect Segmentation — Foundation (Shrinkage + Dimensions) Implementation Plan — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-05-26-prospect-segmentation-foundation.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Prospect Segmentation — Foundation (Shrinkage + Dimensions) Implementation Plan</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 8 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Prospect Segmentation — Foundation (Shrinkage + Dimensions) Implementation Plan</p>
+
+<p>> <strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+
+<p><strong>Goal:</strong> Build the pure, unit-tested foundation for the all-channels prospect segmentation: the volume-shrinkage functions (the load-bearing 80%) and the canonical dimension taxonomy + normalizers.</p>
+
+<p><strong>Architecture:</strong> Two dependency-free modules. <code>core/shrinkage.py</code> holds gridiron's four shrinkage primitives (distribution shrink, deviation shrink, volume floor, persistence→K). <code>core/prospect_dims.py</code> holds the canonical coarse value sets + deterministic per-source normalizers that every later stage maps into BEFORE cubing. No DB, no I/O — so both are trivially testable and reusable by the cube/scorer plans that follow.</p>
+
+<p><strong>Tech Stack:</strong> Python 3.12, pytest. (DuckDB + the cube/fact/scorer/tab come in follow-on plans 2–3.)</p>
+
+<p><strong>Scope note:</strong> This is plan 1 of 3. Plan 2 = interaction-fact assembly + DuckDB cube. Plan 3 = profile scorer + Prospect tab. Contagion overlay is deferred (droplet/OMEGA consult).</p>
+
+<p>---</p>
+
+<h3 id="task-1-distribution-cell-shrinkage-norm-shrunk">Task 1: Distribution-cell shrinkage (<code>norm_shrunk</code>)</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>core/shrinkage.py</code></li>
+  <li>Test: <code>tests/test_shrinkage.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_shrinkage.py
+from core.shrinkage import norm_shrunk</p>
+
+<p>def test_norm_shrunk_thin_cell_collapses_to_parent():
+    parent = {"a": 0.7, "b": 0.3}
+    out = norm_shrunk(counts={"a": 1, "b": 0}, parent=parent, n=1, K=50)
+    # n << K -> result hugs the parent, not the 1-sample cell
+    assert abs(out["a"] - 0.70) < 0.02 and abs(out["b"] - 0.30) < 0.02</p>
+
+<p>def test_norm_shrunk_rich_cell_trusts_itself():
+    parent = {"a": 0.5, "b": 0.5}
+    out = norm_shrunk(counts={"a": 900, "b": 100}, parent=parent, n=1000, K=50)
+    assert out["a"] > 0.85   # n >> K -> own counts dominate</p>
+
+<p>def test_norm_shrunk_renormalizes_to_one():
+    out = norm_shrunk(counts={"a": 3, "b": 1}, parent={"a": 0.5, "b": 0.5}, n=4, K=10)
+    assert abs(sum(out.values()) - 1.0) < 1e-6
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>./venv/Scripts/python.exe -m pytest tests/test_shrinkage.py -v</code>
+Expected: FAIL — <code>ModuleNotFoundError: No module named 'core.shrinkage'</code> (or ImportError).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# core/shrinkage.py
+"""Volume-shrinkage primitives for sparse multi-dimensional segmentation.</p>
+
+<p>Pattern + reference code from gridiron (mesh DM #1418); reframe from lab-ovh
+(#1412). A thin cell is shrunk toward its parent marginal by volume so the
+combinatorial blow-up of fit x engagement x channel x product never produces
+noise that surfaces as signal. Pure functions, no I/O — keep them that way.
+"""
+from __future__ import annotations</p>
+
+<p>def norm_shrunk(counts: dict, parent: dict, n: int, K: float) -> dict:
+    """Shrink a distribution cell toward a parent PROBABILITY distribution:
+        out[k] = (count_k + K*parent_k) / (n + K),  then renormalize.
+    thin cell (n<<K) -> ~parent; rich cell (n>>K) -> ~own counts."""
+    keys = set(counts) | set(parent)
+    out = {k: (counts.get(k, 0) + K * parent.get(k, 0.0)) / (n + K) for k in keys}
+    s = sum(out.values()) or 1.0
+    return {k: round(v / s, 4) for k, v in out.items()}
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>./venv/Scripts/python.exe -m pytest tests/test_shrinkage.py -v</code>
+Expected: PASS (3 passed).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/shrinkage.py tests/test_shrinkage.py
+git commit -m "feat: norm_shrunk distribution shrinkage primitive"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-2-continuous-deviation-shrinkage-value-oa">Task 2: Continuous deviation shrinkage (<code>value_oa</code>)</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>core/shrinkage.py</code></li>
+  <li>Test: <code>tests/test_shrinkage.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+from core.shrinkage import value_oa</p>
+
+<p>def test_value_oa_thin_cell_shrinks_to_zero_deviation():
+    # n -> small vs K: deviation from base collapses toward 0 (== toward parent mean)
+    assert abs(value_oa(cell_mean=10.0, base=4.0, n=1, K=99)) < 0.1</p>
+
+<p>def test_value_oa_rich_cell_keeps_deviation():
+    # n >> K: keeps almost the full (cell_mean - base) deviation
+    assert value_oa(cell_mean=10.0, base=4.0, n=9000, K=100) > 5.9
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>./venv/Scripts/python.exe -m pytest tests/test_shrinkage.py::test_value_oa_thin_cell_shrinks_to_zero_deviation -v</code>
+Expected: FAIL — <code>ImportError: cannot import name 'value_oa'</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# append to core/shrinkage.py
+def value_oa(cell_mean: float, base: float, n: int, K: float) -> float:
+    """Shrink a continuous metric's deviation from its parent (base) mean:
+        (cell_mean - base) * n/(n+K).  Shrinking toward 0 == toward the parent."""
+    return round((cell_mean - base) * n / (n + K), 4)
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>./venv/Scripts/python.exe -m pytest tests/test_shrinkage.py -v</code>
+Expected: PASS (5 passed).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/shrinkage.py tests/test_shrinkage.py
+git commit -m "feat: value_oa continuous deviation shrinkage"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-3-persistence-per-dimension-k-persistence-k-from-persistence-carry">Task 3: Persistence → per-dimension K (<code>persistence</code>, <code>k_from_persistence</code>, <code>carry</code>)</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>core/shrinkage.py</code></li>
+  <li>Test: <code>tests/test_shrinkage.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+from core.shrinkage import persistence, k_from_persistence, carry</p>
+
+<p>def test_persistence_perfect_autocorrelation_is_one():
+    series = {"e1": [1.0, 2.0, 3.0], "e2": [2.0, 4.0, 6.0]}  # consecutive pairs perfectly correlated
+    assert persistence(series) > 0.99</p>
+
+<p>def test_k_inverse_to_persistence():
+    # high persistence -> trust the cell (small K); low persistence -> regress hard (big K)
+    assert k_from_persistence(1.0, k_lo=60, k_hi=300) == 60
+    assert k_from_persistence(0.0, k_lo=60, k_hi=300) == 300
+    assert k_from_persistence(0.5, k_lo=60, k_hi=300) == 180</p>
+
+<p>def test_carry_blends_prior_toward_parent_by_rho():
+    assert carry(prior=10.0, parent=4.0, rho=0.0) == 4.0    # no persistence -> all parent
+    assert carry(prior=10.0, parent=4.0, rho=1.0) == 10.0   # full persistence -> keep prior
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>./venv/Scripts/python.exe -m pytest tests/test_shrinkage.py -k "persistence or carry or k_inverse" -v</code>
+Expected: FAIL — <code>ImportError: cannot import name 'persistence'</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# append to core/shrinkage.py
+import statistics as _st</p>
+
+<p>def persistence(series_by_entity: dict) -> float:
+    """Signal persistence per dimension = correlation of consecutive-period values
+    across entities (your YoY / split-half). Feeds K and the walk-up order."""
+    xs, ys = [], []
+    for v in series_by_entity.values():
+        for a, b in zip(v, v[1:]):
+            xs.append(a); ys.append(b)
+    if len(xs) < 2:
+        return 0.0
+    try:
+        return _st.correlation(xs, ys)
+    except _st.StatisticsError:   # zero variance
+        return 0.0</p>
+
+<p>def k_from_persistence(rho: float, k_lo: float = 60, k_hi: float = 300) -> float:
+    """Set K INVERSELY to persistence. rho->1 : small K (trust the cell);
+    rho->0 : big K (regress hard toward parent)."""
+    rho = max(0.0, min(1.0, rho))
+    return k_hi - (k_hi - k_lo) * rho</p>
+
+<p>def carry(prior: float, parent: float, rho: float) -> float:
+    """Pull a prior-period value toward the parent by (1-rho) before blending."""
+    return parent + rho * (prior - parent)
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>./venv/Scripts/python.exe -m pytest tests/test_shrinkage.py -v</code>
+Expected: PASS (8 passed).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/shrinkage.py tests/test_shrinkage.py
+git commit -m "feat: persistence-driven per-dimension K + period carry"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-4-volume-floor-passes-floor">Task 4: Volume floor (<code>passes_floor</code>)</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>core/shrinkage.py</code></li>
+  <li>Test: <code>tests/test_shrinkage.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+from core.shrinkage import passes_floor</p>
+
+<p>def test_passes_floor_gates_thin_cells():
+    floors = {"web": 30, "email": 20}
+    assert passes_floor("web", n=45, floors=floors) is True
+    assert passes_floor("web", n=12, floors=floors) is False
+    # unknown dim falls back to the provided default
+    assert passes_floor("social", n=5, floors=floors, default=10) is False
+    assert passes_floor("social", n=11, floors=floors, default=10) is True
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>./venv/Scripts/python.exe -m pytest tests/test_shrinkage.py -k passes_floor -v</code>
+Expected: FAIL — <code>ImportError: cannot import name 'passes_floor'</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# append to core/shrinkage.py
+def passes_floor(dim_key: str, n: int, floors: dict, default: int = 0) -> bool:
+    """Volume gate applied BEFORE shrinking — without it, thin cells still surface
+    spuriously on top charts (gridiron gotcha d)."""
+    return n >= floors.get(dim_key, default)
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>./venv/Scripts/python.exe -m pytest tests/test_shrinkage.py -v</code>
+Expected: PASS (9 passed).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/shrinkage.py tests/test_shrinkage.py
+git commit -m "feat: passes_floor volume gate"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-5-canonical-dimension-taxonomy-normalizers-core-prospect-dims-py">Task 5: Canonical dimension taxonomy + normalizers (<code>core/prospect_dims.py</code>)</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>core/prospect_dims.py</code></li>
+  <li>Test: <code>tests/test_prospect_dims.py</code></li>
+</ul></p>
+
+<p><strong>Rationale:</strong> gridiron's #1 lesson — lock a canonical <em>coarse</em> taxonomy + deterministic per-source normalizer and map everything into it BEFORE cubing; retrofitting is the expensive path. Start with the four core dims we already have signal for; high-cardinality drift gets mapped to canonical buckets, unknowns to an explicit <code>"UNK"</code> (never silently dropped).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_prospect_dims.py
+from core.prospect_dims import normalize_channel, normalize_engagement_tier, CANONICAL</p>
+
+<p>def test_channel_synonyms_map_to_canonical():
+    assert normalize_channel("eloqua") == "email"
+    assert normalize_channel("E-mail") == "email"
+    assert normalize_channel("organic") == "web"
+    assert normalize_channel("linkedin") == "social"
+    assert normalize_channel("rep visit") == "offline"</p>
+
+<p>def test_unknown_channel_is_explicit_unk_not_dropped():
+    assert normalize_channel("carrier-pigeon") == "UNK"
+    assert normalize_channel(None) == "UNK"</p>
+
+<p>def test_engagement_tier_buckets_by_score():
+    assert normalize_engagement_tier(0.0) == "cold"
+    assert normalize_engagement_tier(0.5) == "warm"
+    assert normalize_engagement_tier(0.9) == "hot"</p>
+
+<p>def test_canonical_sets_are_declared():
+    assert set(CANONICAL["channel"]) == {"web", "email", "social", "offline", "UNK"}
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>./venv/Scripts/python.exe -m pytest tests/test_prospect_dims.py -v</code>
+Expected: FAIL — <code>ModuleNotFoundError: No module named 'core.prospect_dims'</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# core/prospect_dims.py
+"""Canonical coarse dimension taxonomy + deterministic per-source normalizers
+for the prospect segmentation cube. Everything maps into these BEFORE cubing.</p>
+
+<p>Unknown/unresolvable values map to explicit "UNK" — modelled honestly at the
+collapsed level, never silently dropped (gridiron lesson; coverage-aware).
+"""
+from __future__ import annotations</p>
+
+<p>CANONICAL = {
+    "channel": ["web", "email", "social", "offline", "UNK"],
+    "engagement_tier": ["cold", "warm", "hot"],
+    "fit_tier": ["low", "mid", "high"],
+}</p>
+
+<p>_CHANNEL_MAP = {
+    "web": "web", "organic": "web", "direct": "web", "site": "web", "ga4": "web",
+    "email": "email", "e-mail": "email", "eloqua": "email", "mail": "email",
+    "social": "social", "linkedin": "social", "meta": "social",
+    "facebook": "social", "instagram": "social",
+    "offline": "offline", "rep": "offline", "rep visit": "offline",
+    "call": "offline", "edi": "offline", "sales": "offline",
+}</p>
+
+<p>def normalize_channel(raw: str | None) -> str:
+    if not raw:
+        return "UNK"
+    return _CHANNEL_MAP.get(raw.strip().lower(), "UNK")</p>
+
+<p>def normalize_engagement_tier(score: float) -> str:
+    """Blended warmth score in [0,1] -> coarse tier."""
+    if score >= 0.66:
+        return "hot"
+    if score >= 0.33:
+        return "warm"
+    return "cold"
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>./venv/Scripts/python.exe -m pytest tests/test_prospect_dims.py -v</code>
+Expected: PASS (4 passed).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/prospect_dims.py tests/test_prospect_dims.py
+git commit -m "feat: canonical prospect dimension taxonomy + channel normalizer"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="self-review">Self-Review</h2>
+
+<ul class="article-list">
+  <li><strong>Spec coverage (foundation slice):</strong> shrinkage primitives (spec component 4) ✓ Tasks 1–4; persistence→K + walk-up basis (component 5) ✓ Task 3; canonical taxonomy + normalizers (component 1) ✓ Task 5. Cube/fact/scorer/tab (components 2,3,6,7) are explicitly out of scope → plans 2–3.</li>
+  <li><strong>Placeholders:</strong> none — every step has runnable test + impl code + exact command.</li>
+  <li><strong>Type consistency:</strong> <code>K</code> is <code>float</code> across <code>norm_shrunk</code>/<code>value_oa</code>/<code>k_from_persistence</code>; <code>norm_shrunk</code> parent = probability dist (sums to 1), <code>value_oa</code> base = scalar mean — distinct by design, documented in docstrings.</li>
+  <li><strong>Engagement tier thresholds</strong> (Task 5) align with the warmth score [0,1] the Plan-3 scorer will emit; restated here so Task 5 is self-contained.</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#task-1-distribution-cell-shrinkage-norm-shrunk">Task 1: Distribution-cell shrinkage (`norm_shrunk`)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-2-continuous-deviation-shrinkage-value-oa">Task 2: Continuous deviation shrinkage (`value_oa`)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-3-persistence-per-dimension-k-persistence-k-from-persistence-carry">Task 3: Persistence → per-dimension K (`persistence`, `k_from_persistence`, `carry`)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-4-volume-floor-passes-floor">Task 4: Volume floor (`passes_floor`)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-5-canonical-dimension-taxonomy-normalizers-core-prospect-dims-py">Task 5: Canonical dimension taxonomy + normalizers (`core/prospect_dims.py`)</a></li>
+<li><a href="#self-review">Self-Review</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

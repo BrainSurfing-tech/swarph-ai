@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buying Profile Explorer — Design | Technical Whitepaper</title>
+  <meta name="description" content="Buying Profile Explorer — Design — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-06-11-buying-profile-explorer-design.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Buying Profile Explorer — Design</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Buying Profile Explorer — Design</p>
+
+<p><strong>Date:</strong> 2026-06-11
+<strong>Status:</strong> Approved (brainstorm) — pending spec review
+<strong>Repo:</strong> lead-contagion-project (Lyréco tenant)</p>
+
+<h2 id="goal">Goal</h2>
+
+<p>A browsable, paginated, sortable, account-filterable table of weekly buying
+profiles at <strong>account → user → product-line</strong> grain, grouped and indented. Its
+own dashboard panel; the existing single-account Buying Profile panel stays as
+the focused drill view.</p>
+
+<h2 id="decisions-brainstorm">Decisions (brainstorm)</h2>
+
+<ul class="article-list">
+  <li><strong>Row = (account, user, product) line</strong>, grouped under user, under account.</li>
+  <li><strong>Paginate by account</strong>, 20 accounts/page — groups are never split across pages.</li>
+  <li><strong>Default account order = biggest buyers first</strong> (total window orders desc).</li>
+  <li>Own panel (not the static script report — pagination/sort/filter are interactive).</li>
+</ul>
+
+<h2 id="layout">Layout</h2>
+
+<p><code></code>`
+▸ Account 0060592578 — WINTER REFURBISHMENT LTD  [cluster: Mixed Office Micro Solos]  (3 users · 142 orders)
+    ▸ jane@acme.co.uk (Jane Doe)
+        1  PK6 Lyreco Note 75x125    8 orders   24 units
+        2  Rigid Box File F/scap     5 orders   10 units
+    ▸ tom@acme.co.uk
+        1  Brother LC-3219 Cyan      4 orders    4 units
+<code></code>`</p>
+
+<p>Account header carries name + cluster name + (n users · total orders). User
+sub-header carries email/name. Line rows: rank · product · orders · units.</p>
+
+<h2 id="panel-mechanics">Panel & mechanics</h2>
+
+<p>New route <code>GET /panel/buying-profile-explorer</code> (Customers tab), server-side HTMX,
+mirroring the existing <code>/panel/buying-profile</code> pattern. Query params:</p>
+
+<ul class="article-list">
+  <li><code>q</code> — account-number filter (exact, padded-or-bare). When set, the view</li>
+</ul>
+  collapses to that one account's tree.
+<ul class="article-list">
+  <li><code>page</code> — 0-based account page (20/page).</li>
+  <li><code>asort</code> — account ordering: <code>orders</code> (default) | <code>units</code> | <code>users</code>.</li>
+  <li><code>lsort</code> — line ordering within a user: <code>rank</code> (default) | <code>orders</code> | <code>units</code>.</li>
+  <li><code>dir</code> — <code>desc</code> (default) | <code>asc</code>.</li>
+  <li><code>country</code> — <code>GB</code> (default) | <code>FR</code>.</li>
+</ul>
+
+<p><strong>Data flow (two queries + Python grouping):</strong>
+1. <strong>Page the accounts.</strong> Aggregate user-level <code>buying_profile_weekly</code>
+   (scope_type='user') up to account via <code>ecom_users</code>, for the latest snapshot:
+   per account → SUM(orders_count), SUM(units_qty), COUNT(DISTINCT ecom_user_id).
+   Order by <code>asort</code>/<code>dir</code>, <code>LIMIT 20 OFFSET page*20</code>. (If <code>q</code> set, filter to that
+   account instead of paging.) Returns the page's <code>account_number</code>s + the totals.
+2. <strong>Fetch the lines</strong> for those accounts: <code>buying_profile_weekly</code> (scope_type
+   ='user') ⨝ <code>ecom_users</code> (account#, email, name) ⨝ <code>ecom_products</code> (label) for
+   <code>account_number = ANY(%s)</code>, latest snapshot. Attach each account's cluster
+   name via <code>account_firmographic_community</code> ⨝ <code>firmographic_community_labels</code>.
+3. <strong>Group in Python</strong>: account → users → lines, ordered by <code>asort</code> (accounts,
+   preserving the SQL page order) then user (by their summed orders desc) then
+   lines by <code>lsort</code>/<code>dir</code>.</p>
+
+<p>All tables are Postgres — single-DB, no cross-DB join.</p>
+
+<p><strong>Note on totals:</strong> <code>buying_profile_weekly</code> stores each user's Top-N lines (not
+every line they bought), so account "total orders" here = sum over stored top
+products — a faithful proxy for ranking buyers, not a full ledger. Stated in the
+panel footer so it isn't mistaken for total account revenue.</p>
+
+<h2 id="columns">Columns</h2>
+
+<p><code>account# · account name · cluster</code> (account header) → <code>user (email / name)</code>
+(sub-header) → <code>rank · product · orders · units</code> (line rows). Sortable columns:
+account header sort (orders/units/users) via small controls; line columns
+(orders/units/rank) via clickable headers.</p>
+
+<h2 id="components-files">Components / files</h2>
+
+<p>| File | Responsibility |
+|---|---|
+| <code>core/table_params.py</code> | Pure <code>parse_explorer_params(raw: dict) -> dict</code> — clamp <code>page</code>≥0, whitelist <code>asort</code>/<code>lsort</code>/<code>dir</code> to safe values (defaults on bad input), pass <code>q</code>/<code>country</code> through. Prevents ORDER BY / OFFSET injection. |
+| <code>tests/test_table_params.py</code> | Hermetic tests for the param parser. |
+| <code>dashboard/app.py</code> | <code>buying_profile_explorer_panel</code> route — the two queries + grouping, using the parsed params. |
+| <code>dashboard/templates/_buying_profile_explorer.html</code> | Grouped/indented table, filter box, sort controls, prev/next pager. |
+| <code>dashboard/templates/home.html</code> | Panel container in the Customers tab. |</p>
+
+<h2 id="error-handling">Error handling</h2>
+
+<ul class="article-list">
+  <li>Bad params (non-int page, unknown sort) → defaults via <code>parse_explorer_params</code></li>
+</ul>
+  (never reach SQL as raw strings).
+<ul class="article-list">
+  <li><code>q</code> with no match → empty-state message ("no account …").</li>
+  <li>No snapshot yet → hint message.</li>
+  <li>Beyond last page → empty page (pager disables Next when fewer than 20 returned).</li>
+</ul>
+
+<h2 id="testing">Testing</h2>
+
+<ul class="article-list">
+  <li><strong>Hermetic:</strong> <code>parse_explorer_params</code> (clamping, whitelist, defaults) — the only</li>
+</ul>
+  pure logic and the injection-prevention boundary.
+<ul class="article-list">
+  <li><strong>Live:</strong> render verified in the dashboard (grouping, pagination, sort, filter)</li>
+</ul>
+  after restart — UI behavior isn't unit-tested.
+
+<h2 id="yagni-cuts">YAGNI cuts</h2>
+
+<p>No CSV export (the static report already exports), no free-text product search,
+no multi-account multiselect, no per-line drill beyond the existing detail panel,
+GB default (country-parameterized for FR later).</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#goal">Goal</a></li>
+<li><a href="#decisions-brainstorm">Decisions (brainstorm)</a></li>
+<li><a href="#layout">Layout</a></li>
+<li><a href="#panel-mechanics">Panel & mechanics</a></li>
+<li><a href="#columns">Columns</a></li>
+<li><a href="#components-files">Components / files</a></li>
+<li><a href="#error-handling">Error handling</a></li>
+<li><a href="#testing">Testing</a></li>
+<li><a href="#yagni-cuts">YAGNI cuts</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

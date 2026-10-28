@@ -1,55 +1,99 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://swarph.ai/</loc>
-    <lastmod>2026-07-21</lastmod>
+    <lastmod>2026-08-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
+    <loc>https://swarph.ai/blog/enterprise-b2b-lead-contagion-multi-tenant-attribution-mesh.html</loc>
+    <lastmod>2026-08-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://swarph.ai/blog/high-frequency-agentic-market-telemetry-stochastic-volatility-risk-budgeting.html</loc>
+    <lastmod>2026-08-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://swarph.ai/blog/autonomous-codegraph-brief-synthesis-generative-answer-engine-optimization.html</loc>
+    <lastmod>2026-08-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://swarph.ai/blog/gpt-56-sol-astra-architecture.html</loc>
+    <lastmod>2026-08-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
     <loc>https://swarph.ai/blog/ai-agent-orchestration.html</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://swarph.ai/blog/ai-agent-memory.html</loc>
-    <lastmod>2026-07-21</lastmod>
+    <lastmod>2026-08-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://swarph.ai/blog/agentic-workflow-automation.html</loc>
-    <lastmod>2026-07-21</lastmod>
+    <lastmod>2026-08-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://swarph.ai/blog/multi-provider-ai-memory.html</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>https://swarph.ai/blog/autonomous-workflow-security.html</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>https://swarph.ai/blog/zero-latency-agent-mesh-protocol.html</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>https://swarph.ai/blog/self-healing-ai-swarm-networks.html</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>https://swarph.ai/blog/deepseek-v4-architecture.html</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>https://swarph.ai/blog/agentic-mesh-architecture.html</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>https://swarph.ai/blog/swarph-bench-tool.html</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://swarph.ai/blog/origin-the-mesh-was-always-family.html</loc>
+    <lastmod>2026-08-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
   </url>
 </urlset>

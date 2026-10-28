@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Structured output quick reference | Technical Whitepaper</title>
+  <meta name="description" content="Structured output quick reference — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/structured-output-quick-reference.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Structured output quick reference</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Structured output quick reference</p>
+
+<p>Cheat sheet for verifier output and <code>reporting.json</code> across all task types.
+Start from [README.md](../README.md) <strong>Step 3</strong> for the onboarding context.</p>
+
+<p>Every application task uses the same shape:</p>
+
+<p><code></code>`text
+structured_output.json
+  contexts[]
+    key: "task_outcome.primary"     ← stable instance id (you choose the suffix)
+    contextType: "task_outcome"     ← type label used by reporting.json match rules
+    facets[]
+      key: "outcome_status"         ← standard field name from the contract
+      kind: numerical | categorical | textual
+      value: ...
+<code></code>`</p>
+
+<p>Three responsibilities:</p>
+
+<p>| Piece | Who owns it | What it does |
+|---|---|---|
+| Verifier facts | Task author in <code>tests/</code> | Emit <code>contexts[]</code> + <code>facets[]</code> for one trial |
+| Layer 1 automatic aggregation | Platform | Always aggregates every facet (<code>numerical</code> stats, <code>categorical</code> counts, <code>textual</code> samples) |
+| Layer 2 extra batch analysis | Task author in <code>reporting.json</code> | Optional LLM bucket summaries and judge scans |</p>
+
+<p>Extension rule for all types:</p>
+
+<ul class="article-list">
+  <li>keep shared <code>contextType</code> and facet keys exactly as written</li>
+  <li>add task-specific details in new scenario contexts or behind a <code>task_</code> prefix</li>
+  <li>do not rename shared fields to fit one task</li>
+</ul>
+
+<h3 id="survey">Survey</h3>
+
+<p>Full guide: [<code>survey/README.md</code>](../survey/README.md)</p>
+
+<p>Canonical task: <code>application/tasks/example-survey_product-feedback</code></p>
+
+<p>| Context type | Required | How many | Standard facet keys |
+|---|---|---|---|
+| <code>question_response</code> | Yes | one per answered question (<code>question.<questionId></code>) | <code>response</code> (required), <code>reason</code>, <code>confidence</code> |
+| <code>trial_summary</code> | Yes | one per trial (<code>survey.summary</code>) | <code>answer_count</code>, <code>trajectory_event_count</code>, <code>mean_numeric_answer</code> |</p>
+
+<p><code>response</code> kind depends on question type:</p>
+
+<ul class="article-list">
+  <li>likert → <code>numerical</code></li>
+  <li>single/multi choice → <code>categorical</code> (option id)</li>
+  <li>free text → <code>textual</code></li>
+</ul>
+
+<p>Default reporting: summarize <code>reason</code> by <code>response</code> for each <code>question_response</code>.</p>
+
+<p>Templates:</p>
+
+<ul class="article-list">
+  <li><code>survey/survey_structured_output.example.json</code></li>
+  <li><code>survey/survey_reporting.example.json</code></li>
+</ul>
+
+<h3 id="chatbot">Chatbot</h3>
+
+<p>Full guide: [<code>chatbot/README.md</code>](../chatbot/README.md)</p>
+
+<p>Canonical task: <code>application/tasks/chat_recai</code></p>
+
+<p>| Context type | Required | Standard facet keys |
+|---|---|---|
+| <code>task_outcome</code> | Yes | <code>outcome_status</code>, <code>resolution_basis</code>, <code>outcome_reason</code>, <code>next_step_owner</code>, <code>task_goal_label</code> |
+| <code>conversation_summary</code> | Recommended | <code>conversation_path</code>, <code>user_turn_count</code>, <code>assistant_turn_count</code>, <code>message_count</code>, <code>process_notes</code>, <code>clarification_question_count</code> |
+| <code>user_feedback</code> | Recommended when self-report exists | <code>overall_experience_rating</code>, <code>feedback_reason</code>, <code>need_constraint_satisfaction</code>, <code>personal_preference_satisfaction</code>, <code>clarification_questions_useful</code>, <code>trust_level</code>, <code>effort_rating</code>, <code>felt_understood</code> |
+| <code>policy_and_trust</code> | Optional | <code>policy_compliance</code>, <code>groundedness_primary</code>, <code>policy_notes</code>, <code>handoff_appropriateness</code> |
+| <code>coordination</code> | Optional | <code>coordination_mode</code>, <code>state_change_achieved</code>, <code>user_action_required</code>, <code>guidance_quality</code>, <code>coordination_notes</code> |</p>
+
+<p>Note: chatbot uses <code>outcome_reason</code> in <code>task_outcome</code>. Web and OS/app use
+<code>outcome_explanation</code> for the same role.</p>
+
+<p>Default reporting: summarize <code>outcome_reason</code> by <code>outcome_status</code>, <code>process_notes</code>
+by <code>conversation_path</code>, and <code>feedback_reason</code> by satisfaction-style facets.</p>
+
+<p>Templates:</p>
+
+<ul class="article-list">
+  <li><code>chatbot/chatbot_structured_output.example.json</code></li>
+  <li><code>chatbot/chatbot_reporting.example.json</code></li>
+</ul>
+
+<h3 id="web">Web</h3>
+
+<p>Full guide: [<code>web/README.md</code>](../web/README.md)</p>
+
+<p>Canonical task: <code>application/tasks/example-web-playwright_quote-choice</code></p>
+
+<p>Web tasks use <strong>two layers</strong>:</p>
+
+<p>1. <strong>Shared core</strong> — same contexts and facet keys as OS/app (see
+   [Shared core metrics](shared-core-metrics.md#shared-core-for-web-and-os-app) below)
+2. <strong>Web-specific layer</strong> — persona-sensitive browse/choose semantics</p>
+
+<p>| Context type | Required | Standard facet keys |
+|---|---|---|
+| <code>decision</code> | Yes for browse/choose tasks | <code>decision_outcome</code>, <code>basis_primary</code>, <code>reason</code>, <code>decision_subject_label</code>, <code>decision_subject_id</code>, <code>basis_secondary</code>, <code>decision_confidence</code> |
+| <code>decision_process</code> | Recommended | <code>exploration_style</code>, <code>options_considered_count</code>, <code>used_search</code>, <code>used_filter_or_sort</code>, <code>comparison_notes</code> |
+| <code>web_interaction</code> | Optional | task-specific navigation/interaction facets |
+| <code>web_artifact</code> | Optional | artifact validation facets |
+| <code>experience</code> | Optional | web-only subjective friction/UI facets |</p>
+
+<p>Default reporting: shared core rules plus decision/process summaries. Merge
+templates when needed:</p>
+
+<ul class="article-list">
+  <li><code>web/web_metric_reporting.example.json</code></li>
+  <li><code>web/persona_sensitive_reporting.example.json</code></li>
+</ul>
+
+<p>Templates:</p>
+
+<ul class="article-list">
+  <li><code>web/web_metric_structured_output.example.json</code></li>
+  <li><code>web/persona_sensitive_structured_output.example.json</code></li>
+</ul>
+
+<h3 id="os-app">OS / app</h3>
+
+<p>Full guide: [<code>os-app/README.md</code>](../os-app/README.md)</p>
+
+<p>Canonical task: <code>application/tasks/example-computer-use-ios_photo-access-review</code></p>
+
+<p>OS/app tasks reuse the <strong>same shared core</strong> as web (see [shared core metrics](shared-core-metrics.md)). Add
+scenario-specific contexts such as local artifact checks or cross-app handoff
+slices on top of that core rather than replacing it.</p>
+
+<p>Templates:</p>
+
+<ul class="article-list">
+  <li><code>os-app/os_app_metric_structured_output.example.json</code></li>
+  <li><code>os-app/os_app_persona_structured_output.example.json</code></li>
+  <li><code>os-app/os_app_metric_reporting.example.json</code></li>
+  <li><code>os-app/os_app_persona_reporting.example.json</code></li>
+</ul>
+
+<p>Machine-readable shared core: <code>shared_core_metric_contract.example.json</code></p>
+
+<h3 id="example-template-index">Example template index</h3>
+
+<p>| Type | Structured output | Reporting |
+|---|---|---|
+| Survey | <code>survey/survey_structured_output.example.json</code> | <code>survey/survey_reporting.example.json</code> |
+| Chatbot | <code>chatbot/chatbot_structured_output.example.json</code> | <code>chatbot/chatbot_reporting.example.json</code> |
+| Web | <code>web/web_metric_structured_output.example.json</code>, <code>web/persona_sensitive_structured_output.example.json</code> | <code>web/web_metric_reporting.example.json</code>, <code>web/persona_sensitive_reporting.example.json</code> |
+| OS / app | <code>os-app/os_app_metric_structured_output.example.json</code>, <code>os-app/os_app_persona_structured_output.example.json</code> | <code>os-app/os_app_metric_reporting.example.json</code>, <code>os-app/os_app_persona_reporting.example.json</code> |
+| Web + OS shared core | <code>shared_core_metric_contract.example.json</code> | covered by the web/os templates above |</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#survey">Survey</a></li>
+<li style="margin-left: 0.8rem;"><a href="#chatbot">Chatbot</a></li>
+<li style="margin-left: 0.8rem;"><a href="#web">Web</a></li>
+<li style="margin-left: 0.8rem;"><a href="#os-app">OS / app</a></li>
+<li style="margin-left: 0.8rem;"><a href="#example-template-index">Example template index</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

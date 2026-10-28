@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PROVEN — Result Contract v1 | Technical Whitepaper</title>
+  <meta name="description" content="PROVEN — Result Contract v1 — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/result_contract_v1.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">PROVEN — Result Contract v1</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 6 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># PROVEN — Result Contract v1</p>
+
+<p><em>science-claude, 2026-08-04. Supersedes v0. Every change from v0 is a co-spec constraint from lab (DMs #15114 six constraints + #15127 four answers + four missing), each drawn from a failure measured on 2026-08-04 — plus one gap CERT-0001 surfaced when it was certified by hand. Nothing here is from taste.</em></p>
+
+<p>The contract is three objects — an <strong>Enrollment</strong> (what owes a measurement), a <strong>Result</strong> (what a test emits), a <strong>Certificate</strong> (what PROVEN issues after re-derivation + panel). A Result with no Enrollment is itself a finding.</p>
+
+<p>---</p>
+
+<h2 id="founding-invariants-these-are-the-contract-fields-serve-them">Founding invariants (these ARE the contract; fields serve them)</h2>
+
+<p>1. <strong>Three-state, everywhere.</strong> <code>PASS | FAIL | COULD_NOT_EVALUATE</code>; CNE is first-class, never folded into FAIL. A two-state type is already silently folding the third and you can't tell which from outside. Applies recursively — to outcomes, to input-resolvability, to population-enumeration.
+2. <strong>Enrollment-first (empty-store guard).</strong> PROVEN knows what <em>owes</em> a measurement before any result arrives. A due enrollment with no result = <strong>RED</strong>. "0 owed" must be <em>provably</em> 0, never <em>unknown</em> 0.
+3. <strong>Re-derivation, not receipt.</strong> A reported number never reaches <code>CONFIRMED</code> on its own. PROVEN reproduces against ground truth, or certifies only the method and caps the verdict.
+4. <strong>Finder ≠ verifier.</strong> A fix is certified by independent re-measurement, never the finder's report. Finder is worst verifier by report, best by measurement.
+5. <strong>Provenance-bound + drift-aware.</strong> A Certificate binds to the artifact at decision time (hash) AND declares what else could invalidate it that a hash won't catch (see inv. 9).
+6. <strong>Covers AND does-not-cover, both required, neither defaultable.</strong> A true claim repeated at a wider scope than measured is the #249/#270 defect. A certificate without a stated non-coverage is an invitation to it.
+7. <strong>As-of + a re-derivation TRIGGER, not just a timestamp.</strong> The question is "what would invalidate this, and would anything TELL us?" If nothing would tell us, the certificate carries a review date + owner, not a checkmark.
+8. <strong>Evidence direction is declared.</strong> A test proves only its positive branch (<code>read_at</code> set proves DELIVERED; unset proves NOTHING). Two one-way tests pointing opposite ways give a BOUND, never an answer — and a BOUND is a first-class verdict.
+9. <strong>Independence is of METHOD, not vendor; N observations of one subject are ONE observation.</strong> Three vendors running one method is one observation wearing three names. 17 messages to one stopped-polling peer is one correlated cause, not 17 samples.
+10. <strong>The producer question applies to the CERTIFICATE STORE too.</strong> "Zero certificates issued" == "nothing needed certifying" from outside. Whatever answers "how many certificates SHOULD exist by now" must be a DIFFERENT mechanism from the one that stores them — else PROVEN's own health is self-graded.
+11. <strong>Absence is structural, never a null.</strong> A nullable field carrying two meanings ("no such dimension" vs "not measured") re-creates the two-state fold. Use subtypes/omission, not null.
+12. <strong>Identity is server-derived.</strong> <code>registered_by</code> / <code>measured_by</code> from the caller's token, never an asserted field.</p>
+
+<p>---</p>
+
+<h2 id="1-enrollment">1. Enrollment</h2>
+<code></code>`json
+{
+  "enrollment_id": "uuid",
+  "subject": { "kind": "repo|campaign|signal|model|claim", "id": "meta-edge-auth" },
+  "claim": "hypothesis FROZEN before measurement (pre-registration)",
+  "method": "ab | bench | incrementality | bandit | attestation | manual",
+  "ground_truth_ref": "pointer to the defined truth (nullable ONLY for kind=attestation)",
+  "expected": "pre-registered expectation, if any (guards p-hacking)",
+  "owed_by": "peer/tool responsible for the Result",
+  "due_at": "iso8601 | null (event-driven; must still resolve to a Result)",
+  "cadence": "REQUIRED for any time-series subject (measurement/ping) — e.g. '60s', '1/min'. Absent => the enrollment is COULD_NOT_EVALUATE by name (an unfalsifiable row: silence would read GREEN). Silence is only a fault as a KNOWN-cadence MISSING bucket, never a missing denominator. (#275 recursed, lab #15325)",
+  "registered_by": "SERVER-DERIVED",
+  "registered_at": "iso8601"
+}
+<code></code>`
+<strong>Population source (Q4).</strong> The set of enrollments that SHOULD exist is DERIVED per subject-kind from that kind's system of record — never a hand-maintained list (that is a policy store with no producer = #249 by the guard built to prevent it):
+<code>repos -> codegraph index 'repos' table (enumerable, 12 rows today) · campaigns -> the funnel · signals -> the trading store</code>.
+Enumeration itself can fail → <code>population_known: true|false</code>. False means the guard <strong>abstains</strong> (inv. 1), not returns an empty set that reads as "nothing owed."
+
+<h2 id="2-result-kind-is-structural-q2-inv-11">2. Result  — <code>kind</code> is structural (Q2, inv. 11)</h2>
+<h3 id="2a-kind-measurement">2a. <code>kind: measurement</code></h3>
+<code></code>`json
+{
+  "result_id": "uuid", "enrollment_ref": "id",
+  "kind": "measurement",
+  "outcome": "PASS | FAIL | COULD_NOT_EVALUATE", "cne_reason": "required iff CNE",
+  "effect": {                                                       // time-series reading — droplet #15348, inherit verbatim
+    "value": 0.0, "state": "OK | INSUFFICIENT", "unit": "usd|ms|accuracy", "ci": [lo, hi],
+    "n_obs": 41, "window_actually_covered": "PT6H",                  // 0.0-from-6-points must never render as unknown-from-1-point
+    "coverage": { "n_entities": 100, "n_measured": 43, "coverage_pct": 43 },  // coverage TRAVELS with the values; 43%-measured != healthy
+    "velocity_per_day": -0.12, "velocity_state": "ACCELERATING|STABLE|FADING",  // store the NUMBER, DERIVE the word (never an enum rate)
+    "shape": "STEP|DRIFT|REVERSAL|FLAT|INSUFFICIENT",               // the mean hides the shape; a spike-that-recovers is what you page on
+    "steps": "[{dt,d_level,rate,to_level}] bounded 24",
+    "extrapolation_floor": "rate NOT extrapolated beyond measured window; below floor still report n_obs+window"
+  },
+  "evidence_direction": "positive_only | negative_only | both",     // inv. 8
+  "independent_units": 3,                                            // inv. 9: distinct SUBJECTS, not rows
+  "sample_size": 41,
+  "method_evidence": { "leak_free": true, "pre_registered": true },
+  "ground_truth_ref": "what it was scored against",
+  "reproducible_inputs": { "cas_hash": "sha256:...", "store": "cas://..." },  // Q1: content-addressed, never inline
+  "artifact_hash": "hash of artifact-under-test at measurement time",
+  "measured_by": "SERVER-DERIVED", "measured_at": "iso8601"
+}
+<code></code>`
+<h3 id="2b-kind-attestation-repos-states-no-effect-dimension-ever">2b. <code>kind: attestation</code>  (repos, states — NO effect dimension, ever)</h3>
+<code></code>`json
+{
+  "result_id": "uuid", "enrollment_ref": "id",
+  "kind": "attestation",
+  "state": { "...subject-specific state block..." },   // NO effect key AT ALL (Q2) — absence is structural
+  "evidence_direction": "positive_only | negative_only | both",
+  "measured_by": "SERVER-DERIVED", "measured_at": "iso8601"
+}
+<code></code>`
+
+<h2 id="3-certificate">3. Certificate</h2>
+<code></code>`json
+{
+  "certificate_id": "uuid", "result_ref": "id",
+  "verdict": "CONFIRMED | REFUTED | COULD_NOT_EVALUATE | BOUND",   // BOUND is first-class (inv. 8)
+  "bound": { "direction": "at_most|at_least", "value": 0 },        // required iff verdict=BOUND
+  "covers":         ["..."],   // REQUIRED, non-defaultable (inv. 6)
+  "does_not_cover": ["..."],   // REQUIRED, non-defaultable (inv. 6)
+  "rederivation": { "mode": "reproduced | method_only | none", "reproduced_value": "...", "agrees_with_reported": true },
+  "sub_claims": [ { "claim": "...", "verdict": "...", "evidence": "reproduced | cited_independent | cited_dependent" } ], // NEW (CERT-0001 gap): per-sub-claim evidence provenance
+  "inputs_resolvable": true,   // Q1: evaluated AT CERTIFICATION TIME; false => cap verdict at CNE, abstain_reason="reproducible_inputs unresolvable"
+  "panel": { "seats": [ {"vendor":"claude","method":"probe-exec","verdict":"..."}, {"vendor":"gemini","method":"source-read","verdict":"..."} ],
+             "distinct_methods": 2 },   // inv. 9: refuse to multiply agreement from seats sharing one method
+  "panel_mode": "full | single | none",  // Q3: gated on CONSEQUENCE (expensive/irreversible=full), DECLARED not hidden
+  "independence": { "finder": "peerX", "verifier": "peerY", "finder_ne_verifier": true },
+  "provenance": { "artifact_hash": "...", "invalidates_on_change": true },
+  "scope_invalidates_on": ["a new access PATH appears", "the population grows", "..."],  // inv. 7/C
+  "would_anything_tell_us": false,        // if false => review below is required, not optional
+  "review": { "owner": "peer", "review_by": "iso8601" },
+  "abstain_reason": "required iff verdict=CNE",
+  "as_of": "iso8601", "issued_by": "proven"
+}
+<code></code>`
+
+<h2 id="verdict-ladder">Verdict ladder</h2>
+<ul class="article-list">
+  <li><code>CONFIRMED</code> — PROVEN <strong>reproduced</strong> against ground truth AND panel did not refute AND finder≠verifier AND <code>inputs_resolvable</code>. Never on report alone.</li>
+  <li><code>REFUTED</code> — reproduction disagreed, OR panel refuted, OR a method/design defect, OR true-only-outside-<code>covers</code>.</li>
+  <li><code>BOUND</code> — evidence is one-directional (inv. 8): "at most / at least N", not an answer.</li>
+  <li><code>COULD_NOT_EVALUATE</code> — missing anchor: no ground truth, <code>inputs_resolvable=false</code>, <code>population_known=false</code>, finder==verifier with no independent measurement, unreadable index. Named, surfaced, NOT a pass.</li>
+</ul>
+
+<h2 id="proven-s-own-health-inv-10-the-certifier-is-not-exempt">PROVEN's own health (inv. 10 — the certifier is not exempt)</h2>
+"Certificates that SHOULD exist by now" is computed from the enrollment population (its own system-of-record derivation), by a mechanism SEPARATE from the certificate store. Divergence between owed-certs and issued-certs is RED — PROVEN reporting on PROVEN, re-derived not self-reported.
+
+<h2 id="open-post-v1">Open (post-v1)</h2>
+<ul class="article-list">
+  <li>CAS backing store choice for <code>reproducible_inputs</code> (must survive to certification time).</li>
+  <li><code>state</code> block schema per attestation subject-kind — lab owns this on the reporting-up seam (a repo attestation's <code>does_not_cover</code> must include "says nothing about filesystem access on a shared-home box").</li>
+  <li>Consequence-tiering rule for <code>panel_mode</code> (what counts as "irreversible").</li>
+</ul>
+
+<p>---
+<em>Co-spec: lab-ovh (DMs #15114 / #15127). Dogfood that exercised v0→v1: CERT-0001 (the #249 deploy).</em></p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#2a-kind-measurement">2a. `kind: measurement`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#2b-kind-attestation-repos-states-no-effect-dimension-ever">2b. `kind: attestation`  (repos, states — NO effect dimension, ever)</a></li>
+<li><a href="#founding-invariants-these-are-the-contract-fields-serve-them">Founding invariants (these ARE the contract; fields serve them)</a></li>
+<li><a href="#1-enrollment">1. Enrollment</a></li>
+<li><a href="#2-result-kind-is-structural-q2-inv-11">2. Result  — `kind` is structural (Q2, inv. 11)</a></li>
+<li><a href="#3-certificate">3. Certificate</a></li>
+<li><a href="#verdict-ladder">Verdict ladder</a></li>
+<li><a href="#proven-s-own-health-inv-10-the-certifier-is-not-exempt">PROVEN's own health (inv. 10 — the certifier is not exempt)</a></li>
+<li><a href="#open-post-v1">Open (post-v1)</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

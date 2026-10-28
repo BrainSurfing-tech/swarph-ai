@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Design — Bundles fonctionnels (4-itemsets) & règles d'association | Technical Whitepaper</title>
+  <meta name="description" content="Design — Bundles fonctionnels (4-itemsets) & règles d'association — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-05-20-basket-bundle-association-rules-design.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Design — Bundles fonctionnels (4-itemsets) & règles d'association</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 7 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Design — Bundles fonctionnels (4-itemsets) & règles d'association</p>
+
+<p><strong>Date</strong> : 2026-05-20
+<strong>Auteur</strong> : Pierre Samson + Claude
+<strong>Périmètre</strong> : Panel <code>cross-family-baskets</code> (FR), section « Top cross-world SKU pairs & their bundle expansion (C / D) »</p>
+
+<p>---</p>
+
+<h2 id="1-contexte-objectif">1. Contexte & objectif</h2>
+
+<p>La section actuelle « Top cross-world SKU pairs & their bundle expansion (C/D) » part
+de la table pré-calculée <code>product_co_occurrence</code> (paires globales, contrainte
+<code>world(A) ≠ world(B)</code>), puis cherche pour chaque paire les 2 SKU compagnons (C, D)
+les plus fréquents dans les mêmes commandes.</p>
+
+<p>Deux limites motivent la refonte :</p>
+
+<p>1. <strong>Pas de vrai grain à 4 produits.</strong> A,B viennent d'une table de paires ; C,D sont
+   bricolés par-dessus. On veut de <strong>vrais itemsets de 4 produits</strong> minés depuis les
+   paniers réels, avec une métrique conditionnelle propre.
+2. <strong>Du bruit de « réassort total ».</strong> Certains paniers sont des réassorts en gros
+   contenant des produits sans lien fonctionnel (l'exemple <em>cutter + coton</em>). Ils
+   gonflent artificiellement les co-occurrences. Il faut les exclure.</p>
+
+<p><strong>Question métier cible</strong> : *« si un client achète {a, b}, va-t-il forcément acheter
+{c, d} parce que les produits sont complémentaires ? »*
+Exemples fournis :
+<ul class="article-list">
+  <li>lame de cutter + porte-cutter + carton + scotch (poste d'emballage)</li>
+  <li>encre + feuille + imprimante + poubelle (poste d'impression)</li>
+</ul></p>
+
+<p>C'est de la <strong>règle d'association de panier</strong> (market-basket) : confiance + lift sur
+des itemsets jusqu'à 4 produits, calculés sur des paniers nettoyés.</p>
+
+<p>---</p>
+
+<h2 id="2-d-cisions-verrouill-es">2. Décisions verrouillées</h2>
+
+<p>| Décision | Choix |
+|---|---|
+| Grain | <strong>SKU exact</strong>, <strong>sans</strong> contrainte cross-world |
+| Lecture fonctionnelle | section/univers de chaque produit <strong>affichée</strong> à côté du SKU |
+| Filtre anti-réassort | jeter panier si <code>taille > 20 SKU</code> <strong>OU</strong> <code>univers ≥ 5</code> |
+| <code>min_support</code> (défaut) | <strong>25 paniers</strong> (absolu) |
+| <code>min_confidence</code> (défaut) | <strong>0,30</strong> |
+| <code>min_lift</code> (défaut) | <strong>1,0</strong> |
+| Métrique conditionnelle | règle d'association <code>confiance = P(conséquent \| antécédent)</code>, + <code>lift</code> |
+| Algorithme | <strong>Apriori étagé, pur-Python</strong> (pas de nouvelle dépendance ; mlxtend absent) |
+| Exécution | <strong>offline / snapshot</strong> (trop lourd pour le panel live) |</p>
+
+<p>---</p>
+
+<h2 id="3-faits-mesur-s-calibration-fen-tre-90-j-fr">3. Faits mesurés (calibration — fenêtre 90 j, FR)</h2>
+
+<p>Scripts de mesure livrés en amont :
+<code>scripts/measure_basket_size_distribution.py</code>, <code>scripts/measure_basket_world_spread.py</code>.</p>
+
+<p><strong>Taille des paniers :</strong>
+<ul class="article-list">
+  <li>550 787 commandes ; <strong>438 007 multi-lignes (≥2 SKU, 79,5 %)</strong>.</li>
+  <li>Médiane 4 SKU ; moyenne 5,85 ; p95 = 17 ; p99 = 30 ; max 475.</li>
+  <li>54 % des commandes ≤ 4 SKU → les bundles de 4 reflètent la réalité d'achat majoritaire.</li>
+</ul></p>
+
+<p><strong>Étalement d'univers :</strong>
+<ul class="article-list">
+  <li>33 % des paniers = 1 univers ; 39 % = 2 ; 19 % = 3 ; 7 % = 4 ; 2 % ≥ 5.</li>
+  <li>⚠️ Un filtre <code>univers ≥ 3</code> jetterait 28 % des paniers et <strong>détruirait les bundles cibles</strong></li>
+</ul>
+  (encre+feuille+imprimante+poubelle = 3 univers). Le seuil d'univers doit rester
+  généreux → <code>≥ 5</code>.</p>
+
+<p><strong>Assortiment actif :</strong> seulement <strong>31 471 SKU distincts</strong> apparaissent dans les paniers
+multi-lignes sur 90 j (pas 1,68M). ⇒ minage SKU-grain faisable ; support absolu pertinent.</p>
+
+<p><strong>Effet du filtre anti-réassort retenu</strong> (<code>taille>20 OU univers≥5</code>) : jette <strong>5,4 %</strong> des
+paniers, préserve 100 % de la zone fonctionnelle 1-4 univers.</p>
+
+<p>---</p>
+
+<h2 id="4-m-thode">4. Méthode</h2>
+
+<h3 id="4-1-nettoyage-des-paniers">4.1 Nettoyage des paniers</h3>
+
+<p>Entrée : liste de paniers <code>{order_number, skus: list[str]}</code> + map <code>prod_world: dict[sku, world]</code>.</p>
+
+<p>Pour chaque panier, calculer <code>taille = len(set(skus))</code> et
+<code>n_univers = len({prod_world.get(s) for s in skus} - {None})</code>.
+<strong>Exclure</strong> si <code>taille > max_basket_size</code> <strong>OU</strong> <code>n_univers >= max_worlds</code>.
+Renvoyer les paniers conservés (comme <code>list[frozenset[str]]</code>) + des stats de rejet.</p>
+
+<h3 id="4-2-minage-des-itemsets-fr-quents-apriori-tag">4.2 Minage des itemsets fréquents (Apriori étagé)</h3>
+
+<p><code></code>`
+support(X) = nombre de paniers conservés contenant TOUS les SKU de X
+<code></code>`</p>
+
+<p>1. <strong>L1</strong> — compter chaque SKU sur les paniers conservés ; garder <code>keep1 = {sku : count ≥ min_support}</code>.
+2. <strong>Réduction</strong> — réduire chaque panier à <code>set(panier) ∩ keep1</code>, trié.
+3. <strong>L2/L3/L4</strong> — pour chaque panier réduit, énumérer <code>combinations(items, r)</code> pour
+   <code>r ∈ {2,3,4}</code> et incrémenter un compteur par taille. Conserver les itemsets de
+   support ≥ <code>min_support</code>.
+<ul class="article-list">
+  <li><em>Note perf</em> : la réduction L1 fait tomber la combinatoire (paniers ≤20, items</li>
+</ul>
+     fréquents seulement). Si trop lent, activer l'élagage anti-monotone (ne compter un
+     <code>r</code>-itemset que si tous ses <code>(r-1)</code>-sous-ensembles sont fréquents). Optionnel.</p>
+
+<p>Sortie : <code>support: dict[frozenset[str], int]</code> pour les tailles 1 à 4.</p>
+
+<h3 id="4-3-g-n-ration-des-r-gles">4.3 Génération des règles</h3>
+
+<p>Pour chaque itemset fréquent <code>S</code> (taille 2 à 4) et chaque découpe non vide
+<code>antécédent A ⊂ S</code>, <code>conséquent = S \ A</code> :</p>
+
+<p><code></code>`
+confiance = support(S) / support(A)
+lift      = confiance / (support(conséquent) / n_paniers_conservés)
+<code></code>`</p>
+
+<p>Garder les règles avec <code>confiance ≥ min_confidence</code> ET <code>lift ≥ min_lift</code>.</p>
+
+<h3 id="4-4-trois-niveaux-de-sortie-valid-s">4.4 Trois niveaux de sortie (validés)</h3>
+
+<ul class="article-list">
+  <li><strong>Primaire — Bundles de 4</strong> : chaque 4-itemset fréquent, classé par support. Pour</li>
+</ul>
+  chacun : les 4 produits (SKU + nom + pastille section/univers), le support (nb
+  paniers), et <strong>sa meilleure règle 2→2</strong> <code>{a,b} → {c,d}</code> (celle de confiance max parmi
+  les 3 découpes 2+2), avec confiance + lift.
+<ul class="article-list">
+  <li><strong>Secondaire — Règles 3→1</strong> : <code>{a,b,c} → d</code>, filtrées (conf ≥ min_conf, lift ≥ min_lift),</li>
+</ul>
+  triées par lift.
+<ul class="article-list">
+  <li><strong>Tertiaire — Règles 2→1</strong> : <code>a → b</code>, idem.</li>
+</ul>
+
+<p>---</p>
+
+<h2 id="5-architecture-isolation">5. Architecture & isolation</h2>
+
+<h3 id="5-1-nouveau-module-core-basket-bundles-py-fonctions-pures-testables">5.1 Nouveau module <code>core/basket_bundles.py</code> (fonctions pures, testables)</h3>
+
+<p><code></code>`python
+def clean_baskets(
+    baskets: list[dict],            # [{"skus": [...]}, ...]
+    prod_world: dict[str, str],
+    max_basket_size: int = 20,
+    max_worlds: int = 5,
+) -> tuple[list[frozenset[str]], dict]:
+    """Renvoie (paniers_conservés, stats_rejet)."""</p>
+
+<p>def mine_frequent_itemsets(
+    baskets: list[frozenset[str]],
+    min_support: int = 25,
+    max_len: int = 4,
+) -> dict[frozenset[str], int]:
+    """Supports des itemsets de taille 1..max_len ≥ min_support."""</p>
+
+<p>def generate_rules(
+    support: dict[frozenset[str], int],
+    n_baskets: int,
+    min_confidence: float = 0.30,
+    min_lift: float = 1.0,
+) -> list[dict]:
+    """Règles {antecedent, consequent, support, confidence, lift}."""</p>
+
+<p>def build_outputs(
+    support, rules, prod_meta,
+) -> dict:
+    """Assemble bundles_4 (+ best 2->2), rules_3to1, rules_2to1, enrichis
+    avec nom + section + world par SKU."""
+<code></code>`</p>
+
+<p><code>prod_meta: dict[sku, {name, section, world}]</code> — résolu via <code>ecom_products × section_taxonomy</code>
+(postgres), même requête batchée que l'existant.</p>
+
+<h3 id="5-2-int-gration-scripts-refresh-cross-family-baskets-py">5.2 Intégration <code>scripts/refresh_cross_family_baskets.py</code></h3>
+
+<p>Nouvelle <strong>Phase 5</strong> après le calcul existant : appeler <code>clean_baskets</code> →
+<code>mine_frequent_itemsets</code> → <code>generate_rules</code> → <code>build_outputs</code>, sur les <code>order_baskets</code>
+déjà pullés (réutilise <code>prod_world</code>). Ajouter au dict de retour les clés
+<code>bundles_4</code>, <code>rules_3to1</code>, <code>rules_2to1</code>, et les paramètres utilisés.</p>
+
+<p>Nouveaux arguments CLI : <code>--min-support</code> (25), <code>--min-confidence</code> (0.30),
+<code>--min-lift</code> (1.0), <code>--max-basket-size</code> (20), <code>--max-worlds</code> (5).</p>
+
+<p>Nouvelles feuilles XLSX :
+<ul class="article-list">
+  <li><code>bundles_4</code> : sku_a..d, name_a..d, world_a..d, support, best rule (antécédent,</li>
+</ul>
+  conséquent, confiance, lift).
+<ul class="article-list">
+  <li><code>bundle_rules</code> : type (3→1 / 2→1), antécédent (SKU+nom), conséquent (SKU+nom),</li>
+</ul>
+  support, confiance, lift.</p>
+
+<h3 id="5-3-int-gration-panel-dashboard-templates-cross-family-baskets-html-app-py">5.3 Intégration panel <code>dashboard/templates/_cross_family_baskets.html</code> + <code>app.py</code></h3>
+
+<ul class="article-list">
+  <li><strong>Remplacer</strong> le bloc <code><div class="cfb-section"></code> titré *« Top cross-world SKU pairs &</li>
+</ul>
+  their bundle expansion (C / D) »* par les 3 nouvelles tables (primaire visible,
+  secondaire/tertiaire repliables ou en dessous).
+<ul class="article-list">
+  <li>Réutiliser les pastilles <code>.pill.{world}</code> existantes pour la lecture section/univers.</li>
+  <li><strong>Source des données</strong> : les bundles viennent du <strong>dernier snapshot</strong> (sortie du refresh),</li>
+</ul>
+  pas d'un recalcul live. Nouveaux query-params réglables <code>min_support</code>, <code>min_confidence</code>
+  alignés sur le style <code>min_co</code>.
+<ul class="article-list">
+  <li><strong>À confirmer au moment du plan</strong> (lecture du mécanisme de Reports dans <code>app.py</code>) :</li>
+</ul>
+  branchement exact « snapshot → panel » (enregistrement Report vs lecture directe du
+  dernier fichier <code>exports/cross_family_baskets_FR_*.json</code>). Le live recompute des bundles
+  est <strong>hors périmètre</strong> (coût).
+
+<p>---</p>
+
+<h2 id="6-param-tres-d-fauts">6. Paramètres & défauts</h2>
+
+<p>| Paramètre | Défaut | Rôle |
+|---|---|---|
+| <code>days</code> | 90 | fenêtre |
+| <code>channel</code> | ALL | ALL / WEB |
+| <code>min_support</code> | 25 | plancher support absolu (paniers) |
+| <code>min_confidence</code> | 0.30 | plancher confiance des règles |
+| <code>min_lift</code> | 1.0 | plancher lift des règles |
+| <code>max_basket_size</code> | 20 | filtre anti-réassort (taille) |
+| <code>max_worlds</code> | 5 | filtre anti-réassort (univers) |</p>
+
+<p>---</p>
+
+<h2 id="7-plan-de-test-tdd">7. Plan de test (TDD)</h2>
+
+<p><code>tests/test_basket_bundles.py</code> sur jeu synthétique :
+<ul class="article-list">
+  <li><strong>clean_baskets</strong> : un panier 21-SKU rejeté ; un panier 5-univers rejeté ; un panier</li>
+</ul>
+  4-univers / 6-SKU conservé.
+<ul class="article-list">
+  <li><strong>mine_frequent_itemsets</strong> : supports exacts sur paniers connus ; respect du</li>
+</ul>
+  <code>min_support</code> ; pas d'itemset > <code>max_len</code>.
+<ul class="article-list">
+  <li><strong>generate_rules</strong> : confiance et lift calculées à la main sur 2-3 cas ; filtrage</li>
+</ul>
+  <code>min_confidence</code> / <code>min_lift</code>.
+<ul class="article-list">
+  <li><strong>build_outputs</strong> : la meilleure règle 2→2 d'un bundle est bien celle de confiance max ;</li>
+</ul>
+  enrichissement (name/section/world) présent.</p>
+
+<p>---</p>
+
+<h2 id="8-hors-p-rim-tre-risques">8. Hors périmètre / risques</h2>
+
+<ul class="article-list">
+  <li><strong>Hors périmètre</strong> : recalcul live des bundles dans le panel ; GB ; grain</li>
+</ul>
+  section/sous-famille (on reste SKU exact) ; persistance des règles en base.
+<ul class="article-list">
+  <li><strong>Risque perf</strong> : si l'énumération L4 est trop lente sur 90 j, activer l'élagage</li>
+</ul>
+  anti-monotone (déjà prévu §4.2). Mesurer le runtime de la Phase 5 et le documenter.
+<ul class="article-list">
+  <li><strong>Risque sémantique</strong> : <code>min_support=25</code> et <code>min_confidence=0.30</code> sont des points de</li>
+</ul>
+  départ calibrés mais à éprouver sur les premiers résultats réels ; tous réglables.
+<ul class="article-list">
+  <li><strong>Lien existant</strong> : ne pas casser <code>product_co_occurrence</code> ni les autres sections du</li>
+</ul>
+  panel — seule la section paires/C-D est remplacée.
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#4-1-nettoyage-des-paniers">4.1 Nettoyage des paniers</a></li>
+<li style="margin-left: 0.8rem;"><a href="#4-2-minage-des-itemsets-fr-quents-apriori-tag">4.2 Minage des itemsets fréquents (Apriori étagé)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#4-3-g-n-ration-des-r-gles">4.3 Génération des règles</a></li>
+<li style="margin-left: 0.8rem;"><a href="#4-4-trois-niveaux-de-sortie-valid-s">4.4 Trois niveaux de sortie (validés)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#5-1-nouveau-module-core-basket-bundles-py-fonctions-pures-testables">5.1 Nouveau module `core/basket_bundles.py` (fonctions pures, testables)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#5-2-int-gration-scripts-refresh-cross-family-baskets-py">5.2 Intégration `scripts/refresh_cross_family_baskets.py`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#5-3-int-gration-panel-dashboard-templates-cross-family-baskets-html-app-py">5.3 Intégration panel `dashboard/templates/_cross_family_baskets.html` + `app.py`</a></li>
+<li><a href="#1-contexte-objectif">1. Contexte & objectif</a></li>
+<li><a href="#2-d-cisions-verrouill-es">2. Décisions verrouillées</a></li>
+<li><a href="#3-faits-mesur-s-calibration-fen-tre-90-j-fr">3. Faits mesurés (calibration — fenêtre 90 j, FR)</a></li>
+<li><a href="#4-m-thode">4. Méthode</a></li>
+<li><a href="#5-architecture-isolation">5. Architecture & isolation</a></li>
+<li><a href="#6-param-tres-d-fauts">6. Paramètres & défauts</a></li>
+<li><a href="#7-plan-de-test-tdd">7. Plan de test (TDD)</a></li>
+<li><a href="#8-hors-p-rim-tre-risques">8. Hors périmètre / risques</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

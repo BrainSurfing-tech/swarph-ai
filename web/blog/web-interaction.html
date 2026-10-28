@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Web interaction modes | Technical Whitepaper</title>
+  <meta name="description" content="Web interaction modes — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/web-interaction.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Web interaction modes</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 5 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Web interaction modes</p>
+
+<p>Playground supports <strong>four Docker / no-use.computer</strong> ways to run persona web
+scenarios against <strong>live public URLs</strong>, plus <strong>CUA</strong> in Docker via
+<code>persona-computer-1</code>. Pick the mode that fits the study — none is the global
+default.</p>
+
+<h2 id="quick-pick">Quick pick</h2>
+
+<p>| Mode | Task example | Agent | Environment | When to use |
+|------|----------------|-------|-------------|-------------|
+| <strong>Playwright</strong> | <code>application/tasks/example-web-playwright_quote-choice/</code> | <code>persona-openhands-sdk</code> | <code>docker</code> + <code>network_mode = "public"</code> | Terminal + Python Playwright; CI-friendly, lower cost |
+| <strong>browser-use</strong> | <code>application/tasks/example-web-browser-use_laptop-choice/</code> | <code>persona-browser-use</code> | <code>docker</code> + <code>network_mode = "public"</code> | Dedicated browser agent loop; persona via <code>extend_system_message</code> |
+| <strong>Cocoa</strong> | <code>application/tasks/example-web-cocoa_plan-choice/</code> | <code>persona-cocoa</code> | <code>docker</code> + AIO Sandbox image + <code>network_mode = "public"</code> | Unified browser + shell + files in one container |
+| <strong>CUA</strong> | <code>application/tasks/example-web-cua_bookshop-choice/</code> | <code>persona-computer-1</code> | <code>docker</code> (Linux Xvfb) | Screenshot loop in Linux desktop; finish with <strong>done</strong> action |
+| <strong>CLI (experimental)</strong> | any live-web task above | <code>persona-claude-code</code> / <code>persona-codex</code> / <code>persona-gemini-cli</code> | <code>application/shared-web-cli</code> (Playground override) | Terminal CLI + Playwright; same task instruction/verifier |</p>
+
+<p>Checked-in smoke recipes: [<code>configs/jobs/example-job-recipe/</code>](../../configs/jobs/example-job-recipe/)
+(<code>appSim-example-web-playwright-local.yaml</code>, <code>…-browser-use-local.yaml</code>, etc.).</p>
+
+<h2 id="shared-submission-contract">Shared submission contract</h2>
+
+<p>Live-web browse-and-choose tasks in this repo share a <strong>persona decision</strong>
+JSON shape. Each task names its output file under <code>/app/output/</code>:</p>
+
+<p>| Task | Output file | Live URL |
+|------|-------------|----------|
+| Playwright quote | <code>quote_choice.json</code> | https://quotes.toscrape.com/ |
+| browser-use laptop | <code>laptop_choice.json</code> | https://webscraper.io/test-sites/e-commerce/static/computers/laptops |
+| Cocoa plan | <code>plan_choice.json</code> | https://www.pythonanywhere.com/pricing/ |
+| CUA bookshop | <code>book_interest.json</code> | https://books.toscrape.com/ |</p>
+
+<p>Example shape (fields vary slightly per task — follow each task's <code>instruction.md</code>):</p>
+
+<p><code></code>`json
+{
+  "decision_subject_id": "<stable slug or site id>",
+  "decision_subject_label": "<title exactly as shown on the site>",
+  "decision_outcome": "selected",
+  "basis_primary": "<price|quality|features|convenience|taste|trust|familiarity|novelty|fit|other>",
+  "exploration_style": "<quick_pick|compared_multiple|deep_research|hesitant>",
+  "reason": "<why this matched you as this persona>"
+}
+<code></code>`</p>
+
+<p>Verifiers check <strong>schema</strong> and task-specific required fields, not semantic match
+to the live catalog (pages change).</p>
+
+<p>On <strong>use.computer macOS</strong> (computer-use tasks only), Matraix Playground remaps <code>/app</code> →
+<code>/Users/lume</code> in shell commands. Verifiers resolve this automatically;
+<strong>instructions always say <code>/app/output/</code></strong>.</p>
+
+<p>Full metric contract: [task-spec/web/README.md](../../application/task-spec/web/README.md).</p>
+
+<h2 id="playwright-mode">Playwright mode</h2>
+
+<p><strong>How it works:</strong> Chromium is controlled through the <strong>Playwright API</strong> (DOM
+selectors). The agent (via OpenHands terminal) runs Python that calls
+<code>page.goto()</code>, <code>locator()</code>, etc.</p>
+
+<p><strong>Pros:</strong> Faster, cheaper, more repeatable than CUA; JavaScript-rendered pages work.</p>
+
+<p><strong>Cons:</strong> Not a literal “human looking at the screen”; anti-bot / complex UX may
+need extra handling.</p>
+
+<p><strong>API key:</strong> <code>persona-openhands-sdk</code> requires <strong><code>LLM_API_KEY</code></strong> on the host (not
+<code>ANTHROPIC_API_KEY</code>). If you only have Anthropic set up:</p>
+
+<p><code></code>`bash
+export LLM_API_KEY="${ANTHROPIC_API_KEY}"
+<code></code>`</p>
+
+<p><code></code>`bash
+uv run harbor run \
+  -a persona-openhands-sdk \
+  -m anthropic/claude-sonnet-4-6 \
+  --ak persona_path=persona/datasets/matraix-persona-dev-sample/persona_0042.yaml \
+  -p application/tasks/example-web-playwright_quote-choice
+<code></code>`</p>
+
+<p>Or the checked-in smoke recipe:</p>
+
+<p><code></code>`bash
+uv run harbor run -c configs/jobs/example-job-recipe/appSim-example-web-playwright-local.yaml
+<code></code>`</p>
+
+<p>Oracle (no LLM):</p>
+
+<p><code></code>`bash
+uv run harbor run -p application/tasks/example-web-playwright_quote-choice -a oracle
+<code></code>`</p>
+
+<p><strong>task.toml:</strong> set <code>[environment].network_mode = "public"</code> and
+<code>[agent].network_mode = "public"</code>. Runtime:
+<code>environment/task-environments/application/shared-web-playwright/</code>.</p>
+
+<h2 id="browser-use-mode">browser-use mode</h2>
+
+<p><strong>How it works:</strong> The [browser-use](https://github.com/browser-use/browser-use)
+library runs an agent loop over Chromium (DOM tools + optional vision). Persona
+maps to <strong><code>extend_system_message</code></strong>; the task instruction stays in the <code>task</code> field.</p>
+
+<p><strong>Pros:</strong> Purpose-built web agent; MIT license; no <code>use-computer</code> cost.</p>
+
+<p><strong>Cons:</strong> Slower than hand-written Playwright; less flexible than full terminal access.</p>
+
+<p><strong>API key:</strong> <code>ANTHROPIC_API_KEY</code>, <code>OPENAI_API_KEY</code>, or <code>LLM_API_KEY</code> (mapped by
+model provider).</p>
+
+<p><code></code>`bash
+uv run harbor run -c configs/jobs/example-job-recipe/appSim-example-web-browser-use-local.yaml
+<code></code>`</p>
+
+<p>Oracle:</p>
+
+<p><code></code>`bash
+uv run harbor run -p application/tasks/example-web-browser-use_laptop-choice -a oracle
+<code></code>`</p>
+
+<p>Runtime: <code>environment/task-environments/application/shared-web-browser-use/</code>.</p>
+
+<h2 id="cocoa-mode-aio-sandbox">Cocoa mode (AIO Sandbox)</h2>
+
+<p><strong>How it works:</strong> The task Docker image is
+[<code>agent-infra/sandbox</code>](https://github.com/agent-infra/sandbox) (browser + shell
++ files on <code>localhost:8080</code>). [CocoaAgent](https://github.com/cocoabench/cocoa-agent)
+connects in-process with <code>skip_docker</code>. Persona is merged into the <strong>instruction</strong>
+(same slot as OpenHands / computer-1).</p>
+
+<p><strong>Pros:</strong> All-in-one digital agent without <code>use-computer</code>; no Docker socket mount.</p>
+
+<p><strong>Cons:</strong> Heavier base image than Playwright-only tasks.</p>
+
+<p><code></code>`bash
+uv run harbor run -c configs/jobs/example-job-recipe/appSim-example-web-cocoa-local.yaml
+<code></code>`</p>
+
+<p>Runtime: <code>environment/task-environments/application/shared-web-cocoa/</code>.</p>
+
+<h2 id="cua-mode-chromium-computer-use">CUA mode (Chromium + computer-use)</h2>
+
+<p><strong>How it works:</strong> A real desktop browser window in Docker (Xvfb + XFCE); each turn
+the model receives a <strong>screenshot</strong> and returns actions (<code>navigate</code>, <code>click</code>,
+<code>scroll</code>, …). The agent finishes with a <strong>done</strong> JSON action; the task verifier
+recovers <code>/app/output/book_interest.json</code> from the mirrored final answer /
+trajectory when needed.</p>
+
+<p><strong>Pros:</strong> Closest to end-user behavior among Docker web modes; no
+<code>USE_COMPUTER_API_KEY</code> for <strong>Docker Linux</strong> web CUA.</p>
+
+<p><strong>Cons:</strong> Slower and costlier than Playwright/browser-use; first run builds a
+desktop image.</p>
+
+<p><code></code>`bash
+uv sync --extra computer-1
+export ANTHROPIC_API_KEY=...
+uv run harbor run -c configs/jobs/example-job-recipe/appSim-example-web-linux-cua-local.yaml
+<code></code>`</p>
+
+<p>Oracle:</p>
+
+<p><code></code>`bash
+uv run harbor run -p application/tasks/example-web-cua_bookshop-choice -a oracle
+<code></code>`</p>
+
+<p>Runtime: <code>environment/task-environments/application/shared-web-cua-linux/</code>.</p>
+
+<p>For <strong>macOS / iOS</strong> screenshot CUA (system settings, not live web), use
+<code>application/tasks/example-computer-use-*</code> with <code>-e use-computer</code> — see
+[agents.md](agents.md).</p>
+
+<h2 id="what-we-do-not-treat-as-a-web-mode">What we do <em>not</em> treat as a web mode</h2>
+
+<p>| Approach | Status |
+|----------|--------|
+| [Skyvern](https://github.com/Skyvern-AI/skyvern) | No <code>persona-skyvern</code> in this repo; use browser-use or CUA for vision-first browsing. |
+| <code>curl</code> / <code>wget</code> only | Not a web interaction mode — no JS, no layout. OK for smoke, not persona web browsing. |
+| Mock HTML sidecar | Deprecated for web examples here; use live URL tasks under <code>application/tasks/example-web-*</code>. |</p>
+
+<h2 id="cli-harness-on-web-tasks-experimental">CLI harness on web tasks (experimental)</h2>
+
+<p>Browser harness tasks keep their own <code>shared-web-*</code> Docker images. When
+Playground (or a Matraix Playground job) selects a <strong>CLI harness</strong> on a <strong>web</strong> task
+(<code>persona-claude-code</code>, <code>persona-codex</code>, <code>persona-gemini-cli</code>), the launcher
+stages a copy of the task with `[environment].definition =
+application/shared-web-cli`.</p>
+
+<p>That image includes:</p>
+
+<ul class="article-list">
+  <li><strong>Playwright + Chromium</strong> — same baseline as <code>shared-web-playwright</code> so the</li>
+</ul>
+  CLI agent can write terminal Python to browse live URLs.
+<ul class="article-list">
+  <li><strong>Terminal CLI deps</strong> — <code>curl</code>, <code>python3</code>, <code>uv</code>, and pre-installed Claude Code</li>
+</ul>
+  (Codex / Gemini install via Matraix Playground <code>install()</code> at trial start, same as
+  survey/chat).
+
+<p>It does <strong>not</strong> include browser-use, Cocoa, or CUA stacks — those are separate
+browser products and are not used by CLI harnesses.</p>
+
+<p>Task <code>instruction.md</code>, verifier, and output contract stay unchanged; only the
+runtime image switches.</p>
+
+<p><strong>Credentials:</strong> API keys or CLI subscription auth are configured on the Matraix Playground
+runner — see [agents.md](agents.md) § CLI subscription auth
+and <code>application/playground/.env.local.example</code>.</p>
+
+<h2 id="authoring-a-new-live-web-application">Authoring a new live-web application</h2>
+
+<p>1. Choose a mode from the table above.
+2. Copy the closest <code>example-web-*</code> task; reuse the decision JSON contract or
+   document a new schema inline in <code>instruction.md</code> and the task README.
+3. Set <code>network_mode = "public"</code> where the agent must reach the internet.
+4. Point <code>[environment].definition</code> at the matching <code>shared-web-*</code> runtime (or
+   create a task-specific environment only when the stack is genuinely new).
+5. Register the task for Playground — [task-guide.md § Playground registration](../application/task-guide.md#playground-registration).
+6. Add <strong>Suggested setup (non-binding)</strong> in <code>tasks/.../README.md</code> — do not put
+   agent names in <code>instruction.md</code>.
+7. Document URL stability and login requirements in README <strong>Known limitations</strong>.</p>
+
+<h2 id="reference-tasks">Reference tasks</h2>
+
+<p>| Task | Mode |
+|------|------|
+| <code>application/tasks/example-web-playwright_quote-choice/</code> | Playwright + live URL |
+| <code>application/tasks/example-web-browser-use_laptop-choice/</code> | browser-use + live URL |
+| <code>application/tasks/example-web-cocoa_plan-choice/</code> | Cocoa + live URL |
+| <code>application/tasks/example-web-cua_bookshop-choice/</code> | CUA + live URL (Docker Linux) |</p>
+
+<p>See also [task-guide.md](../application/task-guide.md) and [agents.md](agents.md).</p>
+
+<p>Play tasks in the Playground: [quickstart.md §10](../quickstart.md#10-playground-play-tasks-visually).</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#quick-pick">Quick pick</a></li>
+<li><a href="#shared-submission-contract">Shared submission contract</a></li>
+<li><a href="#playwright-mode">Playwright mode</a></li>
+<li><a href="#browser-use-mode">browser-use mode</a></li>
+<li><a href="#cocoa-mode-aio-sandbox">Cocoa mode (AIO Sandbox)</a></li>
+<li><a href="#cua-mode-chromium-computer-use">CUA mode (Chromium + computer-use)</a></li>
+<li><a href="#what-we-do-not-treat-as-a-web-mode">What we do *not* treat as a web mode</a></li>
+<li><a href="#cli-harness-on-web-tasks-experimental">CLI harness on web tasks (experimental)</a></li>
+<li><a href="#authoring-a-new-live-web-application">Authoring a new live-web application</a></li>
+<li><a href="#reference-tasks">Reference tasks</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

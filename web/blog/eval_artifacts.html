@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chatbot eval artifacts (platform-managed) | Technical Whitepaper</title>
+  <meta name="description" content="Chatbot eval artifacts (platform-managed) — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/eval_artifacts.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Chatbot eval artifacts (platform-managed)</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Chatbot eval artifacts (platform-managed)</p>
+
+<p>Playground <strong>auto / host / user-sim</strong> runs produce two artifact roots:</p>
+
+<p>| Root | Writer | Purpose |
+|------|--------|---------|
+| <code>/app/output/</code> | Harness / sidecar | Conversation trace and eval-run summary |
+| <code>verifier/</code> | Task verifier (<code>tests/test_state.py</code> or <code>tests/test.sh</code>) | Pass/fail and structured trial evaluation |</p>
+
+<p>Neither root is a SUT API contract and neither is a task-author output
+responsibility beyond implementing the verifier. The harness and verifier
+produce these files for traceability, UI debrief, and downstream scoring.</p>
+
+<p>Task <code>instruction.md</code> files describe <strong>how to interact with the chatbot</strong> only.
+They should not ask the agent to save files under <code>/app/output/</code> — harness and
+verifier artifacts are platform-managed (below).</p>
+
+<h2 id="where-app-output-lives">Where <code>/app/output/</code> lives</h2>
+
+<p><code>/app/output/</code> is Matraix Playground's <strong>logical container path</strong>, not necessarily a literal
+directory on the host.</p>
+
+<p>| Environment | Resolved path |
+|-------------|---------------|
+| Docker trial | <code>/app/output/</code> inside the main container |
+| Host trial (<code>user_sim_chat</code>) | <code>jobs/<job>/<trial>/artifacts/app/output/</code> |</p>
+
+<p>Matraix Playground rewrites <code>/app/output/...</code> in shell commands to the resolved path. The
+verifier reads the same directory through <code>PLAYGROUND_OUTPUT_DIR</code> /
+<code>MATRIX_OUTPUT_DIR</code>, which the host environment sets to that mapped location.</p>
+
+<p>Collected artifacts also appear under <code>jobs/<job>/<trial>/artifacts/app/output/</code>
+after a trial completes.</p>
+
+<h2 id="playground-auto-user-sim-writes-harness-artifacts">Playground auto / user-sim writes harness artifacts</h2>
+
+<p>Playground chat jobs use the <strong><code>persona-user-sim</code></strong> agent (<code>user_sim_chat</code>
+trial profile). That agent drives the multi-turn chat loop and <em></em>automatically
+writes<em></em> harness artifacts after the conversation:</p>
+
+<ul class="article-list">
+  <li><code>transcript.json</code> — fetched from the sidecar/API and normalized</li>
+  <li><code>application_result.json</code> — slim eval-run summary</li>
+  <li><code>user_feedback.json</code> — persona self-report from <code>input/self_report_schema.yaml</code></li>
+</ul>
+
+<p>The agent does not read task <code>instruction.md</code> for artifact I/O. Manual save steps
+in older instructions were redundant for this path and have been removed from
+chatbot tasks.</p>
+
+<p>Non–user-sim agents (for example manual <code>curl</code> smoke runs) may still need to
+write <code>/app/output/</code> themselves; on host trials the path is rewritten as above.</p>
+
+<h2 id="where-verifier-lives">Where <code>verifier/</code> lives</h2>
+
+<p>In a normal Matraix Playground trial:</p>
+
+<p><code>jobs/<job>/<trial>/verifier/</code></p>
+
+<p>Matraix Playground sets <code>HARBOR_VERIFIER_DIR</code> to that path before running the verifier.
+Playground reads <code>verifier/structured_output.json</code> and <code>verifier/reward.txt</code>
+from the trial directory for debrief and aggregation.</p>
+
+<p>When running a verifier locally outside Matraix Playground, the task falls back to
+<code><task-root>/verifier/</code> if <code>/logs/verifier</code> cannot be created. Do <strong>not</strong>
+commit these directories; they are runtime output. If you run a verifier from
+the repo root without setting <code>HARBOR_VERIFIER_DIR</code>, a stray <code>./verifier/</code> may
+appear at the cwd — delete it or rerun from the task folder.</p>
+
+<h2 id="harness-artifacts-app-output">Harness artifacts (<code>/app/output/</code>)</h2>
+
+<h3 id="transcript-json"><code>transcript.json</code></h3>
+
+<p>Conversation record for the trial. Includes user/assistant turns and any structured
+fields the task exposes via <code>input/chatbot.yaml</code> <code>structuredExposure.fields[]</code>
+(list capability id <code>structured_exposure</code> in <code>capabilities</code>; it is also
+auto-added when those fields exist; selectors are the source of truth for
+concrete field names).</p>
+
+<p>Harness may stamp run metadata on the root object:</p>
+
+<ul class="article-list">
+  <li><code>sessionId</code>: eval session handle (from the sidecar/API when available, otherwise harness-generated)</li>
+  <li><code>applicationId</code>: configured application under test</li>
+  <li><code>applicationContext</code>: configured scenario label</li>
+</ul>
+
+<p>Task-specific structured data (tool plans, persona-visible sidecars, etc.) live on
+individual turns in <code>transcript.json</code>, not in <code>application_result.json</code>.</p>
+
+<h3 id="application-result-json"><code>application_result.json</code></h3>
+
+<p>Slim <strong>eval-run summary</strong> written by the Playground harness after the chat loop:</p>
+
+<p>| Field | Meaning |
+|-------|---------|
+| <code>sessionId</code> | Same session handle as <code>transcript.json</code> |
+| <code>applicationId</code> | Configured application id for this run |
+| <code>applicationContext</code> | Configured scenario / context label |
+| <code>turnCount</code> | Number of completed user/assistant turns |</p>
+
+<p>Do <strong>not</strong> add SUT-specific fields here. Objective task metrics belong in
+<code>verifier/structured_output.json</code> (below); subjective feedback belongs in
+<code>user_feedback.json</code> (see task <code>input/self_report_schema.yaml</code>).</p>
+
+<h3 id="user-feedback-json"><code>user_feedback.json</code></h3>
+
+<p>Written by the persona self-report step when the task defines
+<code>input/self_report_schema.yaml</code>. Field semantics live in that YAML file.</p>
+
+<p>Common fields across chatbot tasks:</p>
+
+<p>| Field | Meaning |
+|-------|---------|
+| <code>needConstraintSatisfaction</code> | <code>yes</code> / <code>partially</code> / <code>no</code> |
+| <code>personalPreferenceSatisfaction</code> | <code>yes</code> / <code>partially</code> / <code>no</code> |
+| <code>overallExperienceRating</code> | integer 1–10 |
+| <code>reason</code> | short persona-voice explanation |
+| <code>askedUsefulClarificationQuestions</code> | boolean |
+| <code>clarifyingNotes</code> | which clarifications helped, or why not |
+| <code>trustLevel</code> | optional integer 1–10 |
+| <code>feltUnderstood</code> | optional boolean |</p>
+
+<p>The task verifier reads this file and copies normalized facets into
+<code>verifier/structured_output.json</code> under a <code>user_feedback</code> context (for example
+<code>clarification_questions_useful</code>, <code>feedback_reason</code>, <code>trust_level</code>) per the
+[<code>README.md</code>](../chatbot/README.md) reporting contract.</p>
+
+<h2 id="verifier-artifacts-verifier">Verifier artifacts (<code>verifier/</code>)</h2>
+
+<p>Written after the trial by the task verifier. Common files:</p>
+
+<p>| File | Meaning |
+|------|---------|
+| <code>reward.txt</code> | <code>1</code> = verifier passed, <code>0</code> = failed |
+| <code>structured_output.json</code> | Structured trial evaluation for reporting and UI debrief |
+| <code>test-stdout.txt</code> | Captured verifier stdout (Matraix Playground runs) |</p>
+
+<h3 id="structured-output-json"><code>structured_output.json</code></h3>
+
+<p>Machine-readable evaluation report. Follow the shared chatbot contract in
+[<code>README.md</code>](../chatbot/README.md) (<code>contexts[]</code>, <code>facets[]</code>, <code>taskType: "chatbot"</code>).
+Typical contents:</p>
+
+<ul class="article-list">
+  <li><code>presenceCheck</code>: required artifacts found or missing (e.g. <code>transcript.json</code>)</li>
+  <li><code>sourceArtifacts</code>: paths to inputs the verifier read (<code>transcript.json</code>,</li>
+</ul>
+  <code>user_feedback.json</code>, …)
+<ul class="article-list">
+  <li><code>contexts</code>: normalized metrics such as <code>task_outcome</code>, <code>conversation_summary</code>,</li>
+</ul>
+  and <code>user_feedback</code>
+
+<p>Do <strong>not</strong> duplicate this shape in per-task docs. Task authors implement the
+verifier and emit contexts that match the shared contract; batch reporting and
+Playground UI consume the normalized shape from the trial <code>verifier/</code> directory.</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#transcript-json">`transcript.json`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#application-result-json">`application_result.json`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#user-feedback-json">`user_feedback.json`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#structured-output-json">`structured_output.json`</a></li>
+<li><a href="#where-app-output-lives">Where `/app/output/` lives</a></li>
+<li><a href="#playground-auto-user-sim-writes-harness-artifacts">Playground auto / user-sim writes harness artifacts</a></li>
+<li><a href="#where-verifier-lives">Where `verifier/` lives</a></li>
+<li><a href="#harness-artifacts-app-output">Harness artifacts (`/app/output/`)</a></li>
+<li><a href="#verifier-artifacts-verifier">Verifier artifacts (`verifier/`)</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

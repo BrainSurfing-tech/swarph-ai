@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Large-scale runs | Technical Whitepaper</title>
+  <meta name="description" content="Large-scale runs — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/large-scale-runs.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Large-scale runs</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Large-scale runs</p>
+
+<p>How to scale a Matraix Playground job from a single smoke persona to hundreds or thousands
+of trials — using public persona sources and local artifacts only.</p>
+
+<p>For a first end-to-end run, start with [quickstart.md](../quickstart.md). This
+page assumes you already have API keys, Docker (when needed), and a working
+single-persona job.</p>
+
+<p>---</p>
+
+<h2 id="what-large-scale-means-here">What “large-scale” means here</h2>
+
+<p>| Piece | Small / smoke | Large-scale |
+|-------|---------------|-------------|
+| Personas | One YAML (e.g. <code>persona_0042</code>) | Stratified sample or imported 1M subset |
+| Launch | One <code>harbor run</code> or Playground trial | Job recipe with many trials + concurrency |
+| Outputs | One trial under <code>jobs/<job>/</code> | Full job tree + optional batch PDF |</p>
+
+<p>Tasks live under [<code>application/tasks/</code>](../../application/tasks/). Pick any
+checked-in task that matches your surface (survey, chat, web, OS app).</p>
+
+<p>---</p>
+
+<h2 id="persona-cohorts">Persona cohorts</h2>
+
+<p>Use one of these sources — do <strong>not</strong> invent a private upload destination for
+personas unless you manage that storage yourself.</p>
+
+<h3 id="1-task-strategy-recommended-starting-point">1. Task strategy (recommended starting point)</h3>
+
+<p>Most tasks ship a <code>persona_strategy.json</code>. Generate a cohort with the Playground
+or <code>generate_application_job.py</code> so filters, stratification, and <code>sampleSize</code>
+come from the task:</p>
+
+<p><code></code>`bash
+# Example: build a job that samples from the task strategy
+uv run python application/scripts/generate_application_job.py \
+  --task application/tasks/<task-name> \
+  --help
+<code></code>`</p>
+
+<p>When using stratified sampling, set <code>sampleSize</code> to the <strong>exact total</strong> you
+want. Do not also set <code>sampleSizePerValueGroup</code>: the two fields are mutually
+exclusive, and <code>sampleSizePerValueGroup</code> sets a quota per stratum rather than
+an exact total.</p>
+
+<h3 id="2-public-persona-1m-coreset">2. Public Persona 1M coreset</h3>
+
+<p>For population-scale studies, import
+[<code>MatrAIx2026/MatrAIx_Persona_1M_Public_Release</code>](https://huggingface.co/datasets/MatrAIx2026/MatrAIx_Persona_1M_Public_Release)
+and point jobs at the local mirror. See
+[Persona setup](../persona/README.md#setup-and-usage) and
+[configuration.md](../configuration.md#persona-profile-and-default-sample).</p>
+
+<h3 id="3-in-repo-sample-dataset">3. In-repo sample dataset</h3>
+
+<p>For development and CI-sized batches:</p>
+
+<p><code></code>`text
+persona/datasets/matraix-persona-dev-sample/
+<code></code>`</p>
+
+<p>Record the persona source (path, revision if Hugging Face, count) in your job
+README or recipe comments so runs stay reproducible.</p>
+
+<p>---</p>
+
+<h2 id="running-the-job">Running the job</h2>
+
+<p>1. Choose agent and model for the task surface — see [agents.md](agents.md) and
+   [web-interaction.md](web-interaction.md).
+2. Launch via a recipe under <code>configs/jobs/</code> or generate one from Playground /
+   <code>generate_application_job.py</code>.
+3. Raise concurrency only as far as your machine, Docker, and API quotas allow.
+4. Keep the job on a stable git revision of this repo so task + verifier match
+   the artifacts you archive.</p>
+
+<p>Example shape (paths and flags vary by task):</p>
+
+<p><code></code>`bash
+uv run harbor run -c configs/jobs/<your-recipe>.yaml
+<code></code>`</p>
+
+<p>Remote or multi-machine dispatch: [runtime.md](runtime.md).</p>
+
+<p>---</p>
+
+<h2 id="where-artifacts-land">Where artifacts land</h2>
+
+<p>Matraix Playground writes under the repo-local <code>jobs/</code> tree (gitignored):</p>
+
+<p><code></code>`text
+jobs/<job_name>/
+├── <task>__<trial>/
+│   ├── agent/          trajectory, screenshots, …
+│   ├── verifier/       scores / reports
+│   └── result.json
+├── job.log
+└── result.json         job-level rollup when present
+<code></code>`</p>
+
+<p>Generated persona YAMLs used for a run often sit under a task or job
+<code>_generated/</code> (or Playground materialization) directory — package or copy them
+<strong>before</strong> cleaning the workspace if you need to reproduce the cohort later.</p>
+
+<p>You own archival: copy <code>jobs/<job_name>/</code> (and any persona cohort you generated)
+to whatever storage your org uses. This handbook does not prescribe a shared
+external dataset for uploads.</p>
+
+<p>---</p>
+
+<h2 id="batch-pdf-report-optional-but-useful">Batch PDF report (optional but useful)</h2>
+
+<p>For multi-persona jobs, Playground can export a <strong>Persona-Task Batch Report</strong>
+PDF via <strong>Download PDF</strong> on the run detail view. That export is produced by
+<code>application/playground/frontend/src/lib/exportBatchReportPdf.ts</code> (frontend
+<code>jspdf</code> + <code>html-to-image</code>), not the compact server-side <code>report_pdf</code> helper.</p>
+
+<p><code></code>`bash
+cd application/playground/frontend
+npm install
+npm run build
+<code></code>`</p>
+
+<p>After trials finish:</p>
+
+<p>1. Confirm the job has the expected number of completed trials (no pending /
+   running / errored trials you still care about).
+2. Build or refresh aggregation with <code>application/scripts/report_job.py</code>
+   (<code>--no-llm</code> when you only need deterministic rollups).
+3. Open the job in Playground <strong>Runs</strong>, wait for the batch report UI to load,
+   then <strong>Download PDF</strong>.
+4. Keep the PDF next to <code>aggregation.json</code> in your own archive layout if you
+   want a shareable deliverable.</p>
+
+<p>Expected filename pattern: <code><job_name>-persona-task-batch-report.pdf</code>.</p>
+
+<p>---</p>
+
+<h2 id="related">Related</h2>
+
+<ul class="article-list">
+  <li>[Environment overview](README.md)</li>
+  <li>[Quickstart](../quickstart.md)</li>
+  <li>[Persona 1M](../persona/README.md#public-coreset-matraix-persona-1m)</li>
+  <li>[Configuration](../configuration.md)</li>
+  <li>[Playground API](../application/playground-api.md)</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#1-task-strategy-recommended-starting-point">1. Task strategy (recommended starting point)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#2-public-persona-1m-coreset">2. Public Persona 1M coreset</a></li>
+<li style="margin-left: 0.8rem;"><a href="#3-in-repo-sample-dataset">3. In-repo sample dataset</a></li>
+<li><a href="#what-large-scale-means-here">What “large-scale” means here</a></li>
+<li><a href="#persona-cohorts">Persona cohorts</a></li>
+<li><a href="#running-the-job">Running the job</a></li>
+<li><a href="#where-artifacts-land">Where artifacts land</a></li>
+<li><a href="#batch-pdf-report-optional-but-useful">Batch PDF report (optional but useful)</a></li>
+<li><a href="#related">Related</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

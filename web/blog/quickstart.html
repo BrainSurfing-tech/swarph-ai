@@ -1,0 +1,684 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quickstart | Technical Whitepaper</title>
+  <meta name="description" content="Quickstart — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/quickstart.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Quickstart</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 13 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Quickstart</p>
+
+<p>A step-by-step path from zero to your first multi-persona survey run, then into
+the <strong>Playground</strong> for interactive task play. No prior Matraix Playground experience
+required. More docs: the [MatrAIx Handbook](README.md).</p>
+
+<p><strong>What you are doing:</strong> loading a synthetic user profile (persona), putting that
+user in a product scenario (survey, chat, web, …), and inspecting what they
+“said” — all inside a reproducible sandbox.</p>
+
+<p><strong>Time:</strong> ~30–60 minutes the first time (mostly Docker image build on web/CUA tasks).</p>
+
+<p>---</p>
+
+<h2 id="what-you-need">What you need</h2>
+
+<p>| Requirement | Why |
+|-------------|-----|
+| <strong>[Docker](https://docs.docker.com/get-docker/)</strong> | Web, CUA, and some smoke recipes use containers |
+| <strong>uv</strong> | Python + <code>harbor</code> CLI — [install in step 2](#2-install-uv-clone-and-sync) |
+| <strong>Node.js 20+</strong> | Playground frontend (optional but recommended) |
+| <strong>Anthropic API key</strong> | Persona agents (step 6+). [Create one](https://console.anthropic.com/) if needed |
+| <strong>OpenAI API key</strong> | Some chat tasks and alternate LLM backends |</p>
+
+<p>Persona pool for local runs: <code>persona/datasets/matraix-persona-dev-sample/</code> (200 profiles;
+smoke persona <strong><code>0042</code></strong>). For population-scale eval, import the public <strong>Persona 1M</strong>
+coreset — [Handbook § Persona 1M](README.md#3-persona-1m-optional) ·
+[Persona setup](persona/README.md#setup-and-usage).</p>
+
+<p>---</p>
+
+<h2 id="1-install-docker-and-confirm-it-works">1. Install Docker and confirm it works</h2>
+
+<p>1. Install [Docker Desktop](https://docs.docker.com/get-docker/) (or Docker Engine on Linux).
+2. <strong>Start Docker</strong> and wait until it reports “running”.
+3. In a terminal:</p>
+
+<p><code></code>`bash
+   docker run --rm hello-world
+   <code></code>`</p>
+
+<p>You should see a “Hello from Docker!” message. If this fails, fix Docker before continuing.</p>
+
+<p>---</p>
+
+<h2 id="2-install-uv-clone-and-sync">2. Install uv, clone, and sync</h2>
+
+<p><strong>Install [uv](https://docs.astral.sh/uv/)</strong>:</p>
+
+<p><code></code>`bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+<code></code>`</p>
+
+<p>Open a <strong>new terminal</strong> (or run <code>source $HOME/.local/bin/env</code> if the installer says so). Check:</p>
+
+<p><code></code>`bash
+uv --version
+<code></code>`</p>
+
+<p>On macOS you can also use Homebrew: <code>brew install uv</code>.</p>
+
+<p><strong>Clone the repo and install dependencies:</strong></p>
+
+<p><code></code>`bash
+git clone https://github.com/matraix-ai/matraix.git   # or your fork
+cd matraix
+uv sync
+<code></code>`</p>
+
+<p>Check the CLI:</p>
+
+<p><code></code>`bash
+uv run harbor --help
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="3-smoke-test-no-api-key">3. Smoke test (no API key)</h2>
+
+<p>Confirms Docker and Matraix Playground with the upstream <strong>hello-world</strong> task (reference
+solution, no LLM call):</p>
+
+<p><code></code>`bash
+uv run harbor run -c configs/jobs/example-job-recipe/harbor-smoke-local.yaml
+<code></code>`</p>
+
+<p>First run builds the Docker image (several minutes).</p>
+
+<p><strong>Success:</strong> the command finishes without error and writes output under
+<code>jobs/harbor-smoke-local/</code>.</p>
+
+<p>---</p>
+
+<h2 id="4-set-your-api-key">4. Set your API key</h2>
+
+<p><strong>Auto</strong> survey / chat / most web agents read provider keys from your <strong>shell</strong>
+(not committed to git). For Anthropic persona models:</p>
+
+<p><code></code>`bash
+export ANTHROPIC_API_KEY="sk-ant-..."   # replace with your key
+<code></code>`</p>
+
+<p>Also set <code>OPENAI_API_KEY</code> when the chat <strong>sidecar</strong> needs it, and
+<code>LLM_API_KEY="$ANTHROPIC_API_KEY"</code> for Playwright (<code>persona-openhands-sdk</code>).
+macOS/iOS computer-use also needs <code>USE_COMPUTER_API_KEY</code>.</p>
+
+<p>To keep keys across terminal sessions, add the same lines to <code>~/.zshrc</code> or
+<code>~/.bashrc</code>, then open a new terminal.</p>
+
+<p>Full agent ↔ key matrix: [choosing-an-agent.md](environment/agents.md).</p>
+
+<p>---</p>
+
+<h2 id="5-look-at-a-persona-optional-but-recommended">5. Look at a persona (optional but recommended)</h2>
+
+<p>A <strong>persona</strong> is a YAML profile — demographics, preferences, communication style,
+etc. The agent reads it and tries to answer <em>as that person</em>.</p>
+
+<p><code></code>`bash
+head -40 persona/datasets/matraix-persona-dev-sample/persona_0042.yaml
+<code></code>`</p>
+
+<p>You will pass this file path on the command line as <code>persona_path=...</code>. Swap
+<code>persona_0042</code> for any <code>persona_XXXX.yaml</code> in the dataset to simulate a different
+person.</p>
+
+<p>---</p>
+
+<h2 id="matraix-playground-vocabulary-application-runs">Matraix Playground vocabulary (Application runs)</h2>
+
+<p>| Term | In this guide |
+|------|----------------|
+| <strong>Task</strong> | The scenario — e.g. [example-survey_product-feedback](../application/tasks/example-survey_product-feedback/) (product brief + survey questions + verifier). Same task for every persona. |
+| <strong>Trial</strong> | One full run: <strong>one persona</strong> + <strong>one task</strong> → agent acts → verifier scores. Step 6 is a single trial. |
+| <strong>Job</strong> | A batch container: Matraix Playground runs <strong>many trials</strong> from one YAML (step 7). Output lands in <code>jobs/<job_name>/</code> with one subfolder per trial. |
+| <strong>Agent</strong> | How the simulated user is driven — under <strong>auto</strong>: <code>persona-json-survey</code> / <code>persona-user-sim</code> (host), or web/os-app Docker agents. |
+| <strong>Model</strong> | Which LLM plays the persona — e.g. <code>anthropic/claude-sonnet-4-6</code>. Independent of the agent harness. |
+| <strong>Persona</strong> | Which synthetic user profile — <code>persona_path=persona/datasets/matraix-persona-dev-sample/persona_0042.yaml</code>. |
+| <strong>Execution mode</strong> | Playground <strong>Mode</strong> / <code>generate_application_job.py --execution-mode</code>. Default <strong><code>auto</code></strong>. |</p>
+
+<p><strong>Step 6 vs 7:</strong> Step 6 = <strong>one persona</strong> (<code>--persona-ids</code>). Step 7 =
+<code>generate_application_job.py</code> <strong>samples N personas</strong> (seed + pool) into a job
+YAML, then you <code>harbor run -c</code> that file once.</p>
+
+<p><strong>Terminal vs Playground:</strong> Steps 6–9 use the terminal (good for CI and smoke).
+[Section 10](#10-playground-play-tasks-visually) uses the Playground UI —
+same Matraix Playground contracts, better for exploring trajectories and iterating on new tasks.</p>
+
+<p>---</p>
+
+<h2 id="6-one-persona-cli-with-mode-auto-default">6. One persona — CLI with Mode <strong>auto</strong> (default)</h2>
+
+<p><strong>Prefer this path for all four application types.</strong> It matches Playground
+<strong>Mode → auto</strong>.</p>
+
+<p><code></code>`bash
+uv run python application/scripts/generate_application_job.py \
+  --task <task_path> \
+  --execution-mode auto \
+  --persona-ids 0042 \
+  --model-name anthropic/claude-sonnet-4-6
+# Then run the printed export lines and:
+# uv run harbor run -c configs/jobs/application-task-job-recipe/<generated>-auto-n1.yaml
+<code></code>`</p>
+
+<p>| Type | Auto picks | Runs on | Example <code>--task</code> |
+|------|------------|---------|------------------|
+| <strong>Survey</strong> | <code>persona-json-survey</code> | <strong>host</strong> (no task image build) | <code>application/tasks/example-survey_product-feedback</code> |
+| <strong>Chat</strong> | <code>persona-user-sim</code> | <strong>host</strong> (+ sidecar env the script prints) | <code>application/tasks/chat_meal-planning-nutrition</code> |
+| <strong>Web</strong> | path heuristic (OpenHands / browser-use / Cocoa / computer-1) | <strong>docker</strong> | <code>…/example-web-playwright_quote-choice</code>, <code>…/example-web-browser-use_laptop-choice</code>, … |
+| <strong>OS-app</strong> | <code>persona-computer-1</code> | Linux <strong>docker</strong>; macOS/iOS <strong>use-computer</strong> | <code>…/example-computer-use-linux_note-to-csv</code>, <code>…/example-computer-use-macos_calendar-reminder-handoff</code> |</p>
+
+<p>Web agent under auto (same as Playground): <code><em>browser-use</em></code> → <code>persona-browser-use</code>;
+<code><em>cocoa</em></code> → <code>persona-cocoa</code>; <code><em>cua</em></code> / <code><em>os-app</em></code> / <code><em>computer-use</em></code> →
+<code>persona-computer-1</code>; else → <code>persona-openhands-sdk</code>.</p>
+
+<h3 id="survey-auto">Survey (auto)</h3>
+
+<p><code></code>`bash
+uv run python application/scripts/generate_application_job.py \
+  --task application/tasks/example-survey_product-feedback \
+  --execution-mode auto \
+  --persona-ids 0042</p>
+
+<p>export ANTHROPIC_API_KEY="sk-ant-..."
+export MATRIX_SURVEY_TASK_PATH=application/tasks/example-survey_product-feedback
+uv run harbor run -c configs/jobs/application-task-job-recipe/example-survey-product-feedback-auto-n1.yaml
+<code></code>`</p>
+
+<h3 id="chat-auto">Chat (auto)</h3>
+
+<p><code></code>`bash
+uv run python application/scripts/generate_application_job.py \
+  --task application/tasks/chat_meal-planning-nutrition \
+  --execution-mode auto \
+  --persona-ids 0042</p>
+
+<p>export ANTHROPIC_API_KEY="sk-ant-..."
+# Use the MATRIX_CHATBOT_* export lines the script prints, then:
+uv run harbor run -c configs/jobs/application-task-job-recipe/<generated>-auto-n1.yaml
+<code></code>`</p>
+
+<h3 id="web-os-app-auto-still-uses-docker-or-use-computer">Web / OS-app (auto still uses Docker or use.computer)</h3>
+
+<p><code></code>`bash
+# Playwright web
+uv run python application/scripts/generate_application_job.py \
+  --task application/tasks/example-web-playwright_quote-choice \
+  --execution-mode auto \
+  --persona-ids 0042</p>
+
+<p>export LLM_API_KEY="$ANTHROPIC_API_KEY"
+uv run harbor run -c configs/jobs/application-task-job-recipe/example-web-playwright-quote-choice-auto-n1.yaml</p>
+
+<p># Linux computer-use (macOS/iOS need USE_COMPUTER_API_KEY)
+uv run python application/scripts/generate_application_job.py \
+  --task application/tasks/example-computer-use-linux_note-to-csv \
+  --execution-mode auto \
+  --persona-ids 0042
+<code></code>`</p>
+
+<p>The generator always prints the exact <code>export</code> lines and recipe path.
+Script reference: [Job Generation Scripts](application/README.md).
+Agent / key details: [choosing-an-agent.md](environment/agents.md).</p>
+
+<p><strong>What happens</strong></p>
+
+<p>1. Survey/chat <strong>auto</strong>: host-native agent (no application image build).
+2. Web/os-app <strong>auto</strong>: Matraix Playground builds the task Docker image the first time
+   (or starts a use.computer sandbox for macOS/iOS).
+3. The agent reads the persona + task materials and writes <code>/app/output/…</code>.
+4. The verifier runs; Matraix Playground writes one trial under <code>jobs/</code>.</p>
+
+<p><strong>Success:</strong> command ends without error; you see a path under <code>jobs/</code>.</p>
+
+<h3 id="optional-checked-in-docker-recipes-force-docker-style">Optional: checked-in Docker recipes (<code>force_docker</code>-style)</h3>
+
+<p>Hand-written YAMLs under <code>configs/jobs/example-job-recipe/appSim-*-local.yaml</code>
+are <strong>smoke / Docker harness</strong> examples (often <code>persona-claude-code</code> for
+survey/chat). They are <strong>not</strong> Mode auto. Prefer the generator above unless you
+intentionally want the CLI harness in Docker:</p>
+
+<p><code></code>`bash
+uv run harbor run -c configs/jobs/example-job-recipe/appSim-example-survey-local.yaml
+uv run harbor run -c configs/jobs/example-job-recipe/appSim-example-web-playwright-local.yaml
+<code></code>`</p>
+
+<p>To force Docker CLI agents from the generator: <code>--execution-mode force_docker</code>.</p>
+
+<p>---</p>
+
+<h2 id="7-batch-sample-many-personas-job">7. Batch — sample many personas (job)</h2>
+
+<p>Same generator as step 6; swap <code>--persona-ids</code> for <strong><code>--sample-size N</code></strong>
+(or keep strategy filters). Works for <strong>survey, chat, web, and os-app</strong> —
+auto still picks host vs Docker the same way.</p>
+
+<p><strong><code>generate_application_job.py</code></strong> samples personas, pins <strong>agent</strong>, <strong>model</strong>,
+and <strong>seed</strong>, and writes a <strong>job YAML</strong> under
+<code>configs/jobs/application-task-job-recipe/</code> (gitignored except curated examples).</p>
+
+<p>Batch ≠ parallel: N personas = N trials. Edit <code>n_concurrent_trials</code> in the YAML
+to run trials in parallel (generator often writes <code>1</code>; Playground defaults higher).</p>
+
+<h3 id="generate-your-own-batch">Generate your own batch</h3>
+
+<p><code></code>`bash
+uv run python application/scripts/generate_application_job.py \
+  --task application/tasks/example-survey_product-feedback \
+  --execution-mode auto \
+  --sample-size 10 \
+  --seed 42 \
+  --dataset persona/datasets/matraix-persona-dev-sample
+<code></code>`</p>
+
+<p><strong>Persona 1M pool</strong> (after
+[importing the public coreset](README.md#3-persona-1m-optional)):</p>
+
+<p><code></code>`bash
+uv run python application/scripts/generate_application_job.py \
+  --task application/tasks/example-survey_product-feedback \
+  --execution-mode auto \
+  --dataset persona/datasets/matraix-persona-1m \
+  --sample-size 10 \
+  --seed 42
+<code></code>`</p>
+
+<p><strong>Playground-parity retrieval</strong> (sources / dimension filters / task strategy / cohorts):</p>
+
+<p><code></code>`bash
+# Uses <task>/persona_strategy.json by default (filters + stratify + sampleSize).
+uv run python application/scripts/generate_application_job.py \
+  --task application/tasks/example-survey_product-feedback \
+  --execution-mode auto</p>
+
+<p># Explicit filters (same semantics as Persona World Filters).
+uv run python application/scripts/generate_application_job.py \
+  --task application/tasks/example-survey_product-feedback \
+  --execution-mode auto \
+  --sample-size 6 \
+  --sources wiki amazon \
+  --filter age_bracket=25-34,35-44 \
+  --filter economic_motivation=Cost-sensitive \
+  --no-strategy
+<code></code>`</p>
+
+<p><strong>Stratify</strong> when you need balanced representation across a persona field:</p>
+
+<p><code></code>`bash
+uv run python application/scripts/generate_application_job.py \
+  --task application/tasks/example-survey_product-feedback \
+  --execution-mode auto \
+  --sample-size 10 \
+  --seed 42 \
+  --stratify dimensions.age_bracket
+<code></code>`</p>
+
+<p>| Flag | Default | Meaning |
+|------|---------|---------|
+| <code>--sample-size</code> | strategy / <code>1</code> | How many personas (= how many trials in the job) |
+| <code>--persona-ids</code> | (none) | Explicit IDs instead of retrieval sampling |
+| <code>--seed</code> | strategy / <code>42</code> | Random seed — same seed + pool → same persona IDs |
+| <code>--dataset</code> | strategy / <code>matraix-persona-dev-sample</code> | Persona pool (also supports <code>matraix-persona-1m</code>) |
+| <code>--sources</code> | strategy | Restrict to source chips (<code>wiki</code>, <code>amazon</code>, …) |
+| <code>--filter DIM=VAL</code> | strategy | Dimension filter; repeatable; <code>a,b</code> for multi-value |
+| <code>--filters-json</code> | (none) | JSON object form of dimension filters |
+| <code>--strategy</code> / <code>--no-strategy</code> | auto-load task file | Apply or skip <code>persona_strategy.json</code> |
+| <code>--cohort-id</code> | strategy | Saved Playground cohort |
+| <code>--execution-mode</code> | <code>auto</code> | Same as Playground; use <code>force_docker</code> to always run in Docker |
+| <code>--stratify</code> | strategy | Balance across a field, e.g. <code>dimensions.age_bracket</code> |
+| <code>--name</code> | (derived) | Job basename |</p>
+
+<p>Run the generated job (paths are also in the YAML header):</p>
+
+<p><code></code>`bash
+export ANTHROPIC_API_KEY="sk-ant-..."
+export MATRIX_SURVEY_TASK_PATH=application/tasks/example-survey_product-feedback
+uv run harbor run -c configs/jobs/application-task-job-recipe/example-survey-product-feedback-auto-n10.yaml
+<code></code>`</p>
+
+<p><strong>What a job means here:</strong> one <strong>task</strong>, <strong>N trials</strong> — each trial uses a
+different <code>persona_path</code> from the YAML. All trials share the same agent and model.</p>
+
+<p>Each trial is one Matraix Playground run. Edit <code>n_concurrent_trials</code> in the YAML to run trials
+in parallel.</p>
+
+<p><strong>Cost note:</strong> 10 trials ≈ 10 LLM calls. Use <code>--sample-size 3</code> while testing.</p>
+
+<p>---</p>
+
+<h2 id="8-find-your-output-on-disk">8. Find your output on disk</h2>
+
+<p>After a job finishes:</p>
+
+<p><code></code>`text
+jobs/<job_name>/
+├── result.json           # Summary stats
+├── job.log
+└── <trial_name>/
+    ├── results.json      # Reward / verifier outcome
+    ├── persona_meta.json # Which persona was used (if persona agent)
+    └── artifacts/
+        └── app/output/   # The agent's submission JSON
+<code></code>`</p>
+
+<p>Open the submission JSON to read what that simulated user chose.</p>
+
+<p>Refresh batch reporting:</p>
+
+<p><code></code>`bash
+uv run python application/scripts/report_job.py jobs/<job_name>
+<code></code>`</p>
+
+<p>For a <strong>task PR</strong>, also open the job in Playground <strong>Runs</strong> and download the
+persona-task batch report with <strong>Download PDF</strong>. Attach that UI PDF to the PR —
+not the server text <code>…/report.pdf</code> export. See
+[tasks/README.md — PR batch evidence](../application/tasks/README.md#pr-batch-evidence-required).</p>
+
+<p>---</p>
+
+<h2 id="9-browse-runs-in-the-viewer">9. Browse runs in the viewer</h2>
+
+<p><code></code>`bash
+uv run harbor view jobs --build
+<code></code>`</p>
+
+<p>Opens a local web UI listing jobs and trials — transcripts, artifacts, verifier
+logs. Use this to compare personas side by side.</p>
+
+<p>To explore without spending API credits, browse checked-in examples under <code>jobs/</code>
+if present, or run the no-key smoke recipe from step 3.</p>
+
+<p>Job recipe layout: [../docs/configuration.md](configuration.md#job-recipe-conventions).</p>
+
+<p>---</p>
+
+<h2 id="10-playground-play-tasks-visually">10. Playground — play tasks visually</h2>
+
+<p>After smoke passes, use the <strong>Playground</strong> to pick tasks, sample personas, launch
+Matraix Playground jobs, and inspect trajectories live — without hand-writing job YAML each
+time.</p>
+
+<h3 id="start-the-ui">Start the UI</h3>
+
+<p><strong>Terminal A — API</strong></p>
+
+<p><code></code>`bash
+VENV=.venv bash application/playground/backend/run_dev.sh
+<code></code>`</p>
+
+<p><strong>Terminal B — frontend (hot reload)</strong></p>
+
+<p><code></code>`bash
+cd application/playground/frontend && npm ci && npm run dev
+<code></code>`</p>
+
+<p>Open <strong>http://localhost:5173</strong> (proxies <code>/api</code> → <code>:8765</code>).</p>
+
+<p>Check the footer <strong>Preflight</strong> chip before blaming a task. Green = keys, Docker
+(when needed), and catalogs look ready.</p>
+
+<p>One-shot (API serves built frontend, no Vite):</p>
+
+<p><code></code>`bash
+cd application/playground/frontend && npm ci && npm run build
+cd ../../.. && application/playground/run_demo.sh
+# → http://127.0.0.1:8765
+<code></code>`</p>
+
+<p>More detail: [docs/application/README.md § Playground App](application/README.md),
+[rest-api.md](application/playground-api.md).</p>
+
+<h3 id="in-the-playground">In the Playground</h3>
+
+<p>1. Open the <strong>Playground</strong> tab.
+2. Switch task kind: <strong>Survey</strong> · <strong>Chat</strong> · <strong>Web</strong> · <strong>OS app</strong>.
+3. Pick a task card; read instruction/context in the right panel.
+4. Sample personas — <strong>Quick pick</strong> (<code>0042</code> is the default smoke id), <strong>Random</strong>,
+   or <strong>Stratified</strong>.
+5. Leave <strong>Mode → auto</strong> (default) and click <strong>Run eval</strong>.
+6. Watch live progress; open a trial debrief for trajectory, scorecard, and verifier output.
+7. Use <strong>Runs</strong> in the top bar to reopen past jobs.</p>
+
+<p>| Task kind | First-run notes |
+|-----------|-----------------|
+| Survey | Fast — host auto mode, no task image build |
+| Chat | Host auto; toggle <strong>Start sidecar</strong> if the task card shows the sidecar down |
+| Web | Docker image build on first run; pick the web agent driver that matches the task stack |
+| OS app | Docker or use.computer depending on platform |</p>
+
+<p>Playground launches the same Matraix Playground jobs as <code>generate_application_job.py --execution-mode auto</code>.
+Chat env exports (<code>MATRIX_CHATBOT_*</code>) are applied automatically from the UI.</p>
+
+<h3 id="register-a-new-task-for-playground">Register a new task for Playground</h3>
+
+<p>New tasks must be indexed before they appear in the task picker. See
+[task-guide.md § Playground registration](application/task-guide.md#playground-registration).</p>
+
+<p>---</p>
+
+<h2 id="11-create-a-new-application-task">11. Create a new application task</h2>
+
+<h3 id="1-understand-task-structure">1. Understand task structure</h3>
+
+<p>Read [task-guide.md](application/task-guide.md) — <code>task.toml</code>, <code>instruction.md</code>, <code>input/</code>,
+shared runtimes under <code>environment/task-environments/application/</code>, <code>tests/</code>.</p>
+
+<h3 id="2-view-other-scenario-types">2. View other scenario types</h3>
+
+<p>Survey is only one <strong>form</strong>. Chat, web, and computer-use use different runtimes
+and agents — under Mode <strong>auto</strong> the generator picks them
+([choosing-an-agent.md](environment/agents.md)).</p>
+
+<p>Browse the example table in [task-guide.md § Reference scenarios](application/task-guide.md#reference-scenarios),
+run any example with the suggested agent, then inspect with Playground or
+<code>harbor view</code>.</p>
+
+<p>Web stack choice: [web-interaction.md](environment/web-interaction.md).</p>
+
+<h3 id="3-scaffold-a-new-task">3. Scaffold a new task</h3>
+
+<p>Copy the closest <strong>example</strong> task, then put your copy at
+<strong><code>application/tasks/<your-task-name></code></strong>:</p>
+
+<p><code></code>`bash
+# survey
+cp -R application/tasks/example-survey_product-feedback application/tasks/<your-task-name></p>
+
+<p># chat (REST API sidecar) — persona talks HTTP /v1/messages
+cp -R application/tasks/example-chat-api_support_chatbot application/tasks/<your-task-name></p>
+
+<p># chat (MCP sidecar) — persona talks MCP chat tools directly
+cp -R application/tasks/example-chat-mcp_support_chatbot application/tasks/<your-task-name></p>
+
+<p># For real benchmark tasks, rename to survey_* / chat_<sut> (see tasks/README.md).
+# HTTP adapter over an internal MCP data layer still uses chatbot-api-sidecar_*
+# (example: chat_openbb-corporate-action-honesty → chatbot-api-sidecar_openbb).</p>
+
+<p># web — pick one example-web-* stack (see web-interaction.md)
+cp -R application/tasks/example-web-playwright_quote-choice application/tasks/<your-task-name></p>
+
+<p># computer-use (macOS / iOS / Linux — copy the matching example)
+cp -R application/tasks/example-computer-use-macos_calendar-reminder-handoff application/tasks/<your-task-name>
+<code></code>`</p>
+
+<h3 id="4-edit-the-task">4. Edit the task</h3>
+
+<p>1. <strong><code>task.toml</code></strong> — metadata (<code>type</code>, <code>domain</code>, <code>tags</code>), timeouts, <code>[environment].definition</code>.
+2. <strong><code>instruction.md</code></strong> — scenario and required <code>/app/output/</code> format (<strong>persona-facing only</strong> — no agent names).
+3. <strong><code>input/</code></strong> — context, schemas, questionnaire (survey), chatbot config (chat).
+4. <strong><code>tests/</code></strong> — verifier; trajectory / submission fields for metrics.
+5. <strong><code>reporting.json</code></strong> — batch reporting policy.</p>
+
+<p>Runtime Dockerfiles live under <code>environment/task-environments/application/</code>
+(prefer <code>shared-*</code> when the execution model matches).</p>
+
+<h3 id="5-smoke-with-one-persona-terminal">5. Smoke with one persona (terminal)</h3>
+
+<p><code></code>`bash
+uv run python application/scripts/generate_application_job.py \
+  --task application/tasks/<your-task-name> \
+  --execution-mode auto \
+  --persona-ids 0042
+# Run the printed harbor command + exports
+<code></code>`</p>
+
+<p>Use the agent from [choosing-an-agent.md](environment/agents.md) for your form.</p>
+
+<h3 id="6-iterate-in-playground">6. Iterate in Playground</h3>
+
+<p>Register the task ([task-guide.md](application/task-guide.md)), restart the backend, then
+play with Quick pick personas before scaling sample size.</p>
+
+<h3 id="7-batch-of-personas">7. Batch of personas</h3>
+
+<p>Same as [step 7](#7-batch--sample-many-personas-job) with your task path.</p>
+
+<h3 id="8-view-outputs">8. View outputs</h3>
+
+<p>Playground <strong>Runs</strong> tab, or:</p>
+
+<p><code></code>`bash
+uv run harbor view jobs/<job_name> --build
+<code></code>`</p>
+
+<p>Full task checklist: [tasks/README.md](../application/tasks/README.md).</p>
+
+<p>---</p>
+
+<h2 id="cheat-sheet">Cheat sheet</h2>
+
+<p>| Goal | Tool | Output |
+|------|------|--------|
+| Explore / debug visually | Playground (Mode <strong>auto</strong>) | <code>jobs/</code> |
+| Any of 4 types (terminal, single or batch) | <code>generate_application_job.py --execution-mode auto</code> + <code>harbor run -c</code> | <code>jobs/<job_name>/</code> |
+| Validate Docker/Matraix Playground only | <code>harbor-smoke-local.yaml</code> | smoke task image |
+| Docker CLI harness (survey/chat) | <code>--execution-mode force_docker</code> or <code>appSim-*-local.yaml</code> | Docker trials |
+| Browse trajectories | <code>harbor view</code> or Playground <strong>Runs</strong> | local viewer |
+| New scenario | copy <code>example-*</code> + register for Playground | <code>application/tasks/<name>/</code> |</p>
+
+<p>---</p>
+
+<h2 id="related-docs">Related docs</h2>
+
+<p>| Doc | Purpose |
+|-----|---------|
+| [task-guide.md](application/task-guide.md) | Task folder structure and reference scenarios |
+| [web-interaction.md](environment/web-interaction.md) | Playwright vs browser-use vs Cocoa vs CUA |
+| [choosing-an-agent.md](environment/agents.md) | Agent ↔ form mapping and API keys |
+| [tasks/README.md](../application/tasks/README.md) | Task-authoring checklist and reporting |
+| [docs/application/README.md § Job Generation Scripts](application/README.md) | Job generator and reporting scripts |
+| [unified-runtime.md](environment/runtime.md) | Matraix Playground vs remote execution plane |</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#survey-auto">Survey (auto)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#chat-auto">Chat (auto)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#web-os-app-auto-still-uses-docker-or-use-computer">Web / OS-app (auto still uses Docker or use.computer)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#optional-checked-in-docker-recipes-force-docker-style">Optional: checked-in Docker recipes (`force_docker`-style)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#generate-your-own-batch">Generate your own batch</a></li>
+<li style="margin-left: 0.8rem;"><a href="#start-the-ui">Start the UI</a></li>
+<li style="margin-left: 0.8rem;"><a href="#in-the-playground">In the Playground</a></li>
+<li style="margin-left: 0.8rem;"><a href="#register-a-new-task-for-playground">Register a new task for Playground</a></li>
+<li style="margin-left: 0.8rem;"><a href="#1-understand-task-structure">1. Understand task structure</a></li>
+<li style="margin-left: 0.8rem;"><a href="#2-view-other-scenario-types">2. View other scenario types</a></li>
+<li style="margin-left: 0.8rem;"><a href="#3-scaffold-a-new-task">3. Scaffold a new task</a></li>
+<li style="margin-left: 0.8rem;"><a href="#4-edit-the-task">4. Edit the task</a></li>
+<li style="margin-left: 0.8rem;"><a href="#5-smoke-with-one-persona-terminal">5. Smoke with one persona (terminal)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#6-iterate-in-playground">6. Iterate in Playground</a></li>
+<li style="margin-left: 0.8rem;"><a href="#7-batch-of-personas">7. Batch of personas</a></li>
+<li style="margin-left: 0.8rem;"><a href="#8-view-outputs">8. View outputs</a></li>
+<li><a href="#what-you-need">What you need</a></li>
+<li><a href="#1-install-docker-and-confirm-it-works">1. Install Docker and confirm it works</a></li>
+<li><a href="#2-install-uv-clone-and-sync">2. Install uv, clone, and sync</a></li>
+<li><a href="#3-smoke-test-no-api-key">3. Smoke test (no API key)</a></li>
+<li><a href="#4-set-your-api-key">4. Set your API key</a></li>
+<li><a href="#5-look-at-a-persona-optional-but-recommended">5. Look at a persona (optional but recommended)</a></li>
+<li><a href="#matraix-playground-vocabulary-application-runs">Matraix Playground vocabulary (Application runs)</a></li>
+<li><a href="#6-one-persona-cli-with-mode-auto-default">6. One persona — CLI with Mode **auto** (default)</a></li>
+<li><a href="#7-batch-sample-many-personas-job">7. Batch — sample many personas (job)</a></li>
+<li><a href="#8-find-your-output-on-disk">8. Find your output on disk</a></li>
+<li><a href="#9-browse-runs-in-the-viewer">9. Browse runs in the viewer</a></li>
+<li><a href="#10-playground-play-tasks-visually">10. Playground — play tasks visually</a></li>
+<li><a href="#11-create-a-new-application-task">11. Create a new application task</a></li>
+<li><a href="#cheat-sheet">Cheat sheet</a></li>
+<li><a href="#related-docs">Related docs</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prospect Segmentation — Interaction Fact + DuckDB Cube Implementation Plan | Technical Whitepaper</title>
+  <meta name="description" content="Prospect Segmentation — Interaction Fact + DuckDB Cube Implementation Plan — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-05-26-prospect-segmentation-cube.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Prospect Segmentation — Interaction Fact + DuckDB Cube Implementation Plan</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 9 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Prospect Segmentation — Interaction Fact + DuckDB Cube Implementation Plan</p>
+
+<p>> <strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+
+<p><strong>Goal:</strong> Build the <code>prospect_interaction</code> fact + a DuckDB cube that rolls fit × engagement × channel up and applies volume-shrinkage downstream, so any slice resolves only as deep as its data supports.</p>
+
+<p><strong>Architecture:</strong> A canonical-normalized <code>prospect_interaction</code> fact table in Postgres (one row per prospect-interaction). A DuckDB layer <code>ATTACH</code>es Postgres (<code>postgres</code> extension), joins the fact to prospect fit/firmographics, materializes the expensive rollups, and a pure transform applies <code>core/shrinkage.py</code> to each rollup cell using a per-dimension K table from <code>core/shrinkage.py:k_from_persistence</code>. DuckDB is embedded/batch — never an API.</p>
+
+<p><strong>Tech Stack:</strong> Python 3.12, DuckDB (<code>duckdb</code> + bundled <code>postgres</code> extension), pytest. Builds on plan 1 (<code>core/shrinkage.py</code>, <code>core/prospect_dims.py</code>).</p>
+
+<p><strong>Scope note:</strong> Plan 2 of 3. The fact-builder seeds the <strong>email</strong> channel (Eloqua responders — same <code>(campaign_label, lyreco_118_id)</code> key as the prospect base, so the join is exact); web/social channels are additive later. Plan 3 = profile scorer + Prospect tab.</p>
+
+<p>---</p>
+
+<h3 id="task-1-add-duckdb-a-postgres-attached-connection-helper">Task 1: Add DuckDB + a Postgres-attached connection helper</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>requirements.txt</code></li>
+  <li>Create: <code>core/cube.py</code></li>
+  <li>Test: <code>tests/test_cube_conn.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Add the dependency</strong></li>
+</ul>
+
+<p>Append to <code>requirements.txt</code>:</p>
+
+<p><code></code>`
+duckdb>=1.1.0
+<code></code>`</p>
+
+<p>Run: <code>./venv/Scripts/python.exe -m pip install "duckdb>=1.1.0"</code>
+Expected: installs successfully.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_cube_conn.py
+import duckdb
+from core.cube import open_cube</p>
+
+<p>def test_open_cube_returns_usable_connection(tmp_path):
+    con = open_cube(str(tmp_path / "t.duckdb"))
+    try:
+        assert con.execute("SELECT 42").fetchone()[0] == 42
+    finally:
+        con.close()</p>
+
+<p>def test_open_cube_in_memory_default():
+    con = open_cube()        # no path -> in-memory
+    try:
+        assert con.execute("SELECT 1").fetchone()[0] == 1
+    finally:
+        con.close()
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>./venv/Scripts/python.exe -m pytest tests/test_cube_conn.py -v</code>
+Expected: FAIL — <code>ModuleNotFoundError: No module named 'core.cube'</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# core/cube.py
+"""DuckDB cube layer for prospect segmentation. Embedded/batch only -- never
+exposed as an API (gridiron gotcha c). ATTACHes Postgres via the bundled
+<code>postgres</code> extension so warm CRM/prospect data is queried with no ETL copy.
+"""
+from __future__ import annotations</p>
+
+<p>import os</p>
+
+<p>import duckdb</p>
+
+<p># Lyreco local Postgres (CRM / prospect tables). Password is the dev-stack default.
+_PG_DSN = os.environ.get(
+    "LC_PG_DSN",
+    "host=127.0.0.1 port=5433 dbname=leadcontagion user=leadcontagion password=lc_2026",
+)</p>
+
+<p>def open_cube(path: str | None = None):
+    """Return a DuckDB connection (in-memory if path is None)."""
+    return duckdb.connect(path or ":memory:")</p>
+
+<p>def attach_postgres(con, alias: str = "pg") -> None:
+    """ATTACH the Lyreco Postgres into the DuckDB connection (read warm data)."""
+    con.execute("INSTALL postgres; LOAD postgres;")
+    con.execute(f"ATTACH '{_PG_DSN}' AS {alias} (TYPE postgres, READ_ONLY);")
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>./venv/Scripts/python.exe -m pytest tests/test_cube_conn.py -v</code>
+Expected: PASS (2 passed).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 6: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add requirements.txt core/cube.py tests/test_cube_conn.py
+git commit -m "feat: DuckDB cube connection helper + postgres attach"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-2-prospect-interaction-fact-table-email-channel-builder">Task 2: <code>prospect_interaction</code> fact table + email-channel builder</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>database/init_postgres_prospect_interaction.sql</code></li>
+  <li>Create: <code>workers/build_prospect_interactions.py</code></li>
+  <li>Test: <code>tests/test_build_prospect_interactions.py</code></li>
+</ul></p>
+
+<p><strong>Fact grain:</strong> one row per prospect-interaction (gridiron: interaction grain, not aggregate). Channel normalized to canonical via <code>core/prospect_dims.normalize_channel</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Create the schema</strong></li>
+</ul>
+
+<p><code></code>`sql
+-- database/init_postgres_prospect_interaction.sql
+BEGIN;
+CREATE TABLE IF NOT EXISTS prospect_interaction (
+    campaign_label  TEXT NOT NULL,
+    lyreco_118_id   TEXT NOT NULL,
+    interaction_ts  TIMESTAMPTZ,
+    channel         TEXT NOT NULL,          -- canonical (web/email/social/offline/UNK)
+    source          TEXT,                   -- raw source tag for audit
+    weight          REAL NOT NULL DEFAULT 1.0,
+    last_computed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_pi_prospect ON prospect_interaction(campaign_label, lyreco_118_id);
+CREATE INDEX IF NOT EXISTS idx_pi_channel ON prospect_interaction(channel);
+COMMIT;
+<code></code>`</p>
+
+<p>Run: <code>docker exec -e PGPASSWORD=lc_2026 -i lc-postgres psql -U leadcontagion -d leadcontagion < database/init_postgres_prospect_interaction.sql</code>
+Expected: <code>CREATE TABLE</code> / <code>CREATE INDEX</code> / <code>COMMIT</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Write the failing test</strong> (unit-test the row-shaping, no DB)</li>
+</ul>
+
+<p><code></code>`python
+# tests/test_build_prospect_interactions.py
+from workers.build_prospect_interactions import shape_email_rows</p>
+
+<p>def test_shape_email_rows_normalizes_channel_and_keys():
+    src = [
+        {"campaign_label": "FR_2026Q1", "lyreco_118_id": "118-1", "sent_date": "2026-01-05"},
+        {"campaign_label": "FR_2026Q1", "lyreco_118_id": "118-2", "sent_date": None},
+    ]
+    rows = shape_email_rows(src)
+    assert len(rows) == 2
+    assert all(r["channel"] == "email" for r in rows)          # canonical
+    assert all(r["source"] == "eloqua_campaign_responders" for r in rows)
+    assert rows[0]["interaction_ts"] == "2026-01-05"
+    assert rows[0]["campaign_label"] == "FR_2026Q1" and rows[0]["lyreco_118_id"] == "118-1"
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>./venv/Scripts/python.exe -m pytest tests/test_build_prospect_interactions.py -v</code>
+Expected: FAIL — <code>ModuleNotFoundError</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# workers/build_prospect_interactions.py
+"""Assemble the prospect_interaction fact (one row per prospect-interaction),
+canonical-normalized. Seeds the EMAIL channel from eloqua_campaign_responders,
+which shares the (campaign_label, lyreco_118_id) key with the prospect base, so
+the join is exact. Additive: add web/social shapers the same way.</p>
+
+<p>Run:  python -m workers.build_prospect_interactions --country FR
+"""
+from __future__ import annotations</p>
+
+<p>import argparse
+import sys
+from pathlib import Path</p>
+
+<p>import psycopg2.extras</p>
+
+<p>_REPO = Path(__file__).resolve().parent.parent
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))</p>
+
+<p>from core.prospect_dims import normalize_channel
+from database.crm_db import CRMDatabase</p>
+
+<p>def shape_email_rows(src_rows: list[dict]) -> list[dict]:
+    """Map raw eloqua-responder rows -> canonical prospect_interaction rows."""
+    out = []
+    for r in src_rows:
+        out.append({
+            "campaign_label": r["campaign_label"],
+            "lyreco_118_id": r["lyreco_118_id"],
+            "interaction_ts": r.get("sent_date"),
+            "channel": normalize_channel("eloqua"),       # -> "email"
+            "source": "eloqua_campaign_responders",
+            "weight": 1.0,
+        })
+    return out</p>
+
+<p>def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--country", default="GB")   # prospect base is GB; campaign_label is "lyreco_*", not country-prefixed
+    args = ap.parse_args()
+    crm = CRMDatabase()
+    # Country lives on the prospect base, not in campaign_label -- join to it.
+    src = crm.query(
+        """SELECT r.campaign_label, r.lyreco_118_id, r.sent_date
+             FROM eloqua_campaign_responders r
+             JOIN prospect_firmographic_features p
+               ON p.campaign_label = r.campaign_label
+              AND p.lyreco_118_id  = r.lyreco_118_id
+            WHERE p.country_code = %s""",
+        (args.country,),
+    )
+    rows = shape_email_rows(src)
+    with crm.connect() as conn, conn.cursor() as cur:
+        # Rebuild the whole email channel each run (single-country GB today; revisit
+        # the delete scope when a country_code lands on the fact for multi-country).
+        cur.execute("DELETE FROM prospect_interaction WHERE source='eloqua_campaign_responders'")
+        psycopg2.extras.execute_batch(cur, """
+            INSERT INTO prospect_interaction
+              (campaign_label, lyreco_118_id, interaction_ts, channel, source, weight)
+            VALUES (%(campaign_label)s,%(lyreco_118_id)s,%(interaction_ts)s,
+                    %(channel)s,%(source)s,%(weight)s)
+        """, rows, page_size=500)
+    print(f"wrote {len(rows)} email interactions ({args.country})")
+    return 0</p>
+
+<p>if __name__ == "__main__":
+    sys.exit(main())
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>./venv/Scripts/python.exe -m pytest tests/test_build_prospect_interactions.py -v</code>
+Expected: PASS (1 passed).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 6: Integration smoke (live PG) + commit</strong></li>
+</ul>
+
+<p>Run: <code>./venv/Scripts/python.exe -m workers.build_prospect_interactions --country FR</code>
+Expected: <code>wrote <N> email interactions (FR)</code> with N > 0.</p>
+
+<p><code></code>`bash
+git add database/init_postgres_prospect_interaction.sql workers/build_prospect_interactions.py tests/test_build_prospect_interactions.py
+git commit -m "feat: prospect_interaction fact + email-channel builder"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-3-rollup-shrinkage-transform-workers-prospect-cube-py">Task 3: Rollup + shrinkage transform (<code>workers/prospect_cube.py</code>)</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>workers/prospect_cube.py</code></li>
+  <li>Test: <code>tests/test_prospect_cube.py</code></li>
+</ul></p>
+
+<p><strong>Idea:</strong> roll the fact up to (fit_community × channel) counts in DuckDB, then apply <code>norm_shrunk</code> per fit_community toward the all-prospect channel marginal, with K from the channel dimension's persistence. The test uses an <strong>in-memory DuckDB fixture</strong> — no live PG — so it is fully runnable.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_prospect_cube.py
+from core.cube import open_cube
+from workers.prospect_cube import channel_mix_shrunk</p>
+
+<p>def test_channel_mix_shrunk_pulls_thin_community_to_global(tmp_path):
+    con = open_cube()
+    con.execute("CREATE TABLE fact(community_id INT, channel VARCHAR)")
+    # community 1: rich + email-heavy; community 2: a single 'social' touch (thin)
+    con.executemany("INSERT INTO fact VALUES (?, ?)",
+                    [(1, "email")] <em> 90 + [(1, "web")] </em> 10 + [(2, "social")])
+    out = channel_mix_shrunk(con, fact="fact", K=50)
+    # rich community keeps its own email-heavy mix
+    assert out[1]["email"] > 0.8
+    # thin community (n=1) is pulled toward the GLOBAL marginal (mostly email/web), not 100% social
+    assert out[2]["social"] < 0.5
+    con.close()
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>./venv/Scripts/python.exe -m pytest tests/test_prospect_cube.py -v</code>
+Expected: FAIL — <code>ModuleNotFoundError: No module named 'workers.prospect_cube'</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# workers/prospect_cube.py
+"""DuckDB rollups for prospect segmentation, with volume-shrinkage applied
+downstream (per gridiron: keep shrinkage a thin layer after the rollup).
+"""
+from __future__ import annotations</p>
+
+<p>import sys
+from pathlib import Path</p>
+
+<p>_REPO = Path(__file__).resolve().parent.parent
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))</p>
+
+<p>from core.shrinkage import norm_shrunk</p>
+
+<p>def channel_mix_shrunk(con, fact: str = "fact", K: float = 50) -> dict:
+    """Per fit-community channel distribution, shrunk toward the global channel
+    marginal. Returns {community_id: {channel: prob}}."""
+    # global channel marginal (the parent)
+    g = con.execute(f"SELECT channel, COUNT(*) c FROM {fact} GROUP BY channel").fetchall()
+    total = sum(c for _, c in g) or 1
+    parent = {ch: c / total for ch, c in g}
+    # per-community rollup
+    rows = con.execute(
+        f"SELECT community_id, channel, COUNT(*) c FROM {fact} GROUP BY community_id, channel"
+    ).fetchall()
+    counts: dict = {}
+    for cid, ch, c in rows:
+        counts.setdefault(cid, {})[ch] = c
+    return {cid: norm_shrunk(cc, parent, n=sum(cc.values()), K=K)
+            for cid, cc in counts.items()}
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>./venv/Scripts/python.exe -m pytest tests/test_prospect_cube.py -v</code>
+Expected: PASS (1 passed).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add workers/prospect_cube.py tests/test_prospect_cube.py
+git commit -m "feat: DuckDB channel-mix rollup with downstream shrinkage"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-4-per-dimension-k-from-persistence-workers-dim-persistence-py">Task 4: Per-dimension K from persistence (<code>workers/dim_persistence.py</code>)</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>workers/dim_persistence.py</code></li>
+  <li>Test: <code>tests/test_dim_persistence.py</code></li>
+</ul></p>
+
+<p><strong>Idea:</strong> given a metric's value per entity across two periods, compute persistence and derive K (+ a ranking so the lowest-persistence dim collapses first). Pure wrapper over <code>core/shrinkage</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_dim_persistence.py
+from workers.dim_persistence import k_table, collapse_order</p>
+
+<p>def test_k_table_assigns_smaller_k_to_more_persistent_dim():
+    series = {
+        "channel": {"e1": [1.0, 1.0], "e2": [5.0, 5.0]},     # perfectly persistent -> small K
+        "product": {"e1": [1.0, 9.0], "e2": [9.0, 1.0]},     # noisy -> big K
+    }
+    kt = k_table(series, k_lo=60, k_hi=300)
+    assert kt["channel"] < kt["product"]</p>
+
+<p>def test_collapse_order_is_lowest_persistence_first():
+    series = {
+        "channel": {"e1": [1.0, 1.0], "e2": [5.0, 5.0]},     # high persistence
+        "product": {"e1": [1.0, 9.0], "e2": [9.0, 1.0]},     # low persistence
+    }
+    assert collapse_order(series)[0] == "product"            # noisiest collapses first
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>./venv/Scripts/python.exe -m pytest tests/test_dim_persistence.py -v</code>
+Expected: FAIL — <code>ModuleNotFoundError</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# workers/dim_persistence.py
+"""Per-dimension K + collapse order from signal persistence. K is set inversely
+to persistence (gridiron); the lowest-persistence dim is collapsed toward its
+marginal first when several dims are thin at once.
+"""
+from __future__ import annotations</p>
+
+<p>import sys
+from pathlib import Path</p>
+
+<p>_REPO = Path(__file__).resolve().parent.parent
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))</p>
+
+<p>from core.shrinkage import persistence, k_from_persistence</p>
+
+<p>def k_table(series_by_dim: dict, k_lo: float = 60, k_hi: float = 300) -> dict:
+    """series_by_dim = {dim: {entity: [val_t, val_t+1, ...]}} -> {dim: K}."""
+    return {dim: k_from_persistence(persistence(s), k_lo, k_hi)
+            for dim, s in series_by_dim.items()}</p>
+
+<p>def collapse_order(series_by_dim: dict) -> list:
+    """Dims ranked lowest-persistence first (= safest to collapse first)."""
+    return sorted(series_by_dim, key=lambda d: persistence(series_by_dim[d]))
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>./venv/Scripts/python.exe -m pytest tests/test_dim_persistence.py -v</code>
+Expected: PASS (2 passed).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add workers/dim_persistence.py tests/test_dim_persistence.py
+git commit -m "feat: per-dimension K + collapse order from persistence"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="self-review">Self-Review</h2>
+
+<ul class="article-list">
+  <li><strong>Spec coverage:</strong> interaction fact (spec component 2) ✓ Task 2; DuckDB cube + ATTACH + rollup + downstream shrinkage (component 3) ✓ Tasks 1,3; persistence→K + walk-up order (component 5) ✓ Task 4. Profile scorer + Prospect tab (components 6,7) → plan 3.</li>
+  <li><strong>Placeholders:</strong> none — every step has runnable test + impl + exact command. Task 2's live-PG step is an explicit integration smoke, not a placeholder.</li>
+  <li><strong>Type consistency:</strong> <code>K</code> is <code>float</code> end-to-end and matches <code>core/shrinkage.py</code> signatures from plan 1; <code>norm_shrunk(counts, parent, n, K)</code> called in Task 3 exactly as defined in plan 1; <code>channel</code> values are the canonical strings from <code>core/prospect_dims.py</code>.</li>
+  <li><strong>Dependency:</strong> <code>core/cube.open_cube</code> (Task 1) is used by Task 3's test; <code>core/shrinkage</code> + <code>core/prospect_dims</code> (plan 1, on main) are imported by Tasks 2–4.</li>
+  <li><strong>Risk flagged:</strong> web/social channel shapers + email open/click <em>depth</em> (email_results via contact_email) are deferred — Task 2 seeds the exact-key email-response channel only; the fact is additive by design.</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#task-1-add-duckdb-a-postgres-attached-connection-helper">Task 1: Add DuckDB + a Postgres-attached connection helper</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-2-prospect-interaction-fact-table-email-channel-builder">Task 2: `prospect_interaction` fact table + email-channel builder</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-3-rollup-shrinkage-transform-workers-prospect-cube-py">Task 3: Rollup + shrinkage transform (`workers/prospect_cube.py`)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-4-per-dimension-k-from-persistence-workers-dim-persistence-py">Task 4: Per-dimension K from persistence (`workers/dim_persistence.py`)</a></li>
+<li><a href="#self-review">Self-Review</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

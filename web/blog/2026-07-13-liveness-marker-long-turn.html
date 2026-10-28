@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Liveness marker fresh through a long turn (#2 / mesh-hygiene) | Technical Whitepaper</title>
+  <meta name="description" content="Liveness marker fresh through a long turn (#2 / mesh-hygiene) — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-07-13-liveness-marker-long-turn.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Liveness marker fresh through a long turn (#2 / mesh-hygiene)</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Liveness marker fresh through a long turn (#2 / mesh-hygiene)</p>
+
+<p><strong>Status:</strong> spec (commander: "lab up #2", 2026-07-13). Precondition for safe auto-boot —
+before any cell drops <code>--no-respawn</code>. Discovered by droplet; analysis converged (DMs 4622/4623).</p>
+
+<h2 id="1-problem">1. Problem</h2>
+
+<p>The watchdog's liveness = freshest mtime of {drain-cursor, <strong>activity-marker</strong>}. The marker
+(<code>$TMPDIR/<role>-claude-active.txt</code>) is touched by a <strong>Stop</strong> hook — i.e. only at <strong>turn-end</strong>.
+During a long <em>autonomous</em> turn (a multi-hour SDD run = one continuous turn, no turn-end), the
+marker goes stale, the drain-cursor is also stale (not draining), and F3 pane-activity can go
+stale too. Result: a <strong>false-stall</strong> → the watchdog fires A1 (send-keys a wake INTO the working
+session) — and A1 is <strong>not</strong> gated by <code>--no-respawn</code>, so it disrupts even a shadow-staged cell.
+droplet proved this live (marker 6.5h stale mid-turn). <em></em>This is the hard precondition before
+any cell can safely drop <code>--no-respawn</code> and let A2 actually recover cells.<em></em></p>
+
+<h2 id="2-fix">2. Fix</h2>
+
+<p>Touch the marker on <strong>PreToolUse</strong> (every tool call), not just Stop. An actively-working cell
+makes tool calls throughout a long turn → the marker stays fresh → no false-stall. Turn it from
+an ad-hoc manual Stop hook into a proper <strong>swarph-cli bundled hook</strong> so every cell gets it.</p>
+
+<h2 id="3-the-three-constraints-a-naive-fix-breaks-why-this-is-subtle">3. The three constraints a naive fix breaks (why this is subtle)</h2>
+
+<p>1. <strong>Shared-user box:</strong> lab-ovh runs ~6 cells under one <code>ubuntu</code> user → ONE
+   <code>~/.claude/settings.json</code>. A user-level hook fires for EVERY cell.
+2. <strong>Project hooks are silently ignored</strong> (Claude Code ≥2.1.186 — proven with science-claude:
+   a <code><cwd>/.claude/settings.local.json</code> Stop hook NEVER fired across a reload + reboot). So the
+   hook MUST be user-level; a per-cell project hook is a dead end.
+3. <strong>SWARPH_CELL is contaminated</strong> (#20): the shared <code>.bashrc</code> sets it last-wins = <code>gridiron</code>
+   for all. So a hook resolving <code>${SWARPH_CELL}-claude-active.txt</code> touches the WRONG cell's
+   marker. <strong>A wrong-path touch is WORSE than no fix</strong> — it makes a dead cell look alive (marker
+   fresh from another cell's tool calls) → the watchdog never recovers it. The recovery layer
+   must fail conservative; a mis-resolved marker fails aggressive.</p>
+
+<h2 id="4-design-resolve-by-cwd-agree-with-the-watchdog-by-construction">4. Design — resolve by CWD, agree with the watchdog by construction</h2>
+
+<p>The one per-cell-reliable signal on a shared-user box is <strong>cwd</strong>: each cell's Claude session
+runs in its own project dir, and hooks run in that cwd. So:</p>
+
+<ul class="article-list">
+  <li>New subcommand <strong><code>swarph hooks touch-activity</code></strong>: resolves the marker path using the SAME</li>
+</ul>
+  code the watchdog uses (<code>discover_cell_in_cwd()</code> → role → <code>_resolve_activity_marker_path</code>),
+  then <code>touch</code>es it. Because hook and watchdog call the identical resolver, they AGREE by
+  construction — no path drift possible. cwd-keyed → per-cell-correct despite SWARPH_CELL
+  contamination.
+<ul class="article-list">
+  <li>New builtin <strong><code>activity-marker</code></strong> HookBundle: a tiny script that runs</li>
+</ul>
+  <code>swarph hooks touch-activity</code> (best-effort, always exit 0 — a liveness hook must never fail a
+  turn), bound to <strong>PreToolUse (<code>""</code> = all tools)</strong> + <strong>Stop</strong> + <strong>StopFailure</strong>.
+<ul class="article-list">
+  <li>Fallback when no cell.yaml in cwd: use <code><span class="math-inline">\({TMPDIR:-/tmp}/\)</span>{SWARPH_CELL:-lab}-claude-active.txt</code></li>
+</ul>
+  (the watchdog's own default), same formula → still agrees. (Weaker per-cell guarantee if
+  SWARPH_CELL is wrong, but only for cells lacking a cell.yaml; cell.yaml is the reliable path.)
+
+<h2 id="5-scope-deployment-discipline">5. Scope / deployment discipline</h2>
+
+<ul class="article-list">
+  <li><strong>BUILD (safe, this session):</strong> the <code>touch-activity</code> subcommand + the <code>activity-marker</code></li>
+</ul>
+  bundle + tests. Additive, touches NO live cell.
+<ul class="article-list">
+  <li><strong>DO NOT auto-install onto live cells</strong> — that's a <code>~/.claude/settings.json</code> change on ~6</li>
+</ul>
+  running cells (same risk class as #20), NOT to be done unsupervised. Ship the CAPABILITY
+  (<code>swarph hooks install activity-marker</code>); let <strong>droplet</strong> validate it on its own box as part
+  of its watchdog staging (it's the one cell already proving the long-turn failure), then roll
+  out with the commander's eye.
+<ul class="article-list">
+  <li>PreToolUse fires on every tool call; the touch is a microsecond <code>touch</code> — negligible latency.</li>
+</ul>
+
+<h2 id="6-tests">6. Tests</h2>
+
+<ul class="article-list">
+  <li><code>touch-activity</code> resolves the marker path via cell.yaml-in-cwd → touches exactly the path the</li>
+</ul>
+  watchdog would read for that cwd (assert agreement by calling both resolvers).
+<ul class="article-list">
+  <li>Fallback to <code>$TMPDIR/<role>-claude-active.txt</code> when no cell.yaml.</li>
+  <li>Never non-zero exit even on an unwritable path (a liveness hook must not fail the turn).</li>
+  <li>The <code>activity-marker</code> bundle binds PreToolUse + Stop + StopFailure; the script calls</li>
+</ul>
+  <code>swarph hooks touch-activity</code>.
+<ul class="article-list">
+  <li><code>swarph hooks install activity-marker</code> merges the three bindings into settings.json.</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#1-problem">1. Problem</a></li>
+<li><a href="#2-fix">2. Fix</a></li>
+<li><a href="#3-the-three-constraints-a-naive-fix-breaks-why-this-is-subtle">3. The three constraints a naive fix breaks (why this is subtle)</a></li>
+<li><a href="#4-design-resolve-by-cwd-agree-with-the-watchdog-by-construction">4. Design — resolve by CWD, agree with the watchdog by construction</a></li>
+<li><a href="#5-scope-deployment-discipline">5. Scope / deployment discipline</a></li>
+<li><a href="#6-tests">6. Tests</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

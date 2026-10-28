@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Full DAG Sampling Method | Technical Whitepaper</title>
+  <meta name="description" content="Full DAG Sampling Method — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/sampling-method.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Full DAG Sampling Method</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Full DAG Sampling Method</p>
+
+<p>The sampler performs vectorized forward sampling over
+<code>proposal_view.topological_order</code>.</p>
+
+<p>Each node has:</p>
+
+<ul class="article-list">
+  <li>a base prior <code>P0(X_i)</code>;</li>
+  <li>zero or more pairwise CPD edges <code>P(X_i | X_p)</code>;</li>
+  <li>optional full-CPT overlays <code>P(X_i | X_pa)</code>;</li>
+  <li>optional conditional masks for hard or soft local consistency constraints.</li>
+</ul>
+
+<p>For target node <code>X_i</code>, candidate value <code>v</code> receives:</p>
+
+<p><code></code>`text
+log q_i(v) = log P0_i(v)
+           + gamma_i * sum_pairwise w_e [log P_e(v | x_p) - log P0_i(v)]
+           + gamma_i * sum_full_cpt w_c [log P_c(v | x_pa) - log P0_i(v)]
+<code></code>`</p>
+
+<p>The shrinkage term is:</p>
+
+<p><code></code>`text
+gamma_i = 1 / max(1, sqrt(sum_j weight_j^2))
+<code></code>`</p>
+
+<p>This keeps dense multi-parent nodes from becoming too sharp. Full CPTs can mark
+<code>replace_pairwise_parent_edges=true</code>; in that case pairwise edges from those
+parents to the same target are skipped to avoid double counting.</p>
+
+<p>Conditional masks multiply the proposal distribution before the draw (the
+implementation samples by inverse CDF on the unnormalized masked proposal,
+which selects values with exactly the normalized probabilities):</p>
+
+<ul class="article-list">
+  <li><code>bad_values</code> with <code>bad_value_multiplier=0</code> are hard guards.</li>
+  <li><code>downweight_values</code> are soft penalties.</li>
+  <li><code>preferred_values</code> with <code>penalize_values_outside_preferred_set=true</code> are</li>
+</ul>
+  applicability gates.
+
+<p>Default sampling uses <code>emit_only=True</code>, which excludes nodes where <code>emit:false</code>.
+Use <code>--include-hidden</code> or <code>decode_row(..., include_hidden=True)</code> for all graph
+assignments.</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#">Overview</a></li>
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Amazon Persona Inference Pilot: 2 Users | Technical Whitepaper</title>
+  <meta name="description" content="Amazon Persona Inference Pilot: 2 Users — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/pilot_2users_dpc100_readable.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Amazon Persona Inference Pilot: 2 Users</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 25 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Amazon Persona Inference Pilot: 2 Users</p>
+
+<p>This report renders the evidence-profile pilot output in a readable format. Missing schema dimensions mean <code>unknown / not inferred from available Amazon review evidence</code>, not negative evidence.</p>
+
+<h2 id="run-summary">Run Summary</h2>
+
+<p>| Setting | Value |
+| --- | --- |
+| Inference mode | evidence_profile |
+| Dimensions per call | 100 |
+| Users | 2 |
+| Output JSONL | <code>inferred_dimensions_pilot_2users_dpc100.jsonl</code> |
+| Evidence profiles JSONL | <code>evidence_profiles_pilot_2users_dpc100.jsonl</code> |</p>
+
+<h2 id="estimated-cost">Estimated Cost</h2>
+
+<p>The script did not persist exact OpenAI API token usage for this pilot, so this is an estimate from serialized prompt/output character counts. Pricing assumption: <code>gpt-5.4-mini</code> at <code><span class="math-inline">\(0.75 / 1M input tokens</code> and <code>\)</span>4.50 / 1M output tokens</code>.</p>
+
+<p>| Metric | Estimate |
+| --- | ---: |
+| Stage 1 input chars | 128,215 |
+| Stage 2 input chars | 877,857 |
+| Total input chars | 1,006,072 |
+| Stored output chars | 98,471 |
+| Approx input tokens | 251,518-287,449 |
+| Approx output tokens | 24,618-28,135 |
+| Estimated total cost | <code><span class="math-inline">\(0.299-\)</span>0.342</code> |</p>
+
+<h2 id="user-summary">User Summary</h2>
+
+<p>| User ID | Review count | Evidence items | Inferred attributes | Rejected attributes | Requests |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| <code>AGVYDLC4T7LOEVDACAP4FLXN3JNA</code> | 6067 | 10 | 57 | 1 | 14 |
+| <code>AGUTZC4GHLTGYHA3KBEDRF6MHB6A</code> | 2918 | 12 | 56 | 1 | 14 |</p>
+
+<h2 id="user-agvydlc4t7loevdacap4flxn3jna">User <code>AGVYDLC4T7LOEVDACAP4FLXN3JNA</code></h2>
+
+<ul class="article-list">
+  <li>Review count: 6067</li>
+  <li>Review context count: 75</li>
+  <li>Evidence items: 10</li>
+  <li>Inferred attributes: 57</li>
+  <li>Rejected attributes: 1</li>
+</ul>
+
+<h3 id="evidence-profile-overview">Evidence Profile Overview</h3>
+
+<p>Reviewer consistently writes detailed plot-focused reviews across books and movies, with strong interest in war/history, comics/superheroes, and film analysis. Reviews often compare works, note themes, and judge pacing, style, and authenticity.</p>
+
+<h3 id="evidence-items">Evidence Items</h3>
+
+<ul class="article-list">
+  <li><code>e1</code> <strong>product_interests</strong> (product_interest, confidence 0.98): Frequent interest in war, military history, and Middle East conflict books.</li>
+  <li><code>r0004</code>: "German heavy prototypes"</li>
+  <li><code>r0010</code>: "Iran-Iraq War, Volume 4"</li>
+  <li><code>e2</code> <strong>product_interests</strong> (product_interest, confidence 0.99): Strong recurring interest in Marvel comics and superhero stories.</li>
+  <li><code>r0002</code>: "West Coast Avengers"</li>
+  <li><code>r0003</code>: "Deadpool Classic 5"</li>
+  <li><code>e3</code> <strong>product_interests</strong> (product_interest, confidence 0.99): Regularly reviews movies, especially genre films and older cinema.</li>
+  <li><code>r0017</code>: "Winter Soldier is the best of the three Captain American movies"</li>
+  <li><code>r0022</code>: "Akira is one of the great Japanese animated films"</li>
+  <li><code>e4</code> <strong>expertise_signals</strong> (expertise_signal, confidence 0.95): Uses comparative, detail-heavy evaluation of films and books rather than brief star-only reactions.</li>
+  <li><code>r0036</code>: "the action and story just aren’t as compelling as 300"</li>
+  <li><code>r0046</code>: "I wasn’t so sure about Penn as the gangster boss but then he gives a speech"</li>
+  <li><code>e5</code> <strong>consumption_preferences</strong> (preference, confidence 0.93): Values informative, in-depth, and well-researched content.</li>
+  <li><code>r0005</code>: "short, concise and very informative book"</li>
+  <li><code>r0010</code>: "very in depth review of the war with plenty of pictures and maps"</li>
+  <li><code>e6</code> <strong>consumption_preferences</strong> (preference, confidence 0.9): Often prefers works with strong themes, atmosphere, or stylistic presentation.</li>
+  <li><code>r0024</code>: "a hilarious mix of nerdy punk rock kids, action, and video games"</li>
+  <li><code>r0050</code>: "arty feel"</li>
+  <li><code>e7</code> <strong>decision_style</strong> (repeated_behavior, confidence 0.92): Frequently weighs strengths and weaknesses and notes tradeoffs or flaws alongside praise.</li>
+  <li><code>r0008</code>: "good but not great"</li>
+  <li><code>r0035</code>: "pretty good movie"</li>
+  <li><code>e8</code> <strong>communication_style</strong> (communication_style, confidence 0.99): Writes long, explanatory reviews with plot summaries and thematic commentary.</li>
+  <li><code>r0017</code>: "The movie plays out like a spy flick"</li>
+  <li><code>r0022</code>: "Various themes are brought up"</li>
+  <li><code>e9</code> <strong>behavioral_habits</strong> (repeated_behavior, confidence 0.9): Repeatedly reviews serialized comics and collected volumes, suggesting ongoing follow-up reading in that format.</li>
+  <li><code>r0002</code>: "Lost In Space-Time"</li>
+  <li><code>r0013</code>: "Coming Of The Falcon"</li>
+  <li><code>e10</code> <strong>explicit_self_statements</strong> (explicit_self_statement, confidence 0.98): Explicitly says they were in college and watched Jim Jarmusch films with a best friend.</li>
+  <li><code>r0075</code>: "When I was in college my best friend was really into Jim Jarmusch"</li>
+</ul>
+
+<h3 id="inferred-attributes">Inferred Attributes</h3>
+
+<h4 id="behavior-preferences">Behavior: Preferences</h4>
+
+<p>| Dimension | Value | Confidence | Evidence | Rationale |
+| --- | --- | ---: | --- | --- |
+| Brief vs full detail (<code>pref_detail_brief_vs_full</code>) | Detail-leaning | 0.97 | <code>e4</code>, <code>e8</code> | The profile explicitly describes long, explanatory, detail-heavy reviews with plot summaries and thematic commentary. |
+| Logic vs intuition (<code>pref_logic_vs_intuition</code>) | Logic-leaning | 0.82 | <code>e4</code>, <code>e7</code> | The review style is comparative and evaluative, focusing on evidence, tradeoffs, and structured judgment. |
+| Media diet (<code>media_diet</code>) | Long-form | 0.9 | <code>e5</code>, <code>e8</code> | The reviewer values in-depth, explanatory material and regularly writes long-form reviews. |
+| Modality preference (<code>modality_pref</code>) | Text | 0.88 | <code>e8</code> | The evidence shows a strong preference for written, explanatory review format rather than visual or code-based output. |
+| Novelty vs familiarity (<code>pref_novelty_vs_familiarity</code>) | Novelty-leaning | 0.81 | <code>e3</code>, <code>e6</code> | The profile shows interest in varied genre films, older cinema, and stylistically distinctive works, suggesting a tilt toward novelty. |
+| Quality vs quantity (<code>pref_quality_vs_quantity</code>) | Quality first | 0.84 | <code>e7</code> | The reviewer consistently evaluates strengths and weaknesses rather than giving blanket approval, indicating emphasis on quality over quantity. |</p>
+
+<h4 id="demographic-life-events">Demographic: Life Events</h4>
+
+<p>| Dimension | Value | Confidence | Evidence | Rationale |
+| --- | --- | ---: | --- | --- |
+| Cross-cultural exposure (<code>lifex_cultural_exposure</code>) | Some exposure | 0.84 | <code>e10</code> | The college self-reference plus interest in international/genre cinema suggests some cross-cultural exposure, but the profile does not support a stronger claim. |
+| Education journey (<code>lifex_education_journey</code>) | Traditional track | 0.98 | <code>e10</code> | Explicit self-statement indicates the reviewer attended college, supporting a traditional education path. |
+| Formative decade (<code>lifex_formative_decade</code>) | 1980s | 0.82 | <code>e10</code> | The college-era reference to Jim Jarmusch is consistent with a formative period in the 1980s, but this is only weakly supported and should be treated cautiously. |
+| Life stage (<code>life_stage</code>) | Student | 0.98 | <code>e10</code> | Explicit self-statement indicates the reviewer was in college, directly supporting student life stage. |</p>
+
+<h4 id="expertise-domains">Expertise: Domains</h4>
+
+<p>| Dimension | Value | Confidence | Evidence | Rationale |
+| --- | --- | ---: | --- | --- |
+| Domain (<code>domain</code>) | Arts & Humanities | 0.9 | <code>e3</code>, <code>e4</code>, <code>e8</code> | Repeated detailed film analysis and thematic commentary directly support an Arts & Humanities orientation. |
+| Familiarity: Film studies (<code>fam_film_studies</code>) | Familiar | 0.84 | <code>e3</code>, <code>e4</code>, <code>e8</code> | Repeated movie reviews use comparative film language, thematic commentary, and stylistic analysis, indicating more than casual familiarity with film studies concepts. |
+| Tech savviness (<code>tech_savviness</code>) | Comfortable | 0.82 | <code>e2</code>, <code>e9</code> | Frequent engagement with comics series, volumes, and issue numbering suggests comfort navigating serialized media and related formats. |</p>
+
+<h4 id="expertise-skills">Expertise: Skills</h4>
+
+<p>| Dimension | Value | Confidence | Evidence | Rationale |
+| --- | --- | ---: | --- | --- |
+| Skill: Critical thinking (<code>skill_critical_thinking</code>) | Advanced | 0.93 | <code>e4</code>, <code>e7</code>, <code>e8</code> | Repeated comparative evaluation, explicit weighing of strengths and weaknesses, and thematic analysis indicate advanced critical thinking. |
+| Skill: Fact-checking (<code>skill_fact_checking</code>) | Intermediate | 0.7 | <code>e5</code>, <code>e8</code> | The reviewer values informative, well-researched content and writes detailed explanatory reviews, but there is no explicit evidence of verifying facts, so support is limited. |
+| Skill: Problem solving (<code>skill_problem_solving</code>) | Intermediate | 0.72 | <code>e4</code>, <code>e7</code> | The profile shows structured evaluation and tradeoff assessment, but not direct evidence of solving concrete problems, so this is only a moderate inference. |
+| Skill: Research (<code>skill_research</code>) | Advanced | 0.84 | <code>e4</code>, <code>e5</code>, <code>e8</code> | The reviewer consistently produces detailed, informative, theme-aware analysis and explicitly notes learning from content, which supports strong research-oriented skill. |</p>
+
+<h4 id="interests-culture">Interests: Culture</h4>
+
+<p>| Dimension | Value | Confidence | Evidence | Rationale |
+| --- | --- | ---: | --- | --- |
+| Culture: United States (<code>cult_united_states</code>) | Studied | 0.81 | <code>e10</code> | The explicit college self-statement supports at least studied familiarity with U.S. culture; Jim Jarmusch is a U.S. filmmaker and the reviewer references college context directly. |
+| Hobby intensity (<code>lstyle_hobby_intensity</code>) | Dedicated | 0.9 | <code>e2</code>, <code>e3</code>, <code>e9</code> | Repeated reviews across comics, superhero stories, and films indicate sustained, active engagement with these interests. |
+| Reading frequency (<code>lstyle_reading_freq</code>) | Daily | 0.84 | <code>e1</code>, <code>e2</code>, <code>e9</code> | Frequent reviewing of books/comics across many entries suggests regular reading activity, though the exact daily frequency is only moderately supported. |
+| Social battery (<code>lstyle_social_battery</code>) | Introvert | 0.81 | <code>e10</code> | The only direct self-reference suggests a limited, close-friend social context, but evidence is thin, so confidence is moderate. |</p>
+
+<h4 id="interests-media">Interests: Media</h4>
+
+<p>| Dimension | Value | Confidence | Evidence | Rationale |
+| --- | --- | ---: | --- | --- |
+| Books: Graphic novels (<code>bookg_graphic_novels</code>) | Love | 0.99 | <code>e2</code>, <code>e9</code> | Frequent reviews of comics and collected volumes show sustained, repeated engagement with graphic novels/comics. |
+| Books: History (<code>bookg_history</code>) | Love | 0.98 | <code>e1</code> | Repeated focus on war, military history, and conflict-related books directly supports strong interest in history books. |
+| Books: History (<code>bookg_history</code>) | Love | 0.98 | <code>e1</code> | Repeated conflict and military-history book references directly indicate strong interest in history. |
+| Film: Animation (<code>filmg_animation</code>) | Like | 0.9 | <code>e3</code> | Direct praise for an animated film supports a positive preference for animation, though evidence is limited to one explicit example. |
+| Film: Noir (<code>filmg_noir</code>) | Like | 0.9 | <code>e3</code> | The reviewer explicitly praises a film noir title, supporting a positive preference for noir films. |
+| Film: Superhero (<code>filmg_superhero</code>) | Love | 0.99 | <code>e2</code> | The profile explicitly describes strong recurring interest in Marvel comics and superhero stories. |</p>
+
+<h4 id="interests-topics">Interests: Topics</h4>
+
+<p>| Dimension | Value | Confidence | Evidence | Rationale |
+| --- | --- | ---: | --- | --- |
+| Interest: Comics (<code>topic_comics</code>) | Passionate | 0.99 | <code>e2</code>, <code>e9</code> | Multiple reviews of Marvel comics and serialized comic volumes show sustained, strong interest in comics. |
+| Interest: Film (<code>topic_film</code>) | Passionate | 0.99 | <code>e3</code>, <code>e8</code> | The profile says the reviewer regularly reviews movies and writes long film analyses, indicating strong interest in film. |
+| Interest: History (<code>topic_history</code>) | Passionate | 0.98 | <code>e1</code> | Repeated review focus on war, military history, and Middle East conflict books directly supports strong interest in history. |
+| Interest: Technology (<code>topic_technology</code>) | Interested | 0.84 | <code>e2</code>, <code>e3</code> | The evidence centers on superhero/comic and genre media, including Iron Man and animated/genre films, which supports some interest in technology-adjacent content but not enough... |
+| Interest: Travel (<code>topic_travel</code>) | Neutral | 0.81 | <code>e10</code> | Only a weak indirect signal appears via college-era film discussion; there is no direct travel evidence, so this is a minimal neutral inference and should be treated cautiously. |</p>
+
+<h4 id="linguistic-communication">Linguistic: Communication</h4>
+
+<p>| Dimension | Value | Confidence | Evidence | Rationale |
+| --- | --- | ---: | --- | --- |
+| Abstract vs concrete (<code>cog_abstraction</code>) | Balanced | 0.9 | <code>e5</code>, <code>e8</code> | The profile shows both concrete detail and thematic/abstract commentary, so the style is not purely concrete or purely abstract. |
+| Curiosity (<code>cog_curiosity</code>) | High | 0.93 | <code>e5</code>, <code>e10</code> | The reviewer values informative, well-researched content and explicitly says they learned things from the material. |
+| Detail orientation (<code>cog_detail_orientation</code>) | Very high | 0.99 | <code>e4</code>, <code>e8</code> | Reviews are consistently long, explanatory, and analytical, with plot summaries, thematic commentary, and detailed comparisons. |
+| Expected tone (<code>tone_expected</code>) | Detailed | 0.99 | <code>e5</code>, <code>e8</code> | The reviewer consistently values and produces in-depth, explanatory content, indicating a preference for detailed responses. |
+| Reading vs watching (<code>cog_reading_vs_watching</code>) | No preference | 0.84 | <code>e3</code> | The profile shows substantial engagement with both books and movies, but does not directly state a preference for one over the other. |
+| Skepticism (<code>cog_skepticism</code>) | High | 0.88 | <code>e7</code> | The reviewer repeatedly weighs strengths and weaknesses and notes tradeoffs rather than giving unqualified praise. |</p>
+
+<h4 id="personality-big-five">Personality: Big Five</h4>
+
+<p>| Dimension | Value | Confidence | Evidence | Rationale |
+| --- | --- | ---: | --- | --- |
+| Artistic interest (<code>big5_artistic_interest</code>) | High | 0.9 | <code>e3</code>, <code>e6</code>, <code>e8</code> | Repeated focus on film style, atmosphere, and artistic presentation indicates strong artistic interest. |
+| BFI-2 Conscientiousness (<code>bfi2_domain_conscientiousness</code>) | Average | 0.62 | <code>e7</code>, <code>e8</code> | The evidence shows careful evaluation and structured writing, but not enough to confidently claim a clearly high conscientiousness level. |
+| BFI-2 Intellectual Curiosity (<code>bfi2_facet_intellectual_curiosity</code>) | High | 0.93 | <code>e5</code>, <code>e8</code>, <code>e4</code> | Repeated emphasis on learning, depth, and thematic commentary directly supports intellectual curiosity. |
+| BFI-2 Open-Mindedness (<code>bfi2_domain_open_mindedness</code>) | High | 0.9 | <code>e4</code>, <code>e5</code>, <code>e6</code>, <code>e8</code> | The reviewer consistently values thematic depth, style, and learning from works, supporting high open-mindedness. |
+| BFI-2 Organization (<code>bfi2_facet_organization</code>) | High | 0.84 | <code>e8</code>, <code>e7</code> | The profile shows structured, explanatory reviewing and systematic weighing of strengths and weaknesses, which suggests organized thinking. |
+| Intellect (<code>big5_intellect</code>) | High | 0.91 | <code>e4</code>, <code>e5</code>, <code>e8</code> | Consistently writes analytical, detail-heavy reviews and explicitly values informative, in-depth content, which supports higher intellect. |
+| PANDORA_Openness (<code>pandora_big5_dimension_1</code>) | High | 0.9 | <code>e4</code>, <code>e5</code>, <code>e6</code>, <code>e7</code>, <code>e8</code> | Detailed comparative analysis, interest in themes/style, and preference for informative content indicate above-average openness to ideas and nuance. |</p>
+
+<h4 id="personality-character">Personality: Character</h4>
+
+<p>| Dimension | Value | Confidence | Evidence | Rationale |
+| --- | --- | ---: | --- | --- |
+| Character: Curiosity (<code>trait_curiosity</code>) | Strong | 0.9 | <code>e5</code>, <code>e4</code>, <code>e8</code> | Frequent attention to themes, details, comparisons, and learning suggests a strong curiosity signal. |
+| Character: Honesty (<code>trait_honesty</code>) | Strong | 0.84 | <code>e7</code>, <code>e4</code> | The reviews are candid and balanced, openly noting flaws and tradeoffs rather than only praise. |
+| Character: Love of learning (<code>trait_love_of_learning</code>) | Strong | 0.95 | <code>e5</code>, <code>e8</code>, <code>e4</code> | The reviewer repeatedly values informative, in-depth content and explicitly notes learning from works, alongside detailed thematic analysis. |
+| Character: Open-mindedness (<code>trait_open_mindedness</code>) | Strong | 0.81 | <code>e4</code>, <code>e5</code>, <code>e8</code> | The reviewer shows willingness to engage with different styles, themes, and informative material, indicating openness to varied perspectives. |
+| Character: Perspective (<code>trait_perspective</code>) | Strong | 0.92 | <code>e4</code>, <code>e7</code>, <code>e8</code> | The reviewer consistently compares works, weighs tradeoffs, and frames reviews with thematic and contextual perspective. |
+| Domain stance (<code>domain_characteristics</code>) | Skeptic / critic | 0.95 | <code>e4</code>, <code>e7</code> | The reviewer consistently evaluates strengths and weaknesses and compares works critically, fitting a critic stance. |</p>
+
+<h4 id="risk-decision">Risk & Decision</h4>
+
+<p>| Dimension | Value | Confidence | Evidence | Rationale |
+| --- | --- | ---: | --- | --- |
+| Decision style (<code>decision_style</code>) | Analytical | 0.92 | <code>e4</code>, <code>e7</code> | Reviews repeatedly weigh tradeoffs, compare works, and assess specific elements like pacing, style, and authenticity. |</p>
+
+<h4 id="values-motivation">Values & Motivation</h4>
+
+<p>| Dimension | Value | Confidence | Evidence | Rationale |
+| --- | --- | ---: | --- | --- |
+| Core value (<code>values_priority</code>) | Novelty | 0.84 | <code>e6</code> | The reviewer repeatedly favors works with distinctive style, atmosphere, and unusual combinations, suggesting novelty as a core value. |
+| Need for Cognition (<code>need_for_cognition</code>) | High | 0.96 | <code>e4</code>, <code>e5</code>, <code>e8</code> | Repeated evidence shows enjoyment of detailed analysis, learning, and thematic commentary, indicating strong preference for effortful thinking. |
+| Schwartz Universalism (<code>schwartz_value_universalism</code>) | Average | 0.62 | <code>e1</code>, <code>e5</code> | The profile shows interest in broad historical and conflict-related topics and learning from them, but does not directly support a strong universalism value; only a cautious ave... |
+| Value: Achievement (<code>val_achievement</code>) | Moderate | 0.8 | <code>e4</code>, <code>e7</code> | The reviewer shows sustained effortful evaluation and analytical engagement, which weakly supports achievement-oriented behavior, but not strongly enough for a higher confidence. |
+| Value: Knowledge & truth (<code>val_knowledge_truth</code>) | Important | 0.91 | <code>e5</code>, <code>e8</code> | Repeated preference for informative, in-depth, and thematic content directly supports valuing knowledge and truth. |</p>
+
+<h3 id="rejected-attributes">Rejected Attributes</h3>
+
+<ul class="article-list">
+  <li>unknown_dimension_id: <code>lang_none</code></li>
+</ul>
+
+<h2 id="user-agutzc4ghltgyha3kbedrf6mhb6a">User <code>AGUTZC4GHLTGYHA3KBEDRF6MHB6A</code></h2>
+
+<ul class="article-list">
+  <li>Review count: 2918</li>
+  <li>Review context count: 80</li>
+  <li>Evidence items: 12</li>
+  <li>Inferred attributes: 56</li>
+  <li>Rejected attributes: 1</li>
+</ul>
+
+<h3 id="evidence-profile-overview">Evidence Profile Overview</h3>
+
+<p>Reviewer consistently favors practical, durable, easy-to-use items and often highlights value, comfort, storage/organization, and convenience. Reviews also show repeated interest in electronics, home/kitchen tools, clothing/accessories, and giftable items.</p>
+
+<h3 id="evidence-items">Evidence Items</h3>
+
+<ul class="article-list">
+  <li><code>e1</code> <strong>product_interests</strong> (product_interest, confidence 0.98): Frequent interest in electronics and audio accessories.</li>
+  <li><code>r0002</code>: ""Best MP3 out there""</li>
+  <li><code>r0009</code>: ""The sound quality of these are great""</li>
+  <li><code>e2</code> <strong>product_interests</strong> (product_interest, confidence 0.97): Repeated interest in home and kitchen tools for cooking and storage.</li>
+  <li><code>r0003</code>: ""mesh bags for my fruit/veggies""</li>
+  <li><code>r0017</code>: ""This food processor is a all in one tool""</li>
+  <li><code>e3</code> <strong>consumption_preferences</strong> (preference, confidence 0.99): Strong preference for durability and sturdy construction.</li>
+  <li><code>r0007</code>: ""Very good quality""</li>
+  <li><code>r0018</code>: ""They are sturdy and strong""</li>
+  <li><code>e4</code> <strong>consumption_preferences</strong> (preference, confidence 0.98): Often values affordability and good value for money.</li>
+  <li><code>r0003</code>: ""the price is inexpensive""</li>
+  <li><code>r0013</code>: ""Great value""</li>
+  <li><code>e5</code> <strong>behavioral_habits</strong> (repeated_behavior, confidence 0.95): Uses products for home organization and storage.</li>
+  <li><code>r0005</code>: ""put it back in the container so it doesn't get lost""</li>
+  <li><code>r0038</code>: ""store your shoes""</li>
+  <li><code>e6</code> <strong>behavioral_habits</strong> (repeated_behavior, confidence 0.96): Frequently buys items for gifting or gift occasions.</li>
+  <li><code>r0011</code>: ""make a great gift""</li>
+  <li><code>r0021</code>: ""makes a great gift""</li>
+  <li><code>e7</code> <strong>decision_style</strong> (preference, confidence 0.97): Evaluates products by practical usefulness and ease of use.</li>
+  <li><code>r0008</code>: ""Amazing price and a huge lifesaver""</li>
+  <li><code>r0017</code>: ""easy to setup and use and easy to clean""</li>
+  <li><code>e8</code> <strong>values_and_motivations</strong> (preference, confidence 0.96): Prioritizes comfort and warmth in clothing and household items.</li>
+  <li><code>r0004</code>: ""Keeps my feet warm""</li>
+  <li><code>r0019</code>: ""comfortable and warm""</li>
+  <li><code>e9</code> <strong>expertise_signals</strong> (expertise_signal, confidence 0.9): Uses comparative and feature-based evaluation language across products.</li>
+  <li><code>r0002</code>: ""compared to most MP3 players""</li>
+  <li><code>r0028</code>: ""better than the more expensive brand""</li>
+  <li><code>e10</code> <strong>communication_style</strong> (communication_style, confidence 0.88): Reviews are concise, highly positive, and heavily focused on practical features and value.</li>
+  <li><code>r0001</code>: ""Very nice""</li>
+  <li><code>r0013</code>: ""Great value""</li>
+  <li><code>e11</code> <strong>explicit_self_statements</strong> (explicit_self_statement, confidence 0.93): Has a child, as stated in review text.</li>
+  <li><code>r0010</code>: ""my child""</li>
+  <li><code>r0047</code>: ""My daughter""</li>
+  <li><code>e12</code> <strong>explicit_self_statements</strong> (explicit_self_statement, confidence 0.92): Mentions a husband in review text.</li>
+  <li><code>r0025</code>: ""My husband is a hunter""</li>
+  <li><code>r0041</code>: ""Gift from hubby""</li>
+</ul>
+
+<h3 id="inferred-attributes">Inferred Attributes</h3>
+
+<h4 id="behavior-preferences">Behavior: Preferences</h4>
+
+<p>| Dimension | Value | Confidence | Evidence | Rationale |
+| --- | --- | ---: | --- | --- |
+| Brief vs full detail (<code>pref_detail_brief_vs_full</code>) | Brief-leaning | 0.86 | <code>e10</code> | The review style is described as concise and focused on practical features, supporting a brief-leaning communication preference. |
+| Competition vs collaboration (<code>pref_competition_vs_collab</code>) | Collaborative | 0.81 | <code>e6</code>, <code>e11</code>, <code>e12</code> | Gift-giving and family-oriented references suggest a relational, other-oriented stance, though the evidence is indirect. |
+| Logic vs intuition (<code>pref_logic_vs_intuition</code>) | Logic-leaning | 0.9 | <code>e7</code>, <code>e9</code> | The profile repeatedly shows practical, feature-based, comparative evaluation, which supports a logic-leaning decision style. |
+| Modality preference (<code>modality_pref</code>) | Text | 0.88 | <code>e10</code> | The review style is concise and text-based; there is no evidence for visual, code, or other modality preferences. |
+| Quality vs quantity (<code>pref_quality_vs_quantity</code>) | Quality first | 0.97 | <code>e3</code>, <code>e7</code> | Repeated emphasis on durability, sturdy construction, and ease of use shows a strong preference for quality and practical performance over quantity. |
+| Save vs spend (<code>pref_save_vs_spend</code>) | Saver-leaning | 0.93 | <code>e4</code> | Frequent attention to affordability and value for money supports a saver-leaning spending preference. |</p>
+
+<h4 id="demographic-life-events">Demographic: Life Events</h4>
+
+<p>| Dimension | Value | Confidence | Evidence | Rationale |
+| --- | --- | ---: | --- | --- |
+| Life stage (<code>life_stage</code>) | Parent of young kids | 0.93 | <code>e11</code> | Explicit references to a child and daughter directly support a parent life stage. |
+| Major life events (<code>major_life_events</code>) | None notable | 0.81 | <code>e11</code>, <code>e12</code> | The profile contains family references but no explicit major life event such as migration, caregiving, bereavement, or relocation. |</p>
+
+<h4 id="expertise-domains">Expertise: Domains</h4>
+
+<p>| Dimension | Value | Confidence | Evidence | Rationale |
+| --- | --- | ---: | --- | --- |
+| Tech savviness (<code>tech_savviness</code>) | Comfortable | 0.82 | <code>e1</code>, <code>e9</code> | Frequent interest in electronics/audio accessories and feature-based comparisons suggest comfort with consumer technology. |</p>
+
+<h4 id="expertise-skills">Expertise: Skills</h4>
+
+<p>| Dimension | Value | Confidence | Evidence | Rationale |
+| --- | --- | ---: | --- | --- |
+| Skill: Critical thinking (<code>skill_critical_thinking</code>) | Intermediate | 0.84 | <code>e9</code> | The profile shows repeated comparative and feature-based evaluation across products, which supports at least intermediate critical thinking in assessing options and specifications. |
+| Skill: Data analysis (<code>skill_data_analysis</code>) | Intermediate | 0.84 | <code>e9</code> | Repeated comparative and feature-based evaluation language suggests some analytical skill, but the profile does not support advanced technical expertise. |
+| Skill: Note-taking (<code>skill_note_taking</code>) | Intermediate | 0.81 | <code>e5</code> | Frequent interest in storage and organization suggests a practical habit of keeping track of items and organizing them, which aligns with note-taking/record-keeping style behavi... |
+| Skill: Problem solving (<code>skill_problem_solving</code>) | Intermediate | 0.82 | <code>e7</code>, <code>e2</code> | The reviewer repeatedly emphasizes practical usefulness and ease of use, and also highlights tools that help accomplish tasks, indicating moderate problem-solving orientation. |
+| Skill: Project management (<code>skill_project_management</code>) | Beginner | 0.8 | <code>e7</code>, <code>e5</code> | The profile shows practical organization and ease-of-use focus, which weakly supports basic project/organization skill, but not stronger management expertise. |</p>
+
+<h4 id="interests-culture">Interests: Culture</h4>
+
+<p>| Dimension | Value | Confidence | Evidence | Rationale |
+| --- | --- | ---: | --- | --- |
+| Charitable giving (<code>lstyle_giving</code>) | Occasional | 0.96 | <code>e6</code> | Multiple reviews explicitly frame items as gifts, indicating recurring gift-buying behavior. |
+| Cooking frequency (<code>lstyle_cooking_freq</code>) | Weekly | 0.84 | <code>e2</code> | Repeated kitchen-tool and cooking-related purchases suggest regular, but not necessarily daily, cooking involvement. |
+| Hobby intensity (<code>lstyle_hobby_intensity</code>) | Casual | 0.81 | <code>e1</code>, <code>e2</code>, <code>e5</code>, <code>e6</code> | The profile shows repeated consumer interest across practical product categories, but not evidence of deep, specialized hobby commitment. |
+| Shopping style (<code>lstyle_shopping_style</code>) | Researcher | 0.93 | <code>e3</code>, <code>e4</code>, <code>e7</code>, <code>e9</code> | Consistently evaluates items by quality, value, ease of use, and feature comparisons, which fits a researcher-style shopping pattern. |
+| Spending vs saving (<code>lstyle_frugality</code>) | Balanced | 0.91 | <code>e4</code>, <code>e7</code> | The profile shows repeated attention to price/value, but also to usefulness and ease of use rather than extreme bargain-only behavior. |
+| Tidiness (<code>lstyle_tidiness</code>) | Tidy | 0.95 | <code>e5</code> | Repeated use of products for storage and organization directly supports a tidy/organized preference. |</p>
+
+<h4 id="interests-media">Interests: Media</h4>
+
+<p>| Dimension | Value | Confidence | Evidence | Rationale |
+| --- | --- | ---: | --- | --- |
+| Music: Electronic (<code>musg_electronic</code>) | Like | 0.97 | <code>e1</code> | Repeated positive interest in MP3 players, headphones, and sound quality supports liking electronic music-related products, but not enough to claim stronger affinity. |</p>
+
+<h4 id="interests-topics">Interests: Topics</h4>
+
+<p>| Dimension | Value | Confidence | Evidence | Rationale |
+| --- | --- | ---: | --- | --- |
+| Interest: Cooking (<code>topic_cooking</code>) | Interested | 0.97 | <code>e2</code> | Repeated reviews focus on kitchen and cooking-related tools and tasks, directly supporting interest in cooking. |
+| Interest: Fashion (<code>topic_fashion</code>) | Interested | 0.86 | <code>e8</code> | Repeated clothing-related evaluations focused on comfort, warmth, and fabric indicate interest in apparel/fashion items. |
+| Interest: Home improvement (<code>topic_home_improvement</code>) | Interested | 0.9 | <code>e5</code> | Consistent emphasis on storage and organization suggests interest in home organization/home-improvement-adjacent practical items. |
+| Interest: Pets (<code>topic_pets</code>) | Interested | 0.95 | <code>e5</code> | A direct mention of pet leashes in a storage/organization context supports some interest in pets, though evidence is limited. |
+| Interest: Productivity (<code>topic_productivity</code>) | Interested | 0.88 | <code>e7</code>, <code>e10</code> | The reviewer repeatedly values ease of use, practicality, and usefulness, which aligns with interest in productivity-oriented products. |
+| Interest: Technology (<code>topic_technology</code>) | Interested | 0.98 | <code>e1</code>, <code>e9</code> | Multiple reviews discuss electronics, audio accessories, compatibility, and technical features, directly supporting interest in technology. |</p>
+
+<h4 id="linguistic-communication">Linguistic: Communication</h4>
+
+<p>| Dimension | Value | Confidence | Evidence | Rationale |
+| --- | --- | ---: | --- | --- |
+| Abstract vs concrete (<code>cog_abstraction</code>) | Concrete | 0.86 | <code>e7</code>, <code>e9</code> | The language centers on specific product features, usability, and comparisons rather than abstract ideas. |
+| Detail orientation (<code>cog_detail_orientation</code>) | Moderate | 0.84 | <code>e9</code>, <code>e10</code> | The reviewer sometimes uses feature-based comparisons and specs, but overall keeps reviews brief rather than highly detailed. |
+| Politeness (<code>cog_politeness</code>) | Polite | 0.82 | <code>e10</code> | The tone is consistently positive and non-confrontational, with no brusque or rude wording. |
+| Verbosity (<code>cog_verbosity</code>) | Concise | 0.88 | <code>e10</code> | The review style is repeatedly short and to the point, with brief praise and little elaboration. |</p>
+
+<h4 id="personality-big-five">Personality: Big Five</h4>
+
+<p>| Dimension | Value | Confidence | Evidence | Rationale |
+| --- | --- | ---: | --- | --- |
+| BFI-2 Conscientiousness (<code>bfi2_domain_conscientiousness</code>) | High | 0.84 | <code>e3</code>, <code>e5</code>, <code>e7</code> | Consistent preference for durable, organized, easy-to-use products indicates orderliness and practical self-management. |
+| BFI-2 Intellectual Curiosity (<code>bfi2_facet_intellectual_curiosity</code>) | Average | 0.6 | <code>e9</code> | The evidence shows some attention to specs and comparisons, but not sustained curiosity or exploratory behavior. |
+| BFI-2 Open-Mindedness (<code>bfi2_domain_open_mindedness</code>) | Average | 0.61 | <code>e9</code> | There is some evidence of feature comparison and technical evaluation, but not enough to support a clearly high open-mindedness rating. |
+| BFI-2 Organization (<code>bfi2_facet_organization</code>) | High | 0.88 | <code>e5</code> | Repeated focus on storage and keeping items organized directly supports a high organization facet. |
+| BFI-2 Productiveness (<code>bfi2_facet_productiveness</code>) | High | 0.82 | <code>e2</code>, <code>e7</code> | The reviewer repeatedly values tools that streamline tasks and improve efficiency, suggesting a productive, task-oriented style. |</p>
+
+<h4 id="personality-character">Personality: Character</h4>
+
+<p>| Dimension | Value | Confidence | Evidence | Rationale |
+| --- | --- | ---: | --- | --- |
+| Character: Honesty (<code>trait_honesty</code>) | Slight | 0.81 | <code>e10</code> | Reviews are concise and direct, with straightforward praise focused on observable product qualities. |
+| Character: Love of learning (<code>trait_love_of_learning</code>) | Slight | 0.82 | <code>e9</code> | Uses comparative and feature-based evaluation language, suggesting some engagement with product details and technical comparison. |
+| Character: Prudence (<code>trait_prudence</code>) | Strong | 0.93 | <code>e3</code>, <code>e4</code>, <code>e7</code>, <code>e8</code> | Repeatedly emphasizes durability, value, ease of use, and practical usefulness when evaluating products. |
+| Character: Self-regulation (<code>trait_self_regulation</code>) | Moderate | 0.84 | <code>e5</code>, <code>e7</code> | Shows organized, controlled use of products for storage and keeping things in order, plus preference for simple, easy-to-manage items. |
+| Dominant trait (<code>dominant_trait</code>) | High conscientiousness | 0.84 | <code>e3</code>, <code>e5</code>, <code>e7</code> | The profile repeatedly emphasizes practicality, organization, durability, and ease of use, which best fits high conscientiousness. |</p>
+
+<h4 id="personality-relationships">Personality: Relationships</h4>
+
+<p>| Dimension | Value | Confidence | Evidence | Rationale |
+| --- | --- | ---: | --- | --- |
+| Interpersonal Communion/Warmth (<code>interpersonal_communion_warmth</code>) | High | 0.84 | <code>e6</code>, <code>e11</code>, <code>e12</code> | Repeated gifting language and explicit mentions of child and husband suggest a warm, relationship-oriented interpersonal style. |</p>
+
+<h4 id="professional-industry">Professional: Industry</h4>
+
+<p>| Dimension | Value | Confidence | Evidence | Rationale |
+| --- | --- | ---: | --- | --- |
+| Industry: Technology (<code>ind_technology</code>) | Some exposure | 0.9 | <code>e1</code>, <code>e9</code> | Repeated interest in MP3 players, headphones, compatibility, and camera specs suggests some familiarity with technology products, but not enough to claim professional experience. |</p>
+
+<h4 id="risk-decision">Risk & Decision</h4>
+
+<p>| Dimension | Value | Confidence | Evidence | Rationale |
+| --- | --- | ---: | --- | --- |
+| Decision style (<code>decision_style</code>) | Analytical | 0.9 | <code>e9</code>, <code>e7</code> | The reviewer compares products by features, compatibility, and practical usefulness, indicating an analytical decision style. |</p>
+
+<h4 id="values-motivation">Values & Motivation</h4>
+
+<p>| Dimension | Value | Confidence | Evidence | Rationale |
+| --- | --- | ---: | --- | --- |
+| Core value (<code>values_priority</code>) | Security | 0.86 | <code>e3</code>, <code>e5</code> | Repeated focus on durability, sturdiness, and storage/organization suggests a priority on security and keeping items safe and orderly. |
+| Economic motivation (<code>economic_motivation</code>) | Value-driven | 0.98 | <code>e4</code> | Repeated emphasis on inexpensive pricing, great value, and affordability directly supports a value-driven spending posture. |
+| Need for Cognition (<code>need_for_cognition</code>) | High | 0.82 | <code>e9</code> | The reviewer repeatedly uses comparative and feature-based evaluation, indicating comfort with effortful product analysis. |
+| Schwartz Achievement (<code>schwartz_value_achievement</code>) | Average | 0.66 | <code>e9</code> | The profile shows comparative, feature-based evaluation, but not enough direct evidence of status-seeking or achievement motivation to rate higher than average. |
+| Schwartz Security (<code>schwartz_value_security</code>) | High | 0.91 | <code>e3</code>, <code>e4</code>, <code>e5</code>, <code>e7</code>, <code>e8</code> | Repeated emphasis on durability, affordability, organization, convenience, and comfort suggests a strong preference for safety, stability, and practical reliability. |
+| Value: Family (<code>val_family</code>) | Moderate | 0.86 | <code>e11</code>, <code>e12</code> | Explicit mentions of child and husband indicate family is present in the reviewer's life, supporting a moderate family value. |
+| Value: Helping others (<code>val_helping_others</code>) | Minor | 0.84 | <code>e6</code> | Frequent gift-oriented purchases suggest some orientation toward helping or pleasing others, though the evidence is indirect and not strong enough for a higher value. |
+| Value: Integrity & honesty (<code>val_integrity_honesty</code>) | Minor | 0.82 | <code>e9</code> | Feature-based comparative evaluation suggests a practical, evidence-oriented style, but the profile does not directly show a strong honesty/integrity value. |
+| Value: Order & structure (<code>val_order_structure</code>) | Moderate | 0.88 | <code>e5</code> | Repeated use of storage and organization solutions supports a moderate preference for order and structure. |
+| Value: Wealth (<code>val_wealth</code>) | Minor | 0.9 | <code>e4</code> | The profile repeatedly highlights affordability and value for money, indicating some concern with cost, but not enough to support wealth as a major priority. |</p>
+
+<h4 id="worldview-beliefs">Worldview: Beliefs</h4>
+
+<p>| Dimension | Value | Confidence | Evidence | Rationale |
+| --- | --- | ---: | --- | --- |
+| Attitude: Brand loyalty (<code>att_brand_loyalty</code>) | Neutral | 0.62 | <code>e9</code> | The evidence shows comparative, feature-based evaluation across products, but does not directly indicate loyalty to brands; neutral is the safest supported value. |
+| Attitude: Online reviews (<code>att_online_reviews</code>) | Positive | 0.88 | <code>e10</code> | The profile shows consistently concise, highly positive review language and repeated reliance on review-style evaluations, which supports a positive stance toward online reviews. |</p>
+
+<h3 id="rejected-attributes">Rejected Attributes</h3>
+
+<ul class="article-list">
+  <li>unknown_dimension_id: <code>schwartz_benevolence</code></li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#evidence-profile-overview">Evidence Profile Overview</a></li>
+<li style="margin-left: 0.8rem;"><a href="#evidence-items">Evidence Items</a></li>
+<li style="margin-left: 0.8rem;"><a href="#inferred-attributes">Inferred Attributes</a></li>
+<li style="margin-left: 0.8rem;"><a href="#rejected-attributes">Rejected Attributes</a></li>
+<li style="margin-left: 0.8rem;"><a href="#evidence-profile-overview">Evidence Profile Overview</a></li>
+<li style="margin-left: 0.8rem;"><a href="#evidence-items">Evidence Items</a></li>
+<li style="margin-left: 0.8rem;"><a href="#inferred-attributes">Inferred Attributes</a></li>
+<li style="margin-left: 0.8rem;"><a href="#rejected-attributes">Rejected Attributes</a></li>
+<li><a href="#run-summary">Run Summary</a></li>
+<li><a href="#estimated-cost">Estimated Cost</a></li>
+<li><a href="#user-summary">User Summary</a></li>
+<li><a href="#user-agvydlc4t7loevdacap4flxn3jna">User `AGVYDLC4T7LOEVDACAP4FLXN3JNA`</a></li>
+<li><a href="#user-agutzc4ghltgyha3kbedrf6mhb6a">User `AGUTZC4GHLTGYHA3KBEDRF6MHB6A`</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

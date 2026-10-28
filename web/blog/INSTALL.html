@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Install i-have-adhd | Technical Whitepaper</title>
+  <meta name="description" content="Install i-have-adhd — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/INSTALL.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Install i-have-adhd</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Install i-have-adhd</p>
+
+<p>One skill. Installable in Claude Code, Codex, and Cursor.</p>
+
+<h2 id="tl-dr">TL;DR</h2>
+
+<h3 id="claude-code">Claude Code</h3>
+
+<p><code></code>`bash
+claude plugin marketplace add ayghri/i-have-adhd
+claude plugin install i-have-adhd@i-have-adhd
+<code></code>`</p>
+
+<p>No local clone needed — Claude Code fetches the repo and keeps it updated.</p>
+
+<p>Open Claude Code, type <code>/i-have-adhd</code>.</p>
+
+<p>To disable: <code>claude plugin disable i-have-adhd</code> (or <code>/plugin disable i-have-adhd</code> from within Claude Code). Re-enable later with <code>enable</code> instead of <code>disable</code>.</p>
+
+<h3 id="codex">Codex</h3>
+
+<p><code></code>`bash
+codex plugin marketplace add ayghri/i-have-adhd --ref main
+codex plugin add i-have-adhd@i-have-adhd
+<code></code>`</p>
+
+<p>In Codex, type <code>$i-have-adhd</code> to request the output style explicitly.</p>
+
+<h3 id="cursor">Cursor</h3>
+
+<p>Project (this workspace):</p>
+
+<p><code></code>`bash
+npx skills add ayghri/i-have-adhd
+<code></code>`</p>
+
+<p>Global (all Cursor projects):</p>
+
+<p><code></code>`bash
+npx skills add ayghri/i-have-adhd -g
+<code></code>`</p>
+
+<p>Cursor-only (skip other agents):</p>
+
+<p><code></code>`bash
+npx skills add ayghri/i-have-adhd -a cursor -y
+<code></code>`</p>
+
+<p>Open a new Cursor Agent chat, type <code>/i-have-adhd</code>.</p>
+
+<p><details>
+<summary>Manual fallback (clone + copy)</summary></p>
+
+<p><code></code>`bash
+mkdir -p ~/.cursor/skills
+cp -R /path/to/i-have-adhd/skills/i-have-adhd ~/.cursor/skills/
+<code></code>`</p>
+
+<p>Replace <code>/path/to/i-have-adhd</code> with a local clone (<code>git clone https://github.com/ayghri/i-have-adhd</code>).</p>
+
+<p>Project-only without the CLI:</p>
+
+<p><code></code>`bash
+mkdir -p .cursor/skills
+cp -R /path/to/i-have-adhd/skills/i-have-adhd .cursor/skills/
+<code></code>`</p>
+
+<p></details></p>
+
+<h2 id="verify">Verify</h2>
+
+<h3 id="claude-code">Claude Code</h3>
+
+<p><code></code>`bash
+claude plugin list
+<code></code>`</p>
+
+<p>Look for <code>i-have-adhd  (enabled)</code>.</p>
+
+<h3 id="codex">Codex</h3>
+
+<p><code></code>`bash
+codex plugin list
+<code></code>`</p>
+
+<p>Look for <code>i-have-adhd</code> in the configured <code>i-have-adhd</code> marketplace.</p>
+
+<h3 id="cursor">Cursor</h3>
+
+<p><code></code>`bash
+npx skills list
+# or, if installed globally:
+npx skills ls -g
+<code></code>`</p>
+
+<p>Look for <code>i-have-adhd</code>. Or confirm the file exists: <code>ls ~/.cursor/skills/i-have-adhd/SKILL.md</code> (global) / <code>.cursor/skills/i-have-adhd/SKILL.md</code> (project).</p>
+
+<p>In a new Agent chat, type <code>/</code> and look for <code>i-have-adhd</code>.</p>
+
+<h2 id="update">Update</h2>
+
+<h3 id="claude-code">Claude Code</h3>
+
+<p><code></code>`bash
+claude plugin marketplace update i-have-adhd
+<code></code>`</p>
+
+<p>Next Claude Code session picks up changes.</p>
+
+<h3 id="codex">Codex</h3>
+
+<p><code></code>`bash
+codex plugin marketplace upgrade i-have-adhd
+codex plugin remove i-have-adhd
+codex plugin add i-have-adhd@i-have-adhd
+<code></code>`</p>
+
+<h3 id="cursor">Cursor</h3>
+
+<p><code></code>`bash
+npx skills update i-have-adhd
+# or, if installed globally:
+npx skills update -g
+<code></code>`</p>
+
+<p>Start a new Agent chat so Cursor re-reads the skill.</p>
+
+<h2 id="uninstall">Uninstall</h2>
+
+<h3 id="claude-code">Claude Code</h3>
+
+<p><code></code>`bash
+claude plugin uninstall i-have-adhd
+claude plugin marketplace remove i-have-adhd
+<code></code>`</p>
+
+<h3 id="codex">Codex</h3>
+
+<p><code></code>`bash
+codex plugin remove i-have-adhd
+codex plugin marketplace remove i-have-adhd
+<code></code>`</p>
+
+<h3 id="cursor">Cursor</h3>
+
+<p><code></code>`bash
+npx skills remove i-have-adhd
+# or, if installed globally:
+npx skills remove i-have-adhd -g
+<code></code>`</p>
+
+<p>Manual fallback: <code>rm -rf ~/.cursor/skills/i-have-adhd</code> or <code>.cursor/skills/i-have-adhd</code>.</p>
+
+<h2 id="always-on-optional">Always-on (optional)</h2>
+
+<h3 id="claude-code">Claude Code</h3>
+
+<p>To skip <code>/i-have-adhd</code> and apply the rules from message one, add to <code>~/.claude/CLAUDE.md</code>:</p>
+
+<p><code></code>`markdown
+<h2 id="output-style">Output style</h2></p>
+
+<p>Always follow the rules in the <code>i-have-adhd</code> skill: action-first, numbered steps, no preamble, no closers, state restated each turn.
+<code></code>`</p>
+
+<h3 id="cursor">Cursor</h3>
+
+<p>Add the same text to <strong>Cursor Settings → Rules → User Rules</strong> (applies across projects), or put it in a project rule under <code>.cursor/rules/</code> with <code>alwaysApply: true</code>.</p>
+
+<h2 id="troubleshooting">Troubleshooting</h2>
+
+<p><strong><code>/i-have-adhd</code> not in autocomplete.</strong> Restart Claude Code. The plugin index is read at startup.</p>
+
+<p><strong><code>claude plugin marketplace add</code> fails.</strong> Use the <code>owner/repo</code> form: <code>claude plugin marketplace add ayghri/i-have-adhd</code>. If you point it at a local path instead, it must be the repo root (the directory containing <code>.claude-plugin/marketplace.json</code>), not <code>.claude-plugin/</code> itself.</p>
+
+<p><strong>Skill activates but model still preambles.</strong> Open a new session. Old context may carry. If it still drifts, tighten the rule wording in <code>skills/i-have-adhd/SKILL.md</code>, then re-invoke.</p>
+
+<p><strong>Want different rules.</strong> Fork the repo, edit <code>skills/i-have-adhd/SKILL.md</code>, then install your fork: <code>claude plugin marketplace add <your-username>/i-have-adhd</code>. (Or clone locally and <code>claude plugin marketplace add ./i-have-adhd</code>.) Re-invoke <code>/i-have-adhd</code> and the new rules apply.</p>
+
+<p><strong>Cursor: <code>/i-have-adhd</code> missing after install.</strong> Start a new Agent chat. Skills are indexed at session start. Confirm <code>~/.cursor/skills/i-have-adhd/SKILL.md</code> exists and that the frontmatter <code>name</code> matches the folder name.</p>
+
+<p><strong>Cursor: skill present but replies still preamble.</strong> Invoke <code>/i-have-adhd</code> once in the chat, or use the Always-on User Rule above. Skill auto-invocation is relevance-based; always-on User Rules are stricter.</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#claude-code">Claude Code</a></li>
+<li style="margin-left: 0.8rem;"><a href="#codex">Codex</a></li>
+<li style="margin-left: 0.8rem;"><a href="#cursor">Cursor</a></li>
+<li style="margin-left: 0.8rem;"><a href="#claude-code">Claude Code</a></li>
+<li style="margin-left: 0.8rem;"><a href="#codex">Codex</a></li>
+<li style="margin-left: 0.8rem;"><a href="#cursor">Cursor</a></li>
+<li style="margin-left: 0.8rem;"><a href="#claude-code">Claude Code</a></li>
+<li style="margin-left: 0.8rem;"><a href="#codex">Codex</a></li>
+<li style="margin-left: 0.8rem;"><a href="#cursor">Cursor</a></li>
+<li style="margin-left: 0.8rem;"><a href="#claude-code">Claude Code</a></li>
+<li style="margin-left: 0.8rem;"><a href="#codex">Codex</a></li>
+<li style="margin-left: 0.8rem;"><a href="#cursor">Cursor</a></li>
+<li style="margin-left: 0.8rem;"><a href="#claude-code">Claude Code</a></li>
+<li style="margin-left: 0.8rem;"><a href="#cursor">Cursor</a></li>
+<li><a href="#tl-dr">TL;DR</a></li>
+<li><a href="#verify">Verify</a></li>
+<li><a href="#update">Update</a></li>
+<li><a href="#uninstall">Uninstall</a></li>
+<li><a href="#always-on-optional">Always-on (optional)</a></li>
+<li><a href="#output-style">Output style</a></li>
+<li><a href="#troubleshooting">Troubleshooting</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

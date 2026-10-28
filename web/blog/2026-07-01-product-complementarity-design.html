@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Product Complementarity Engine — Tech-Spec Layer + v2 Merge (v1) | Technical Whitepaper</title>
+  <meta name="description" content="Product Complementarity Engine — Tech-Spec Layer + v2 Merge (v1) — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-07-01-product-complementarity-design.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Product Complementarity Engine — Tech-Spec Layer + v2 Merge (v1)</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 6 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Product Complementarity Engine — Tech-Spec Layer + v2 Merge (v1)</p>
+
+<p><em>Design spec — 2026-07-01. Builds on [2026-06-08 Compléments v2](2026-06-08-product-complements-v2-design.md).</em></p>
+
+<h2 id="1-purpose-success-criteria">1. Purpose & success criteria</h2>
+
+<p>Add a <strong>persistent, catalog-level product-complementarity attribute</strong> to Lyréco's
+products: for a given product, the set of products likely to be <em></em>functionally
+complementary<em></em> (accessories / consumables / required companions) — driven
+<strong>primarily from structured technical characteristics</strong> ("requires AA batteries",
+"has RJ-45", "compatible printer = HP M404"), and completed by the existing
+co-purchase / family engine where tech specs don't apply.</p>
+
+<p>Business goal: <strong>complete Marie's complementarity coverage.</strong> Only 5,458 of her
+18,183 in-scope products have complements today; v1 fills the ~12,725 still missing.</p>
+
+<p><strong>Success (v1):</strong>
+<ul class="article-list">
+  <li>Every in-scope anchor is tagged <code>complement_scope = 'marie-2026-06-25'</code> on the product table.</li>
+  <li>For the qualifying subset (products with usable tech-spec / co-purchase signal), a</li>
+</ul>
+  ranked complement list is produced and stored (table + JSON column) and exported in
+  Marie's wide format so it merges into her file.
+<ul class="article-list">
+  <li>The tech-spec "semantic layer" (label→signal map) is human-reviewable, not a black box.</li>
+  <li>Deterministic + cheap: LLM used only at <strong>label grain</strong> and for the co-purchase/family</li>
+</ul>
+  fallback — never a per-product LLM call over the catalog.</p>
+
+<p><strong>Non-goals (v1):</strong> WISE/GB (attribute table exists for WISE — a later country swap);
+webshop UI integration; replacing the v2 engine (this reuses it).</p>
+
+<h2 id="2-scope-inputs">2. Scope & inputs</h2>
+
+<p>| Input | Source | Role |
+|---|---|---|
+| Anchor scope (18,183) | <code>imports/marie/Datas pour produits associés 20260625.xlsx</code> (SAP code, web title, HTML descriptif, brand, mfr code, GTIN×5) | products to enrich |
+| Already-linked (5,458) | <code>imports/marie/Produits complémentaires déjà liés 20260526.xlsx</code> (wide: SAP + 20×[Consumable Web, Local SAP Description, Local Status, Display Sequence]) | dedup + ground-truth + output shape |
+| Tech specs (~2.1M FR rows) | Oracle <code>FRANCE.T_PRODUCT_ATTRIBUTE</code> (<code>PRODUCT_REFERENCE</code>, <code>ATTRIBUTE_LABEL</code>, <code>ATTRIBUTE_VALUE</code>, <code>VALUE_UNIT</code>, <code>LANGUAGE_CODE</code>, <code>DL_DELETION_FLAG</code>) | Type A/B signal |
+| Free-text fallback | <code>T_PRODUCT_ATTRIBUTE</code> label <code>Technical Details</code>; <code>T_PRODUCT_MASTER.WEB_EXTENDED_DESCRIPTION</code> (CLOB) | battery-type + long-tail |
+| Co-purchase / family | <code>product_co_occurrence</code> + family-LLM graph (v2 engine, <code>core/ai_typing.py</code>) | fallback for non-device anchors |
+| Sales (rank) | timescale <code>ecom_order_lines</code>, 365d (reused from v2) | rank complements by sales |
+| Family master + status | <code>ecom_products</code> (family_code, subcategory_code, brand, not_salable/not_visible, status) | family top-N + gating |</p>
+
+<p><strong>Join key:</strong> anchor SAP code (plain, e.g. <code>5978056</code>) → <code>product_reference</code> = <code>LPAD(sap,18,'0')</code>
+for FR (per data-lineage: FR products keyed on 18-digit padded reference, <strong>not</strong> LPAD-10).
+<strong>Country:</strong> <code>source_country='FR'</code> / <code>COUNTRY_CODE='FR'</code>.
+<strong>Hygiene on Oracle pull:</strong> <code>DL_DELETION_FLAG='N'</code> (+ standard scope filters where present).</p>
+
+<h2 id="3-signal-lanes-merge">3. Signal lanes & merge</h2>
+
+<p>Per anchor, produce candidate complements from three lanes, <strong>in priority order</strong>:</p>
+
+<p>1. <strong>Type A — tech-spec direct compatibility</strong> (exact SKU links). Highest priority.
+2. <strong>Type B — tech-spec requirement→family</strong> (family top-N).
+3. <strong>Fallback — co-purchase + family-LLM</strong> (v2 engine), for anchors with no tech signal.</p>
+
+<p><strong>Merge algorithm</strong> (pure): concatenate lanes in priority order → dedup by
+<code>complement_ref</code> (first lane wins) → <em></em>dedup against the anchor's existing <code>déjà liés</code>
+links<em></em> → apply gates (<code>is_in_perimeter</code>, active, <code>brand_compatible</code> for durables) →
+cap at <code>N=20</code> → assign <code>display_sequence</code> 1..N. Each surviving row records its
+<code>signal_type</code> (<code>A_compat</code> | <code>B_family</code> | <code>cooc</code> | <code>family_llm</code>) and <code>signal_label</code>
+(e.g. <code>Compatible Printer</code>, <code>Sheet Format=A4</code>) for auditability.</p>
+
+<h2 id="4-label-signal-map-the-semantic-layer-built-once">4. Label → signal map (the semantic layer, built once)</h2>
+
+<p>A <strong>versioned config</strong> (<code>config/complement_label_map.json</code>) mapping each relevant
+<code>ATTRIBUTE_LABEL</code> (bilingual FR/EN) → a rule:</p>
+
+<p><code></code>`json
+{
+  "Compatible Printer":            {"signal": "A_compat", "match": "printer_model"},
+  "Compatible OEM Part Number":    {"signal": "A_compat", "match": "oem_ref"},
+  "Compatible OEM Brand":          {"signal": "A_compat", "match": "oem_brand"},
+  "Maximum Screen Size Supported": {"signal": "A_compat", "match": "screen_size"},
+  "Batteries Included":            {"signal": "B_family", "target": "battery", "needs_type": true},
+  "Alimentation":                  {"signal": "B_family", "target": "battery", "needs_type": true},
+  "Cable Type":                    {"signal": "B_family", "target": "cable"},
+  "Connector on First End":        {"signal": "B_family", "target": "cable"},
+  "Sheet Format":                  {"signal": "B_family", "target": "paper", "by_value": true},
+  "Host Interface":                {"signal": "B_family", "target": "cable_hub", "when_value": "USB"}
+}
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>Built <strong>once</strong> from the label vocabulary (~few hundred distinct labels; top labels</li>
+</ul>
+  already surveyed). LLM-<strong>assisted</strong> to classify/extend ambiguous labels, but the output
+  is a static, human-reviewable file — <strong>no per-product LLM</strong>.
+<ul class="article-list">
+  <li><code>target</code> names map to <code>(sub)family_code</code> sets resolved from <code>ecom_products</code> (a small</li>
+</ul>
+  <code>target → family/subcategory</code> lookup, also in config).
+<ul class="article-list">
+  <li>Ignored labels (Marque, CO2, packaging, warranty…) are simply absent from the map.</li>
+</ul>
+
+<h2 id="5-resolution">5. Resolution</h2>
+
+<h3 id="5a-type-a-compatibility-graph-directionality">5a. Type A — compatibility graph + directionality</h3>
+Consumables declare their fit (<code>Compatible OEM Part Number = CE259A</code>,
+<code>Compatible Printer = HP LaserJet Pro M404</code>). Build a <strong>compat index</strong> across the
+catalog keyed on normalized <code>oem_ref → GTIN → manufacturer_code → model_text</code>.
+
+<p>Directionality (emit the <strong>device→consumable</strong> direction as primary):
+<ul class="article-list">
+  <li>anchor = <strong>device</strong> (printer): complements = consumables whose compat index matches</li>
+</ul>
+  this device (reverse lookup on model / OEM ref).
+<ul class="article-list">
+  <li>anchor = <strong>consumable</strong> (cartridge): complements = the device(s) it fits (+ optionally</li>
+</ul>
+  co-fitting consumables, flagged lower priority).</p>
+
+<p>Match precedence: OEM part-number (most reliable) → GTIN → manufacturer code → model
+text (fuzzy, last resort). <code>brand_compatible</code> gate applies for captive/durable pairs.</p>
+
+<h3 id="5b-type-b-requirement-family-top-n">5b. Type B — requirement → family top-N</h3>
+<code>requirement label (+value) → target (sub)family</code> → top products via
+<code>rank_family_skus</code> (sales-desc, perimeter/active-gated) composed with the <em></em>Community
+5-SKU selector<em></em> shape (3 main-family + 2 adjacent). Examples: <code>Sheet Format=A4</code> → A4
+paper subcat; <code>Batteries Included=Yes</code> + type → AA/AAA battery subcat; <code>Cable Type=RJ-45</code>
+→ network-cable subcat.
+
+<p><strong>Battery-type fallback:</strong> when a battery/power label is present but the value doesn't
+name the type, parse <code>Technical Details</code> / <code>WEB_EXTENDED_DESCRIPTION</code> for
+<code>\bAA\b|\bAAA\b|LR6|LR03|\b9\s?V\b|CR20\d\d</code> to pick the correct battery subfamily;
+if still unknown, fall back to the generic battery family.</p>
+
+<h3 id="5c-fallback-co-purchase-family-llm">5c. Fallback — co-purchase / family-LLM</h3>
+For anchors that yield no Type A/B candidates, reuse the v2 engine: <code>product_co_occurrence</code>
+lift (<code>build_subcat_cooc_map</code>) + the family-LLM complement graph (<code>core/ai_typing.py</code>),
+expanded to SKUs via <code>assemble_anchor_blocks</code>. Same gates, same cap.
+
+<h2 id="6-storage-outputs">6. Storage & outputs</h2>
+
+<p>1. <strong>Scope flag</strong> — <code>ecom_products.complement_scope TEXT</code> set to <code>'marie-2026-06-25'</code> for
+   all 18,183 anchors (named, so multiple lists coexist; enables coverage tracking).
+2. <strong>Source of truth</strong> — new Postgres table <code>product_complements</code>:
+   `anchor_ref, complement_ref, complement_name, family_code, signal_type, signal_label,
+   rank, source_country, generated_at<code> (PK </code>(anchor_ref, complement_ref, source_country)`).
+   Auditable + reverse-queryable ("what needs AA?").
+3. <strong>Catalog column</strong> — JSON struct view/materialized column on <code>ecom_products</code>:
+   the full ranked list (up to <code>N=20</code>), <code>[{"name","sku","family_code","signal","rank"}]</code>
+   (the "struct column on products"). The 5-SKU offer (3 main + 2 adjacent) is a
+   downstream slice of this list, not a separate store.
+4. <strong>Marie deliverable</strong> — wide-format XLSX via existing <code>WIDE_HEADER</code>/<code>build_wide_rows</code>,
+   so it merges into <code>Produits complémentaires déjà liés</code>.</p>
+
+<h2 id="7-modules-refresh-flow-testing">7. Modules, refresh flow, testing</h2>
+
+<ul class="article-list">
+  <li><code>core/complement_specs.py</code> (<strong>new, pure, no I/O</strong>): apply label map; build + resolve</li>
+</ul>
+  Type A compat graph; resolve Type B; battery-type parse; merge/dedup/cap/rank. TDD.
+<ul class="article-list">
+  <li><code>config/complement_label_map.json</code> — versioned label→signal map + target→family lookup.</li>
+  <li><code>scripts/refresh_product_complements_specs.py</code> (<strong>new orchestrator</strong>):</li>
+</ul>
+  read anchors → dedup vs déjà-liés → pull <code>T_PRODUCT_ATTRIBUTE</code> (+ free-text) →
+  pull sales + family products → run A/B lanes → v2 fallback → merge → write
+  <code>complement_scope</code> flag + <code>product_complements</code> + JSON column + Marie XLSX.
+<ul class="article-list">
+  <li><strong>Reuses</strong>: <code>core/complement_families.py</code> (<code>rank_family_skus</code>, <code>assemble_anchor_blocks</code>,</li>
+</ul>
+  <code>build_wide_rows</code>, <code>WIDE_HEADER</code>, <code>is_in_perimeter</code>, <code>brand_compatible</code>),
+  <code>core/ai_typing.py</code>, <code>scripts/refresh_product_complements_v2.py</code> machinery.
+<ul class="article-list">
+  <li><strong>DB migration</strong>: create <code>product_complements</code>; add <code>ecom_products.complement_scope</code>;</li>
+</ul>
+  create JSON view.
+<ul class="article-list">
+  <li><code>tests/test_complement_specs.py</code> (TDD): label-map application; Type A directionality &</li>
+</ul>
+  match precedence (OEM ref > GTIN > model); Type B family resolution + battery-type parse;
+  merge priority/dedup(-vs-existing)/cap/rank; perimeter/brand gating.
+
+<h2 id="8-open-questions-to-confirm-during-planning">8. Open questions / to confirm during planning</h2>
+<ul class="article-list">
+  <li><strong>Anchor refresh of the existing 5,458</strong>: v1 leaves them as-is (dedup only). Confirm we</li>
+</ul>
+  don't re-derive/overwrite Marie's curated links.
+<ul class="article-list">
+  <li><strong>Type A coverage</strong>: measure how many of the 12,725 missing anchors carry qualifying</li>
+</ul>
+  compat/requirement attributes (quantifies device-subset reach vs fallback reliance).
+<ul class="article-list">
+  <li><strong><code>complement_scope</code> vs bare flag</strong>: named tag chosen; confirm value convention</li>
+</ul>
+  (<code>marie-2026-06-25</code>).
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#5a-type-a-compatibility-graph-directionality">5a. Type A — compatibility graph + directionality</a></li>
+<li style="margin-left: 0.8rem;"><a href="#5b-type-b-requirement-family-top-n">5b. Type B — requirement → family top-N</a></li>
+<li style="margin-left: 0.8rem;"><a href="#5c-fallback-co-purchase-family-llm">5c. Fallback — co-purchase / family-LLM</a></li>
+<li><a href="#1-purpose-success-criteria">1. Purpose & success criteria</a></li>
+<li><a href="#2-scope-inputs">2. Scope & inputs</a></li>
+<li><a href="#3-signal-lanes-merge">3. Signal lanes & merge</a></li>
+<li><a href="#4-label-signal-map-the-semantic-layer-built-once">4. Label → signal map (the semantic layer, built once)</a></li>
+<li><a href="#5-resolution">5. Resolution</a></li>
+<li><a href="#6-storage-outputs">6. Storage & outputs</a></li>
+<li><a href="#7-modules-refresh-flow-testing">7. Modules, refresh flow, testing</a></li>
+<li><a href="#8-open-questions-to-confirm-during-planning">8. Open questions / to confirm during planning</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

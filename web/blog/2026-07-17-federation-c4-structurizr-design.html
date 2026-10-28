@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Federation C4 Model (Structurizr) — Design Spec | Technical Whitepaper</title>
+  <meta name="description" content="Federation C4 Model (Structurizr) — Design Spec — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-07-17-federation-c4-structurizr-design.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Federation C4 Model (Structurizr) — Design Spec</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 7 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Federation C4 Model (Structurizr) — Design Spec</p>
+
+<p><strong>Goal:</strong> Render the swarph federation's cross-repo meta-model as an interactive <strong>C4 model</strong>, auto-generated from the CodeGraph fleet index — replacing today's flat Mermaid federation view — with private-topology-safe two-view scoping.</p>
+
+<p><strong>Architecture:</strong> Reuse <code>swarph_fed.py</code>'s existing deterministic cross-repo DAG derivation (declared manifests ∪ grounded CodeGraph import-sites, with declared-vs-observed reconciliation). Add a <strong>Structurizr emitter</strong> (sibling of <code>viz.py</code>) that writes a Structurizr workspace <code>.dsl</code>, and host a self-hosted <strong>Structurizr Lite</strong> service (Docker, lab-ovh tailnet) that renders it with native C4 drill-down. The swarph-desktop Federation tab links to the Lite view. Regeneration rides the existing nightly <code>fed_refresh.sh</code>.</p>
+
+<p><strong>Tech Stack:</strong> Python 3.11 (stdlib + <code>tomllib</code>, matching swarph-codegraph-fed), Structurizr DSL, <code>structurizr/lite</code> Docker image, systemd (service + timer), existing swarph-desktop web UI.</p>
+
+<h2 id="global-constraints">Global Constraints</h2>
+
+<ul class="article-list">
+  <li><strong>Generated, never hand-authored.</strong> The model is 100% derived from the fleet index + repo pyprojects on every refresh. No manual arranging/annotating; the emitter is deterministic (same inputs → byte-identical <code>.dsl</code>).</li>
+  <li><strong>Two views, privacy-scoped.</strong> The emitter produces <code>full.dsl</code> (all indexed repos incl. private) AND <code>public.dsl</code> (public repos only), driven by fleet-index visibility. The full model is served ONLY on the tailnet-bound Lite instance (lab/owner/commander); the public model is the only thing safe to share/embed off-tailnet. Honors <code>feedback_private_topology_in_derived_artifacts</code> and the A8 visibility gate — a derived artifact must not leak private-repo topology.</li>
+  <li><strong>Reuse <code>swarph_fed.py</code>.</strong> Do NOT reimplement repo discovery, DAG building, grounding, or reconciliation. The emitter consumes <code>swarph_fed</code>'s <code>Repo</code> objects + <code>build_effective_dag</code> + <code>reconcile</code> output.</li>
+  <li><strong>stdlib-only for the emitter</strong> (like the rest of swarph-codegraph-fed). No new Python deps.</li>
+  <li><strong>Additive.</strong> <code>viz.py</code> (Mermaid) stays; the Structurizr emitter is a sibling. <code>swarph_fed.py</code>'s public functions are unchanged (extended only if a needed field is missing).</li>
+</ul>
+
+<h2 id="locked-decisions-from-brainstorming-2026-07-17">Locked Decisions (from brainstorming 2026-07-17)</h2>
+
+<p>1. <strong>Tool:</strong> C4 model / Structurizr.
+2. <strong>Sourcing:</strong> generated from the fleet index (not hand-curated).
+3. <strong>Renderer:</strong> self-hosted Structurizr Lite (interactive, native drill-down) — not inline export, not static SVG.
+4. <strong>Scope:</strong> two views — gated full + public-only.</p>
+
+<p>---</p>
+
+<h2 id="components">Components</h2>
+
+<h3 id="1-structurizr-emitter-structurizr-emit-py-swarph-codegraph-fed">1. Structurizr emitter — <code>structurizr_emit.py</code> (swarph-codegraph-fed)</h3>
+
+<p>A new module, sibling of <code>viz.py</code>. Pure function, deterministic, stdlib-only.</p>
+
+<p><strong>Interface:</strong>
+<code></code>`python
+def to_structurizr(
+    repos: list[fed.Repo],
+    effective_dag: dict[str, list[str]],
+    reconcile: dict,                 # swarph_fed.reconcile() output: missing/dead per repo
+    *,
+    visibility: dict[str, str],      # repo-name -> "public" | "private" (from fleet index)
+    groups: dict[str, str],          # repo-name -> hosting cell ("lab-ovh" | "droplet" | ...)
+    public_only: bool = False,       # True -> emit only public repos + edges between them
+) -> str:                            # a Structurizr DSL workspace document
+    ...
+<code></code>`</p>
+
+<p>Called twice by the CLI/refresh: <code>public_only=False</code> → <code>full.dsl</code>, <code>public_only=True</code> → <code>public.dsl</code>.</p>
+
+<p><strong>Model mapping (fleet DAG → C4):</strong></p>
+
+<p>| Data source | C4 encoding |
+|---|---|
+| SoftwareSystem | one <code>softwareSystem "Swarph Federation"</code> |
+| each <code>Repo</code> | a <code>container <name></code> with description = sorted <code>provides</code> packages |
+| <code>Repo.cg_nodes</code> (symbol count) | size tag <code>size-S/M/L/XL</code> (bucketed) → element style with growing <code>width</code>/<code>height</code> — "bigger repo, bigger box" |
+| <code>visibility[name]</code> | tag <code>public</code>/<code>private</code> → element style (private = muted fill/dashed border) |
+| <code>groups[name]</code> (hosting cell) | Structurizr <code>group "<cell>"</code> boundary |
+| <code>effective_dag</code> edge | <code>a -> b "imports"</code> relationship |
+| edge in <code>reconcile.missing_declared</code> (imported, not declared) | relationship tag <code>missing-decl</code> → red/dashed style |
+| edge in <code>reconcile.dead_dep</code> (declared, never imported) | relationship tag <code>dead-dep</code> → faded/dotted style |
+| <code>Repo.import_sites</code> counts | relationship description suffix <code>(N sites)</code> |</p>
+
+<p><strong>Views:</strong> <code>systemContext swarph</code> + <code>container swarph</code> (auto-layout) + a <code>component</code> view per container generated from that repo's top-level modules (CodeGraph file-path prefixes), each component carrying its key symbols — the C4 drill-down. <code>matrix.py</code>'s seam/definition matrix is surfaced as the per-container detail (the "definition matrix").</p>
+
+<p><strong>Size bucketing (deterministic):</strong> <code>size-S</code> < 300 symbols, <code>size-M</code> 300–1500, <code>size-L</code> 1500–5000, <code>size-XL</code> ≥ 5000. (Grounded in current partition counts: swarph-shared 211=S, mesh-gateway 1239=M, swarph-cli 2885=L, hedge-fund-mcp 8810=XL.)</p>
+
+<h3 id="2-visibility-groups-resolver">2. Visibility + groups resolver</h3>
+
+<p>A small helper (in <code>structurizr_emit.py</code> or <code>fed_refresh.sh</code>) reads the fleet index <code>~/.swarph/codegraph/index.db</code> <code>repos</code> table for <code>visibility</code>, and a static <code>groups</code> map (repo → hosting cell: lab-ovh for on-box repos, droplet for hedge-fund-mcp, etc. — a hand-maintained dict, small and stable, ~11 entries). If a repo is absent from the fleet index, default visibility <code>private</code> (fail-closed) and group <code>unknown</code>.</p>
+
+<h3 id="3-structurizr-lite-service-docker-systemd-lab-ovh">3. Structurizr Lite service — Docker + systemd (lab-ovh)</h3>
+
+<ul class="article-list">
+  <li>Image <code>structurizr/lite</code> (Java, serves HTTP on container :8080), watching a mounted workspace dir containing <code>workspace.dsl</code> (symlinked/copied from <code>full.dsl</code>).</li>
+  <li>Bound to the <strong>tailnet interface only</strong> (publish on the tailscale IP, not 0.0.0.0) so the FULL model is never reachable off-tailnet.</li>
+  <li>Managed by a systemd unit <code>swarph-federation-c4.service</code> (like lab's other self-hosted services). Restart-on-failure.</li>
+  <li>The public view is NOT served by this instance; <code>public.dsl</code> is rendered/exported for embedding (see §4).</li>
+</ul>
+
+<h3 id="4-swarph-desktop-integration">4. swarph-desktop integration</h3>
+
+<ul class="article-list">
+  <li>Federation tab (<code>swarph-desktop/web/app.js</code>, ~line 530) currently renders auto-generated Mermaid from <code>/federation</code>. Change: the tab links to (or iframes) the tailnet Lite URL for the full interactive model.</li>
+  <li>The daemon's <code>/federation</code> endpoint additionally serves the <strong>public</strong> model (Lite-rendered PNG/SVG export of <code>public.dsl</code>, or a public Lite instance) for any shareable/embedded surface. The public view is the only one exposed beyond the tailnet.</li>
+</ul>
+
+<h3 id="5-refresh-extend-fed-refresh-sh">5. Refresh — extend <code>fed_refresh.sh</code></h3>
+
+<p>After the existing <code>swarph_fed.py</code> run, the script invokes the emitter to write <code>full.dsl</code> + <code>public.dsl</code> into the Lite workspace dir. Runs nightly after the index full-sweep (04:30) → federation refresh (04:45); Lite auto-reloads the changed workspace. Add an on-demand target (<code>fed_refresh.sh --now</code>) already implicit in the script.</p>
+
+<p>---</p>
+
+<h2 id="data-flow">Data Flow</h2>
+
+<p><code></code>`
+~/.swarph/codegraph/index.db  +  repo pyprojects
+        │  discover_repos / ground / build_effective_dag / reconcile   (swarph_fed.py, REUSED)
+        ▼
+   repos[], effective_dag, reconcile        +   visibility (fleet index), groups (static map)
+        │  to_structurizr(public_only=False|True)                       (structurizr_emit.py, NEW)
+        ▼
+   full.dsl   ──►  Structurizr Lite (Docker, tailnet-only)  ──►  swarph-desktop Federation tab (link)
+   public.dsl ──►  render/export (PNG/SVG or public Lite)   ──►  shareable/embeddable surfaces
+<code></code>`</p>
+
+<h2 id="error-handling">Error Handling</h2>
+
+<ul class="article-list">
+  <li>Emitter is fail-safe on a per-repo basis: a repo missing from the fleet index → <code>private</code>/<code>unknown</code>/size-S defaults, still emitted (never crashes the whole <code>.dsl</code>). Mirrors <code>swarph_fed.ground</code>'s graceful no-op.</li>
+  <li>A malformed/absent fleet index → emitter falls back to visibility=<code>private</code> for ALL repos (fail-closed: never accidentally leak a private repo into <code>public.dsl</code>).</li>
+  <li><code>fed_refresh.sh</code> writes <code>.dsl</code> atomically (tmp + mv, matching its existing report write) so Lite never reads a half-written workspace.</li>
+  <li>Lite service down → the desktop link shows a clear "federation model offline" state, not a broken iframe.</li>
+</ul>
+
+<h2 id="testing">Testing</h2>
+
+<ul class="article-list">
+  <li><code>test_structurizr_emit.py</code> (stdlib <code>unittest</code>/pytest, offline — no Lite, no real repos):</li>
+  <li><strong>Determinism:</strong> same inputs → byte-identical <code>.dsl</code>.</li>
+  <li><strong>Size bucketing:</strong> cg_nodes at each boundary → correct <code>size-*</code> tag.</li>
+  <li><strong>Reconciliation styling:</strong> a <code>missing_declared</code> edge gets tag <code>missing-decl</code>; a <code>dead_dep</code> edge gets <code>dead-dep</code>; a clean edge gets neither.</li>
+  <li><strong>Two-view privacy (the load-bearing test):</strong> given a private repo, <code>public_only=True</code> output contains NO reference to it (name, container, or any edge touching it) — assert the private repo's name is absent from <code>public.dsl</code>. And a private repo with a missing fleet-index entry defaults to private (fail-closed) → excluded from public.</li>
+  <li><strong>Groups:</strong> repos placed under the correct <code>group</code> boundary.</li>
+  <li><strong>Valid DSL shape:</strong> output parses as a well-formed workspace (balanced braces; <code>softwareSystem</code>/<code>container</code>/relationship/<code>views</code>/<code>styles</code> blocks present).</li>
+  <li>Reuse swarph_fed's existing tests (<code>test_fed.py</code>, <code>test_matrix.py</code>, <code>test_seam.py</code>) unchanged — the derivation is not modified.</li>
+  <li>Manual acceptance: <code>full.dsl</code> loads in Structurizr Lite, drill-down works, sizes/colors read correctly; <code>public.dsl</code> shows only public repos.</li>
+</ul>
+
+<h2 id="build-order-task-decomposition">Build Order / Task Decomposition</h2>
+
+<p>1. <strong>Emitter core</strong> (<code>structurizr_emit.py</code> + tests): <code>to_structurizr</code> producing valid DSL from in-memory <code>repos</code>/<code>dag</code>/<code>reconcile</code> fixtures. Deterministic, two-view, reconciliation tags, size buckets, groups. (Testable in isolation — no Lite, no real repos.)
+2. <strong>Visibility + groups wiring:</strong> read fleet-index visibility, static groups map, fail-closed defaults. Wire the emitter into a <code>swarph_fed.py</code> CLI subcommand (<code>--emit structurizr --out DIR</code>).
+3. <strong><code>fed_refresh.sh</code> extension:</strong> generate <code>full.dsl</code> + <code>public.dsl</code> atomically into the Lite workspace dir on each refresh.
+4. <strong>Structurizr Lite service:</strong> Docker + <code>swarph-federation-c4.service</code> systemd unit, tailnet-bound.
+5. <strong>swarph-desktop integration:</strong> Federation tab → link/iframe the Lite URL; <code>/federation</code> serves the public export.</p>
+
+<p>Tasks 1–3 are the deterministic core (swarph-codegraph-fed, git repo, testable). Tasks 4–5 are deployment/integration (commander-gated where they touch service hosting / a new exposed surface).</p>
+
+<h2 id="open-items-risks">Open Items / Risks</h2>
+
+<ul class="article-list">
+  <li><strong>Coverage of non-Python repos:</strong> <code>swarph_fed</code>'s cross-repo edges come from pyproject deps + Python import grounding. JS/TS repos (gridiron, openclaw) will appear as <strong>sized nodes with sparse/no edges</strong> — informative (size, visibility, group) but not richly connected. Acceptable for v1; a JS/TS seam extractor is a future extension.</li>
+  <li><strong>openclaw indexing:</strong> currently omitted (CodeGraph walked <code>node_modules</code> and timed out). Add <code>node_modules/*</code> to <code>fleet.DEFAULT_EXCLUDES</code> and index with that skip before openclaw joins the model as a real node. Tracked separately.</li>
+  <li><strong>Public-view rendering:</strong> Structurizr Lite is a viewer, not a headless exporter; producing a shareable PNG/SVG of <code>public.dsl</code> may need <code>structurizr-cli export</code> (a second image) or a second Lite instance. Resolve in Task 4.</li>
+  <li><strong>Deployment/hosting is commander-gated</strong> (new self-hosted service + a new exposed surface for the public view), per the lab charter.</li>
+</ul>
+
+<p>---</p>
+
+<p><em>Brainstormed with the commander 2026-07-17. Decisions: C4/Structurizr · generated · Structurizr Lite · two-view (gated full + public-only).</em></p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#1-structurizr-emitter-structurizr-emit-py-swarph-codegraph-fed">1. Structurizr emitter — `structurizr_emit.py` (swarph-codegraph-fed)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#2-visibility-groups-resolver">2. Visibility + groups resolver</a></li>
+<li style="margin-left: 0.8rem;"><a href="#3-structurizr-lite-service-docker-systemd-lab-ovh">3. Structurizr Lite service — Docker + systemd (lab-ovh)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#4-swarph-desktop-integration">4. swarph-desktop integration</a></li>
+<li style="margin-left: 0.8rem;"><a href="#5-refresh-extend-fed-refresh-sh">5. Refresh — extend `fed_refresh.sh`</a></li>
+<li><a href="#global-constraints">Global Constraints</a></li>
+<li><a href="#locked-decisions-from-brainstorming-2026-07-17">Locked Decisions (from brainstorming 2026-07-17)</a></li>
+<li><a href="#components">Components</a></li>
+<li><a href="#data-flow">Data Flow</a></li>
+<li><a href="#error-handling">Error Handling</a></li>
+<li><a href="#testing">Testing</a></li>
+<li><a href="#build-order-task-decomposition">Build Order / Task Decomposition</a></li>
+<li><a href="#open-items-risks">Open Items / Risks</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

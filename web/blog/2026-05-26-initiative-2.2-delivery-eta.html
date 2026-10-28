@@ -1,0 +1,739 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Initiative 2.2 "En stock livraison 24h" — Baseline + Post Tracking Implementation Plan | Technical Whitepaper</title>
+  <meta name="description" content="Initiative 2.2 "En stock livraison 24h" — Baseline + Post Tracking Implementation Plan — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-05-26-initiative-2.2-delivery-eta.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Initiative 2.2 "En stock livraison 24h" — Baseline + Post Tracking Implementation Plan</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 18 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Initiative 2.2 "En stock livraison 24h" — Baseline + Post Tracking Implementation Plan</p>
+
+<p>> <strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+
+<p>> <strong>⚠️ AS-BUILT CORRECTIONS (2026-05-26) — the committed script & spec are the source of truth.</strong>
+> During implementation the backfilled data overturned two assumptions baked into the task
+> text/code blocks below:
+> 1. <strong>Badge column:</strong> the "En stock - Livraison 24h" badge is in <code>PRODUCT_STOCK</code>
+>    (value <code>'1_available_En stock - Livraison 24h'</code>, match <code>product_stock ILIKE '%livraison 24h%'</code>),
+>    <strong>not</strong> <code>PRODUCT_DELIVERY_TIME</code> (which is a sparse numeric lead-time). So <code>badge_split()</code>
+>    queries <code>product_stock</code> and <code>BADGE_LIKE = '%livraison 24h%'</code>.
+> 2. <strong>Go-live / cutoff:</strong> the badge value first appears <strong>2026-05-20</strong> (not 13/05), matching
+>    the backlog <code>start_date</code>. Windows are baseline <code>2026-02-13…05-19</code>, post <code>2026-05-20…05-29</code>.
+> 3. The script also gained a <code>common_max_date()</code> cap so the post window only covers dates
+>    present in all three source tables (action/sessions/product) — avoids mixing a fresh
+>    product backfill with a staler action pull.
+> Code/date/column literals in the tasks below are pre-correction; read them with these fixes.</p>
+
+<p><strong>Goal:</strong> Measure the product-view→add-to-cart→purchase funnel (PDP and vignette paths) on all FR traffic, before vs after the 2026-05-13 "En stock livraison 24h" PDP badge go-live, verify the badge is firing via the <code>dimension25</code>/<code>PRODUCT_DELIVERY_TIME</code> signal, and surface baseline-vs-actual KPIs in the Web Funnel Initiatives Backlog dashboard.</p>
+
+<p><strong>Architecture:</strong> A single idempotent analysis script (<code>scripts/update_wf_test22_delivery_eta.py</code>) reads <code>ga4_action_events</code> + <code>ga4_sessions</code> (funnels, both windows) and <code>ga4_product_events</code> (badge signal, post window), then writes <code>wf_test_kpis</code> rows and emits a <code>result_markdown</code> block. The badge columns (<code>product_delivery_time</code>, <code>product_stock</code>) are added to <code>ga4_product_events</code> and backfilled for FR over the post window only. No new dashboard endpoint/template — the existing <code>/panel/wf-backlog</code> already renders <code>wf_test_kpis</code> baseline/actual columns.</p>
+
+<p><strong>Tech Stack:</strong> Python 3.12 (project <code>venv</code>), psycopg2, TimescaleDB (<code>:5434</code>, <code>ga4_<em></code>), PostgreSQL (<code>:5433</code>, <code>wf_</em></code>), Oracle thin client (<code>oracledb</code>) for the ingestion backfill. Spec: <code>docs/superpowers/specs/2026-05-26-initiative-2.2-delivery-eta-design.md</code>.</p>
+
+<p><strong>Reference pattern:</strong> <code>scripts/update_wf_test5_variants.py</code> (Test 1) — same structure: compute → upsert <code>wf_test_kpis</code> → print human summary → emit <code>===RESULT_MARKDOWN_BEGIN===</code>/<code>===RESULT_MARKDOWN_END===</code> block.</p>
+
+<p><strong>Environment notes:</strong>
+<ul class="article-list">
+  <li>Run Python via the project venv: <code>& "C:\Users\piesamso1\OneDrive - Publicis Groupe\Bureau\Lyréco\venv\Scripts\python.exe"</code>.</li>
+  <li>Oracle needs the correct TNS path (the <code>.env</code> value is stale): set <code>$env:ORACLE_TNS_ADMIN = "C:\Users\piesamso1\OneDrive - Publicis Groupe\Bureau\Lyréco\oracle"</code> before any Oracle pull. Requires GlobalProtect VPN connected.</li>
+  <li><code>wf_<em></code> tables live in PostgreSQL via <code>database.crm_db.CRMDatabase</code>; <code>ga4_</em></code> in TimescaleDB via <code>database.timeseries_db.TimeseriesDatabase</code>. <code>initiative_number</code> is <strong>TEXT</strong> in the live DB (e.g. <code>"2.2 · Pilot"</code>).</li>
+</ul></p>
+
+<p>---</p>
+
+<h2 id="file-structure">File Structure</h2>
+
+<p>| File | Responsibility | Action |
+|------|----------------|--------|
+| <code>database/init_timescale_ga4.sql</code> | <code>ga4_product_events</code> DDL | Modify — add 2 columns (fresh-install parity) |
+| <code>workers/oracle_ga4_products_pull.py</code> | Oracle→Timescale product pull | Modify — select + upsert the 2 new columns |
+| <code>scripts/update_wf_test22_delivery_eta.py</code> | Funnel + badge analysis, KPI upsert, markdown | Create |</p>
+
+<p>---</p>
+
+<h2 id="task-1-add-badge-columns-to-the-product-event-warehouse-ingestion">Task 1: Add badge columns to the product-event warehouse + ingestion</h2>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>database/init_timescale_ga4.sql</code> (ga4_product_events DDL, around line 228 <code>page_type</code>)</li>
+  <li>Modify: <code>workers/oracle_ga4_products_pull.py</code> (SELECT ~line 57-80, upsert ~line 108-130, tuple ~line 151-170)</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Add columns to the DDL (fresh-install parity)</strong></li>
+</ul>
+
+<p>In <code>database/init_timescale_ga4.sql</code>, in the <code>ga4_product_events</code> CREATE TABLE, add two columns immediately after the <code>page_type  TEXT,</code> line (line 228):</p>
+
+<p><code></code>`sql
+    page_type                 TEXT,
+    product_delivery_time     TEXT,                  -- GA4 dimension25 ("En stock livraison 24h" badge)
+    product_stock             TEXT,                  -- sibling stock-state custom dimension
+    last_pulled_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: ALTER the live Timescale table (idempotent)</strong></li>
+</ul>
+
+<p>Run:
+<code></code>`powershell
+& "C:\Users\piesamso1\OneDrive - Publicis Groupe\Bureau\Lyréco\venv\Scripts\python.exe" -c "from database.timeseries_db import TimeseriesDatabase; ts=TimeseriesDatabase(); ts.execute('ALTER TABLE ga4_product_events ADD COLUMN IF NOT EXISTS product_delivery_time TEXT, ADD COLUMN IF NOT EXISTS product_stock TEXT'); print('altered')"
+<code></code>`
+Expected: prints <code>altered</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Add the columns to the ingestion SELECT</strong></li>
+</ul>
+
+<p>In <code>workers/oracle_ga4_products_pull.py</code>, in <code>PRODUCT_SQL_TEMPLATE</code> (ends at <code>PAGE_TYPE</code> ~line 75), change the tail of the column list:</p>
+
+<p><code></code>`sql
+  PRODUCT_BMSM_FLAG, PRODUCT_BMSM_TIER, PRODUCT_COUPON_CODE,
+  PAGE_TYPE,
+  PRODUCT_DELIVERY_TIME, PRODUCT_STOCK
+FROM {schema}.T_ECOM_GA4_PRODUCT
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Add the columns to the upsert INSERT list + ON CONFLICT set</strong></li>
+</ul>
+
+<p>In the <code>upsert_sql</code> string (~line 108-130), add the two columns to the INSERT column list (after <code>page_type</code>) and to the <code>DO UPDATE SET</code> so re-pulls populate them on existing rows:</p>
+
+<p><code></code>`python
+    upsert_sql = (
+        "INSERT INTO ga4_product_events ("
+        "event_date, product_row_id, source_country, "
+        "event_unique_id, visit_unique_id, visitor_id, "
+        "event_name, event_timestamp, "
+        "product_reference, product_name, product_brand, product_variant, "
+        "web_category1, web_category2, web_category3, web_category4, "
+        "product_quantity, local_product_price, local_sales_amount, local_refund_amount, "
+        "currency_code, product_category_id, "
+        "product_list_name, product_list_id, product_list_index, "
+        "product_recommendation_program, sponsored_product, "
+        "product_promotion_name, product_promotion_id, "
+        "product_creative_name, product_creative_slot, "
+        "product_deal_type, product_bmsm_flag, product_bmsm_tier, product_coupon_code, "
+        "page_type, product_delivery_time, product_stock"
+        ") VALUES %s "
+        "ON CONFLICT (event_date, event_unique_id, product_row_id, source_country) DO UPDATE SET "
+        "  product_quantity = EXCLUDED.product_quantity, "
+        "  local_product_price = EXCLUDED.local_product_price, "
+        "  local_sales_amount  = EXCLUDED.local_sales_amount, "
+        "  product_recommendation_program = EXCLUDED.product_recommendation_program, "
+        "  product_delivery_time = EXCLUDED.product_delivery_time, "
+        "  product_stock = EXCLUDED.product_stock, "
+        "  last_pulled_at = NOW()"
+    )
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Add the two values to the row tuple</strong></li>
+</ul>
+
+<p>In the <code>batch.append((...))</code> (~line 151-170), append the two new values at the end of the tuple, immediately after <code>r["PAGE_TYPE"],</code>:</p>
+
+<p><code></code>`python
+                r["PAGE_TYPE"],
+                r["PRODUCT_DELIVERY_TIME"], r["PRODUCT_STOCK"],
+            ))
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 6: Backfill FR over the post window (badge didn't exist before 05-13)</strong></li>
+</ul>
+
+<p><code>--days N</code> filters <code>EVENT_DATE >= TRUNC(SYSDATE) - N</code>. With today = 2026-05-26, <code>--days 16</code> covers from 2026-05-10 (a couple of days of margin before the 05-13 cutoff is fine and lets us confirm the badge is absent pre-cutoff). FR only.</p>
+
+<p>Run (VPN must be up):
+<code></code>`powershell
+$env:ORACLE_TNS_ADMIN = "C:\Users\piesamso1\OneDrive - Publicis Groupe\Bureau\Lyréco\oracle"
+& "C:\Users\piesamso1\OneDrive - Publicis Groupe\Bureau\Lyréco\venv\Scripts\python.exe" -m workers.oracle_ga4_products_pull --schemas FRANCE --days 16
+<code></code>`
+Expected: log lines ending with <code>FRANCE: <N> events (<m> min)</code> and <code>DONE schemas=FRANCE</code>. Non-trivial N (hundreds of thousands+).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 7: Verify the new columns are now populated in the warehouse</strong></li>
+</ul>
+
+<p>Run:
+<code></code>`powershell
+& "C:\Users\piesamso1\OneDrive - Publicis Groupe\Bureau\Lyréco\venv\Scripts\python.exe" -c "from database.timeseries_db import TimeseriesDatabase; ts=TimeseriesDatabase(); print(ts.query(\"SELECT COUNT(*) n, COUNT(product_delivery_time) nd FROM ga4_product_events WHERE source_country='FR' AND event_name='view_item' AND page_type='product' AND event_date BETWEEN '2026-05-13' AND '2026-05-21'\"))"
+<code></code>`
+Expected: <code>n</code> > 0 and <code>nd</code> > 0 (delivery_time populated for a meaningful share of post-window PDP views).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 8: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add database/init_timescale_ga4.sql workers/oracle_ga4_products_pull.py
+git commit -m "feat: ingest GA4 product_delivery_time + product_stock (dimension25)</p>
+
+<p>Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="task-2-confirm-the-badge-string-value-first-appearance-date">Task 2: Confirm the badge string value + first-appearance date</h2>
+
+<p>This determines the <code>BADGE_LIKE</code> predicate the analysis uses. Query our own warehouse (fast, indexed by <code>event_date</code> chunk) instead of the 113M-row Oracle table.</p>
+
+<p><strong>Files:</strong> none (verification only).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: List distinct delivery-time values on FR PDP views, post window</strong></li>
+</ul>
+
+<p>Run:
+<code></code>`powershell
+& "C:\Users\piesamso1\OneDrive - Publicis Groupe\Bureau\Lyréco\venv\Scripts\python.exe" -c "from database.timeseries_db import TimeseriesDatabase; ts=TimeseriesDatabase(); rows=ts.query(\"SELECT product_delivery_time v, COUNT(*) n FROM ga4_product_events WHERE source_country='FR' AND event_name='view_item' AND page_type='product' AND event_date BETWEEN '2026-05-13' AND '2026-05-21' GROUP BY product_delivery_time ORDER BY n DESC LIMIT 20\"); [print(repr(r['v']), r['n']) for r in rows]"
+<code></code>`
+Expected: one of the values is the "En stock livraison 24h" badge (exact casing/wording visible). Note the literal.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Confirm the badge is absent before the cutoff</strong></li>
+</ul>
+
+<p>Run:
+<code></code>`powershell
+& "C:\Users\piesamso1\OneDrive - Publicis Groupe\Bureau\Lyréco\venv\Scripts\python.exe" -c "from database.timeseries_db import TimeseriesDatabase; ts=TimeseriesDatabase(); rows=ts.query(\"SELECT event_date, COUNT(*) n FROM ga4_product_events WHERE source_country='FR' AND event_name='view_item' AND page_type='product' AND product_delivery_time ILIKE '%24h%' AND event_date BETWEEN '2026-05-10' AND '2026-05-21' GROUP BY event_date ORDER BY event_date\"); [print(r['event_date'], r['n']) for r in rows]"
+<code></code>`
+Expected: near-zero rows before 2026-05-13, then non-trivial daily counts from 2026-05-13 onward. This is the functional confirmation that the badge went live on the stated date.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Decide <code>BADGE_LIKE</code></strong></li>
+</ul>
+
+<p>Default predicate for Task 3 is <code>product_delivery_time ILIKE '%24h%'</code>. If Step 1 shows the literal is cleanly <code>'En stock livraison 24h'</code> with no unrelated <code>24h</code> values, you may instead set <code>BADGE_LIKE = 'En stock livraison 24h'</code> (exact, no wildcards) for precision. Record the chosen value to use in Task 3 Step 1. No commit (verification only).</p>
+
+<p>---</p>
+
+<h2 id="task-3-write-the-analysis-script">Task 3: Write the analysis script</h2>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>scripts/update_wf_test22_delivery_eta.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the full script</strong></li>
+</ul>
+
+<p>Create <code>scripts/update_wf_test22_delivery_eta.py</code> with this exact content. (If Task 2 Step 3 chose an exact literal, change <code>BADGE_LIKE</code> accordingly — it is the only value that may need adjustment.)</p>
+
+<p><code></code>`python
+"""Initiative 2.2 — "En stock livraison 24h" PDP badge: baseline vs post tracking.</p>
+
+<p>Computes two session-grain funnels on ALL FR traffic for two windows
+(baseline = 3 months pre go-live; post = go-live..cutoff), plus the badge
+functional check + saw-badge-vs-not split using the dimension25 signal
+(ga4_product_events.product_delivery_time). Writes wf_test_kpis rows for
+'2.2 · Pilot' (FR) and emits a result_markdown block for the dashboard.</p>
+
+<p>Idempotent / re-runnable. Mirrors scripts/update_wf_test5_variants.py.</p>
+
+<p>Run:
+    python scripts/update_wf_test22_delivery_eta.py
+"""
+from __future__ import annotations</p>
+
+<p>import datetime as dt
+import sys
+from pathlib import Path</p>
+
+<p>_REPO = Path(__file__).resolve().parent.parent
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))</p>
+
+<p>from database.crm_db import CRMDatabase
+from database.timeseries_db import TimeseriesDatabase</p>
+
+<p>INITIATIVE = "2.2 · Pilot"
+SOURCE_COUNTRY = "FR"</p>
+
+<p># Go-live of "En stock livraison 24h" (user-confirmed). Baseline = 3 full
+# months before (team rule 2026-05-19); post = go-live .. analysis cutoff.
+CUTOFF = dt.date(2026, 5, 13)
+BASELINE_START = dt.date(2026, 2, 13)
+BASELINE_END = dt.date(2026, 5, 12)
+POST_START = dt.date(2026, 5, 13)
+POST_END = dt.date(2026, 5, 29)</p>
+
+<p># add_to_cart page_type contexts that represent a product <em>tile</em> in a listing
+# (confirmed present on FR add_to_cart events, probe 2026-05-26). PDP = 'product'.
+VIGNETTE_PAGE_TYPES = [
+    "search-results", "product-category", "product-list",
+    "category", "search_with_results", "list",
+]</p>
+
+<p># Badge match predicate value (see plan Task 2). Robust substring by default.
+BADGE_LIKE = "%24h%"</p>
+
+<p>def pct(num: int, den: int) -> float:
+    """Rate in [0,1]; 0 when denominator is 0."""
+    return (num / den) if den else 0.0</p>
+
+<p>def funnel(ts: TimeseriesDatabase, start: dt.date, end: dt.date) -> dict:
+    """Session-grain PDP + vignette funnel counts for [start, end] (FR).</p>
+
+<p>Stage A = saw PDP (view_item@product) / saw vignette (select_item@listing)
+    Stage B = + add_to_cart from that surface
+    Stage C = + purchased in the same window's sessions
+    """
+    rows = ts.query(
+        """
+        WITH ev AS (
+          SELECT visit_unique_id,
+            bool_or(event_name='view_item'  AND page_type='product')      AS pdp_view,
+            bool_or(event_name='add_to_cart' AND page_type='product')      AS pdp_atc,
+            bool_or(event_name='select_item' AND page_type = ANY(%(vig)s)) AS vig_view,
+            bool_or(event_name='add_to_cart' AND page_type = ANY(%(vig)s)) AS vig_atc
+          FROM ga4_action_events
+          WHERE source_country='FR'
+            AND event_date BETWEEN %(s)s AND %(e)s
+            AND visit_unique_id IS NOT NULL
+          GROUP BY visit_unique_id
+        ),
+        buy AS (
+          SELECT DISTINCT visit_unique_id
+          FROM ga4_sessions
+          WHERE source_country='FR'
+            AND session_date BETWEEN %(s)s AND %(e)s
+            AND order_count > 0
+        )
+        SELECT
+          COUNT(*) FILTER (WHERE pdp_view)                                               AS pdp_a,
+          COUNT(*) FILTER (WHERE pdp_view AND pdp_atc)                                   AS pdp_b,
+          COUNT(*) FILTER (WHERE pdp_view AND pdp_atc AND b.visit_unique_id IS NOT NULL) AS pdp_c,
+          COUNT(*) FILTER (WHERE vig_view)                                               AS vig_a,
+          COUNT(*) FILTER (WHERE vig_view AND vig_atc)                                   AS vig_b,
+          COUNT(*) FILTER (WHERE vig_view AND vig_atc AND b.visit_unique_id IS NOT NULL) AS vig_c
+        FROM ev LEFT JOIN buy b USING (visit_unique_id)
+        """,
+        {"vig": VIGNETTE_PAGE_TYPES, "s": start, "e": end},
+    )
+    r = {k: int(v or 0) for k, v in rows[0].items()}
+    return r</p>
+
+<p>def badge_split(ts: TimeseriesDatabase, start: dt.date, end: dt.date) -> list[dict]:
+    """Post-window PDP sessions split by whether the PDP view carried the badge.</p>
+
+<p>Returns up to 2 rows: saw_badge in {True, False} with pdp/atc/buy session
+    counts. PDP-view population comes from ga4_product_events (item-scoped, where
+    the badge lives); add_to_cart + purchase come from action/session tables.
+    """
+    rows = ts.query(
+        """
+        WITH pdp_badge AS (
+          SELECT visit_unique_id,
+            bool_or(product_delivery_time ILIKE %(badge)s) AS saw_badge
+          FROM ga4_product_events
+          WHERE source_country='FR'
+            AND event_date BETWEEN %(s)s AND %(e)s
+            AND event_name='view_item' AND page_type='product'
+            AND visit_unique_id IS NOT NULL
+          GROUP BY visit_unique_id
+        ),
+        ev AS (
+          SELECT visit_unique_id,
+            bool_or(event_name='add_to_cart' AND page_type='product') AS pdp_atc
+          FROM ga4_action_events
+          WHERE source_country='FR'
+            AND event_date BETWEEN %(s)s AND %(e)s
+            AND visit_unique_id IS NOT NULL
+          GROUP BY visit_unique_id
+        ),
+        buy AS (
+          SELECT DISTINCT visit_unique_id
+          FROM ga4_sessions
+          WHERE source_country='FR'
+            AND session_date BETWEEN %(s)s AND %(e)s
+            AND order_count > 0
+        )
+        SELECT
+          COALESCE(p.saw_badge, false) AS saw_badge,
+          COUNT(*)                                            AS pdp_sessions,
+          COUNT(*) FILTER (WHERE e.pdp_atc)                   AS atc_sessions,
+          COUNT(*) FILTER (WHERE e.pdp_atc
+                                 AND b.visit_unique_id IS NOT NULL) AS buy_sessions
+        FROM pdp_badge p
+        LEFT JOIN ev  e USING (visit_unique_id)
+        LEFT JOIN buy b USING (visit_unique_id)
+        GROUP BY COALESCE(p.saw_badge, false)
+        """,
+        {"badge": BADGE_LIKE, "s": start, "e": end},
+    )
+    return [{k: (bool(v) if k == "saw_badge" else int(v or 0)) for k, v in r.items()}
+            for r in rows]</p>
+
+<p>def upsert_kpi(crm: CRMDatabase, kpi_index: int, kpi_name: str, expected: str,
+               baseline_value, baseline_text, actual_value, actual_text) -> None:
+    """Insert-or-update one wf_test_kpis row for the 2.2 pilot."""
+    crm.execute(
+        """
+        INSERT INTO wf_test_kpis (
+            initiative_number, source_country, kpi_index, kpi_name, expected_result,
+            baseline_value, baseline_text, actual_value, actual_result_text,
+            last_computed_at, last_ingested_at
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW(),NOW())
+        ON CONFLICT (initiative_number, source_country, kpi_index) DO UPDATE SET
+            kpi_name           = EXCLUDED.kpi_name,
+            expected_result    = EXCLUDED.expected_result,
+            baseline_value     = EXCLUDED.baseline_value,
+            baseline_text      = EXCLUDED.baseline_text,
+            actual_value       = EXCLUDED.actual_value,
+            actual_result_text = EXCLUDED.actual_result_text,
+            last_computed_at   = NOW(),
+            last_ingested_at   = NOW()
+        """,
+        (INITIATIVE, SOURCE_COUNTRY, kpi_index, kpi_name, expected,
+         baseline_value, baseline_text, actual_value, actual_text),
+    )</p>
+
+<p>def main() -> int:
+    crm = CRMDatabase()
+    ts = TimeseriesDatabase()</p>
+
+<p>print("1. Computing baseline funnel (FR, %s → %s)…" % (BASELINE_START, BASELINE_END))
+    bl = funnel(ts, BASELINE_START, BASELINE_END)
+    print("   PDP   A=%(pdp_a)d B=%(pdp_b)d C=%(pdp_c)d" % bl)
+    print("   VIGN  A=%(vig_a)d B=%(vig_b)d C=%(vig_c)d" % bl)</p>
+
+<p>print("2. Computing post funnel (FR, %s → %s)…" % (POST_START, POST_END))
+    po = funnel(ts, POST_START, POST_END)
+    print("   PDP   A=%(pdp_a)d B=%(pdp_b)d C=%(pdp_c)d" % po)
+    print("   VIGN  A=%(vig_a)d B=%(vig_b)d C=%(vig_c)d" % po)</p>
+
+<p>print("3. Computing badge split (post)…")
+    split = badge_split(ts, POST_START, POST_END)
+    by = {r["saw_badge"]: r for r in split}
+    saw = by.get(True, {"pdp_sessions": 0, "atc_sessions": 0, "buy_sessions": 0})
+    nob = by.get(False, {"pdp_sessions": 0, "atc_sessions": 0, "buy_sessions": 0})
+    total_pdp = saw["pdp_sessions"] + nob["pdp_sessions"]
+    coverage = pct(saw["pdp_sessions"], total_pdp)
+    print("   saw-badge PDP sessions=%d  no-badge=%d  coverage=%.1f%%"
+          % (saw["pdp_sessions"], nob["pdp_sessions"], 100 * coverage))</p>
+
+<p># ---- rates (0..1) ----
+    bl_pdp_ab, po_pdp_ab = pct(bl["pdp_b"], bl["pdp_a"]), pct(po["pdp_b"], po["pdp_a"])
+    bl_pdp_bc, po_pdp_bc = pct(bl["pdp_c"], bl["pdp_b"]), pct(po["pdp_c"], po["pdp_b"])
+    bl_vig_ab, po_vig_ab = pct(bl["vig_b"], bl["vig_a"]), pct(po["vig_b"], po["vig_a"])
+    bl_vig_bc, po_vig_bc = pct(bl["vig_c"], bl["vig_b"]), pct(po["vig_c"], po["vig_b"])</p>
+
+<p>def win(s, e):  # human window text
+        return "%s → %s" % (s, e)</p>
+
+<p>bl_txt = "Baseline %s (FR, all traffic)" % win(BASELINE_START, BASELINE_END)
+    po_txt = "Post %s (FR, all traffic; refresh as data lands)" % win(POST_START, POST_END)</p>
+
+<p>print("4. Fixing 2.2 · Pilot start_date → %s…" % POST_START)
+    crm.execute(
+        "UPDATE wf_tests SET start_date=%s, last_ingested_at=NOW() "
+        "WHERE initiative_number=%s AND source_country=%s",
+        (POST_START, INITIATIVE, SOURCE_COUNTRY),
+    )</p>
+
+<p>print("5. Upserting wf_test_kpis rows…")
+    upsert_kpi(crm, 1, "Conversion rate PDP to cart", "Improve conversion rate",
+               bl_pdp_ab, "%s: %d PDP-view sessions, %d added (%.2f%%)"
+               % (bl_txt, bl["pdp_a"], bl["pdp_b"], 100 * bl_pdp_ab),
+               po_pdp_ab, "%s: %d PDP-view sessions, %d added (%.2f%%)"
+               % (po_txt, po["pdp_a"], po["pdp_b"], 100 * po_pdp_ab))
+    upsert_kpi(crm, 2, "PDP cart → conversion", "Improve conversion rate",
+               bl_pdp_bc, "%s: %d add-to-cart sessions, %d purchased (%.2f%%)"
+               % (bl_txt, bl["pdp_b"], bl["pdp_c"], 100 * bl_pdp_bc),
+               po_pdp_bc, "%s: %d add-to-cart sessions, %d purchased (%.2f%%)"
+               % (po_txt, po["pdp_b"], po["pdp_c"], 100 * po_pdp_bc))
+    upsert_kpi(crm, 3, "Vignette → add to cart", "Improve conversion rate",
+               bl_vig_ab, "%s: %d vignette-interaction sessions, %d added (%.2f%%)"
+               % (bl_txt, bl["vig_a"], bl["vig_b"], 100 * bl_vig_ab),
+               po_vig_ab, "%s: %d vignette-interaction sessions, %d added (%.2f%%)"
+               % (po_txt, po["vig_a"], po["vig_b"], 100 * po_vig_ab))
+    upsert_kpi(crm, 4, "Vignette cart → conversion", "Improve conversion rate",
+               bl_vig_bc, "%s: %d add-to-cart sessions, %d purchased (%.2f%%)"
+               % (bl_txt, bl["vig_b"], bl["vig_c"], 100 * bl_vig_bc),
+               po_vig_bc, "%s: %d add-to-cart sessions, %d purchased (%.2f%%)"
+               % (po_txt, po["vig_b"], po["vig_c"], 100 * po_vig_bc))
+    upsert_kpi(crm, 5, "Badge PDP coverage (post)", "Badge fires on PDP views",
+               None, "n/a (badge did not exist before %s)" % POST_START,
+               coverage, "Post %s: %d of %d PDP-view sessions saw the badge (%.1f%%)"
+               % (win(POST_START, POST_END), saw["pdp_sessions"], total_pdp, 100 * coverage))</p>
+
+<p># ---- result markdown ----
+    def rate(n, d):
+        return "%.2f%%" % (100 * pct(n, d))</p>
+
+<p>def dpp(b, p):  # delta in percentage points
+        d = round(100 * (p - b), 2)
+        return ("+%.2f" % d) if d > 0 else ("%.2f" % d)</p>
+
+<p>saw_ab = pct(saw["atc_sessions"], saw["pdp_sessions"])
+    nob_ab = pct(nob["atc_sessions"], nob["pdp_sessions"])
+    saw_ac = pct(saw["buy_sessions"], saw["pdp_sessions"])
+    nob_ac = pct(nob["buy_sessions"], nob["pdp_sessions"])
+    today = dt.date.today().isoformat()</p>
+
+<p>body_md = f"""## Initiative 2.2 — "En stock livraison 24h" PDP badge (FR)</p>
+
+<p><strong>Data refreshed:</strong> {today} · script: <code>scripts/update_wf_test22_delivery_eta.py</code>
+<strong>Baseline:</strong> {BASELINE_START} → {BASELINE_END} · <strong>Post (badge live):</strong> {POST_START} → {POST_END}
+All FR traffic, session grain, same-session purchase.</p>
+
+<h3 id="funnel-baseline-vs-post">Funnel — baseline vs post</h3>
+
+<p>| Path | Stage | Baseline | Post | Δ (pp) |
+|---|---|---:|---:|---:|
+| PDP | view → add-to-cart | {rate(bl['pdp_b'], bl['pdp_a'])} | {rate(po['pdp_b'], po['pdp_a'])} | {dpp(bl_pdp_ab, po_pdp_ab)} |
+| PDP | add-to-cart → purchase | {rate(bl['pdp_c'], bl['pdp_b'])} | {rate(po['pdp_c'], po['pdp_b'])} | {dpp(bl_pdp_bc, po_pdp_bc)} |
+| PDP | view → purchase (overall) | {rate(bl['pdp_c'], bl['pdp_a'])} | {rate(po['pdp_c'], po['pdp_a'])} | {dpp(pct(bl['pdp_c'], bl['pdp_a']), pct(po['pdp_c'], po['pdp_a']))} |
+| Vignette | interaction → add-to-cart | {rate(bl['vig_b'], bl['vig_a'])} | {rate(po['vig_b'], po['vig_a'])} | {dpp(bl_vig_ab, po_vig_ab)} |
+| Vignette | add-to-cart → purchase | {rate(bl['vig_c'], bl['vig_b'])} | {rate(po['vig_c'], po['vig_b'])} | {dpp(bl_vig_bc, po_vig_bc)} |
+| Vignette | interaction → purchase (overall) | {rate(bl['vig_c'], bl['vig_a'])} | {rate(po['vig_c'], po['vig_a'])} | {dpp(pct(bl['vig_c'], bl['vig_a']), pct(po['vig_c'], po['vig_a']))} |</p>
+
+<p>> Baseline n: PDP-view sessions {bl['pdp_a']:,}, vignette sessions {bl['vig_a']:,}.
+> Post n: PDP-view sessions {po['pdp_a']:,}, vignette sessions {po['vig_a']:,}.
+> Vignette Stage-A uses <code>select_item</code> (tile click) as the interaction proxy
+> (<code>view_item_list</code> is not ingested) — read as "of sessions that clicked a tile…".</p>
+
+<h3 id="badge-functional-check-saw-badge-vs-not-post-window">Badge functional check + saw-badge vs not (post window)</h3>
+
+<p>Badge PDP coverage: <strong>{rate(saw['pdp_sessions'], total_pdp)}</strong> of post PDP-view sessions
+carried <code>dimension25</code> ("En stock livraison 24h") — match <code>product_delivery_time ILIKE '{BADGE_LIKE}'</code>.</p>
+
+<p>| Cohort (post) | PDP-view sess | view→cart | view→purchase |
+|---|---:|---:|---:|
+| Saw badge | {saw['pdp_sessions']:,} | {rate(saw['atc_sessions'], saw['pdp_sessions'])} | {rate(saw['buy_sessions'], saw['pdp_sessions'])} |
+| Did not see badge | {nob['pdp_sessions']:,} | {rate(nob['atc_sessions'], nob['pdp_sessions'])} | {rate(nob['buy_sessions'], nob['pdp_sessions'])} |
+| Δ (saw − not, pp) | — | {dpp(nob_ab, saw_ab)} | {dpp(nob_ac, saw_ac)} |</p>
+
+<p>> Coverage > 0 from {POST_START} confirms the badge is firing on PDPs.
+> The saw-vs-not split isolates the badge effect from seasonality better than raw pre/post.</p>
+
+<h3 id="next-action">Next action</h3>
+<ul class="article-list">
+  <li>Re-run <code>scripts/update_wf_test22_delivery_eta.py</code> (or the dashboard refresh button) as</li>
+</ul>
+  more post-window days land, through {POST_END}.
+"""
+
+<p>print("\n===RESULT_MARKDOWN_BEGIN===")
+    print(body_md)
+    print("===RESULT_MARKDOWN_END===")
+    return 0</p>
+
+<p>if __name__ == "__main__":
+    sys.exit(main())
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Byte-compile to catch syntax errors</strong></li>
+</ul>
+
+<p>Run:
+<code></code>`powershell
+& "C:\Users\piesamso1\OneDrive - Publicis Groupe\Bureau\Lyréco\venv\Scripts\python.exe" -m py_compile scripts/update_wf_test22_delivery_eta.py; if ($?) { "compile OK" }
+<code></code>`
+Expected: <code>compile OK</code>, no traceback.</p>
+
+<p>---</p>
+
+<h2 id="task-4-run-the-analysis-end-to-end-and-verify-outputs">Task 4: Run the analysis end-to-end and verify outputs</h2>
+
+<p><strong>Files:</strong> none (execution + verification).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Run the script</strong></li>
+</ul>
+
+<p>Run:
+<code></code>`powershell
+& "C:\Users\piesamso1\OneDrive - Publicis Groupe\Bureau\Lyréco\venv\Scripts\python.exe" scripts/update_wf_test22_delivery_eta.py
+<code></code>`
+Expected: prints steps 1–5, then the <code>===RESULT_MARKDOWN_BEGIN===</code>…<code>===RESULT_MARKDOWN_END===</code> block. No traceback.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Sanity-check the funnel numbers</strong></li>
+</ul>
+
+<p>Inspect the printed counts. Expected sanity properties:
+<ul class="article-list">
+  <li><code>pdp_a ≥ pdp_b ≥ pdp_c</code> and <code>vig_a ≥ vig_b ≥ vig_c</code> (stages are nested) in both windows.</li>
+  <li>Rates are within (0%, 100%) — not 0 and not 100.</li>
+  <li>Baseline <code>pdp_a</code> (3 months) is much larger than post <code>pdp_a</code> (~2 weeks).</li>
+</ul>
+If a stage is 0 or a rate is exactly 0/100, stop and recheck the page_type sets and window dates before continuing.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Verify KPI rows persisted with baseline + actual</strong></li>
+</ul>
+
+<p>Run:
+<code></code>`powershell
+& "C:\Users\piesamso1\OneDrive - Publicis Groupe\Bureau\Lyréco\venv\Scripts\python.exe" -c "from database.crm_db import CRMDatabase; c=CRMDatabase(); rows=c.query(\"SELECT kpi_index,kpi_name,baseline_value,actual_value FROM wf_test_kpis WHERE initiative_number='2.2 · Pilot' AND source_country='FR' ORDER BY kpi_index\"); [print(r) for r in rows]"
+<code></code>`
+Expected: 5 rows. KPIs 1–4 have non-null <code>baseline_value</code> and <code>actual_value</code>; KPI 5 has null baseline and non-null actual (coverage).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Verify the start_date fix</strong></li>
+</ul>
+
+<p>Run:
+<code></code>`powershell
+& "C:\Users\piesamso1\OneDrive - Publicis Groupe\Bureau\Lyréco\venv\Scripts\python.exe" -c "from database.crm_db import CRMDatabase; c=CRMDatabase(); print(c.query(\"SELECT initiative_number,start_date FROM wf_tests WHERE initiative_number='2.2 · Pilot' AND source_country='FR'\"))"
+<code></code>`
+Expected: <code>start_date</code> = <code>2026-05-13</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Verify idempotency (re-run changes nothing structural)</strong></li>
+</ul>
+
+<p>Re-run the script once more (Step 1 command). Expected: completes cleanly; Step 3 still shows exactly 5 KPI rows (values may refresh, no duplicates).</p>
+
+<p>---</p>
+
+<h2 id="task-5-verify-dashboard-render-then-commit">Task 5: Verify dashboard render, then commit</h2>
+
+<p><strong>Files:</strong> none (verification + commit).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Confirm the backlog panel renders the 2.2 KPIs</strong></li>
+</ul>
+
+<p>The dashboard service <code>LeadContagionDashboard</code> already serves <code>/panel/wf-backlog</code>. Fetch the FR panel and confirm the 2.2 KPI names + values appear (Basic Auth from <code>.dashboard_extras.env</code>; substitute a valid user/password):
+<code></code>`powershell
+& "C:\Users\piesamso1\OneDrive - Publicis Groupe\Bureau\Lyréco\venv\Scripts\python.exe" -c "import urllib.request,base64; u='http://127.0.0.1:8001/panel/wf-backlog?country=FR'; r=urllib.request.Request(u); r.add_header('Authorization','Basic '+base64.b64encode(b'lyreco:REPLACE_WITH_PASSWORD').decode()); h=urllib.request.urlopen(r).read().decode('utf-8','replace'); print('Badge PDP coverage' in h, 'Vignette → add to cart' in h)"
+<code></code>`
+Expected: <code>True True</code> (both new KPI names present in the rendered HTML). If the dashboard isn't running or auth differs, instead confirm via the DB check in Task 4 Step 3 and note the panel reads the same table.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Commit the analysis script</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add scripts/update_wf_test22_delivery_eta.py
+git commit -m "feat: initiative 2.2 delivery-ETA baseline + post funnel tracking</p>
+
+<p>PDP and vignette view->add-to-cart->purchase funnels (FR, session grain) for
+baseline (2026-02-13..05-12) vs post (2026-05-13..05-29), plus dimension25
+badge coverage + saw-badge-vs-not split. Writes wf_test_kpis for 2.2 Pilot
+and emits result_markdown for the backlog panel.</p>
+
+<p>Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Confirm working tree is clean of scratch files</strong></li>
+</ul>
+
+<p>Run:
+<code></code>`bash
+git status --short
+<code></code>`
+Expected: no <code>scripts/_probe_<em>.py</code> present (deleted during design); only intended changes committed. If any <code>_probe_</em>.py</code> reappeared, delete them.</p>
+
+<p>---</p>
+
+<h2 id="self-review-completed-by-plan-author">Self-Review (completed by plan author)</h2>
+
+<p><strong>Spec coverage:</strong>
+<ul class="article-list">
+  <li>Windows (baseline/post, cutoff 05-13) → Task 3 constants, Task 4 verification. ✓</li>
+  <li>PDP + vignette funnels, session grain, page_type split → Task 3 <code>funnel()</code>. ✓</li>
+  <li>Vignette <code>select_item</code> denominator + caveat → Task 3 <code>funnel()</code> + markdown note. ✓</li>
+  <li><code>dimension25 = PRODUCT_DELIVERY_TIME</code> ingestion (schema + pull + FR post backfill) → Task 1. ✓</li>
+  <li>Functional check + saw-badge-vs-not split → Task 3 <code>badge_split()</code> + markdown. ✓</li>
+  <li>5 KPI rows (keep #1, add #2–#5) with baseline/actual → Task 3 <code>upsert_kpi()</code>, Task 4 Step 3. ✓</li>
+  <li>start_date fix 05-20 → 05-13 → Task 3 main(), Task 4 Step 4. ✓</li>
+  <li>result_markdown for backlog panel, no new endpoint → Task 3 + Task 5 Step 1. ✓</li>
+  <li>Cleanup of probe scripts → done during design; re-checked Task 5 Step 3. ✓</li>
+</ul></p>
+
+<p><strong>Placeholder scan:</strong> <code>BADGE_LIKE</code> is a concrete default (<code>%24h%</code>) with an explicit Task 2 confirmation step; <code>REPLACE_WITH_PASSWORD</code> is an intentional credential the operator substitutes. No TODO/TBD/"handle edge cases". ✓</p>
+
+<p><strong>Type/name consistency:</strong> <code>funnel()</code> returns dict keys <code>pdp_a/b/c</code>, <code>vig_a/b/c</code> used consistently; <code>badge_split()</code> returns <code>saw_badge/pdp_sessions/atc_sessions/buy_sessions</code> used consistently; <code>upsert_kpi()</code> signature matches all 5 call sites; <code>pct()</code> used throughout. ✓</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#funnel-baseline-vs-post">Funnel — baseline vs post</a></li>
+<li style="margin-left: 0.8rem;"><a href="#badge-functional-check-saw-badge-vs-not-post-window">Badge functional check + saw-badge vs not (post window)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#next-action">Next action</a></li>
+<li><a href="#file-structure">File Structure</a></li>
+<li><a href="#task-1-add-badge-columns-to-the-product-event-warehouse-ingestion">Task 1: Add badge columns to the product-event warehouse + ingestion</a></li>
+<li><a href="#task-2-confirm-the-badge-string-value-first-appearance-date">Task 2: Confirm the badge string value + first-appearance date</a></li>
+<li><a href="#task-3-write-the-analysis-script">Task 3: Write the analysis script</a></li>
+<li><a href="#task-4-run-the-analysis-end-to-end-and-verify-outputs">Task 4: Run the analysis end-to-end and verify outputs</a></li>
+<li><a href="#task-5-verify-dashboard-render-then-commit">Task 5: Verify dashboard render, then commit</a></li>
+<li><a href="#self-review-completed-by-plan-author">Self-Review (completed by plan author)</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

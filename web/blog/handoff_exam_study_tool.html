@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Handoff Brief — Exam Study Tool (personal build) | Technical Whitepaper</title>
+  <meta name="description" content="Handoff Brief — Exam Study Tool (personal build) — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/handoff_exam_study_tool.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Handoff Brief — Exam Study Tool (personal build)</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Handoff Brief — Exam Study Tool (personal build)</p>
+
+<p><strong>For the building AI:</strong> This is a complete, self-contained spec. Build from it cold.
+You do NOT need any prior conversation history. Read the <strong>Safety rails (§5)</strong> carefully —
+they are non-negotiable and define what this tool must NOT do.</p>
+
+<p>---</p>
+
+<h2 id="1-who-it-s-for-the-goal">§1 Who it's for + the goal</h2>
+The end user is a <em></em>board-certified nuclear-medicine physician, sub-specialized in
+neurology<strong>, preparing for a </strong>nuclear-medicine neuro super-specialization exam<em></em>. She
+is <strong>ADHD</strong> and <strong>already a heavy, comfortable Gemini user</strong> (assume AI-fluent; design
+for her, not for a beginner).
+
+<p><strong>Goal:</strong> a personal <strong>exam-practice / study tool</strong> that drills her on board-style
+questions generated <em>from her own study materials</em>, and — crucially — <em></em>points her back
+to the exact source (document + page / slide) so she knows where to study deeper when
+she gets something wrong.<em></em></p>
+
+<p>This is a <strong>study tool, not a clinical tool</strong> (see §5).</p>
+
+<h2 id="2-form-factor-decided-don-t-re-litigate">§2 Form factor — decided, don't re-litigate</h2>
+<ul class="article-list">
+  <li><strong>A web app: HTML + JavaScript. Build it as a PWA (installable, offline-capable).</strong></li>
+  <li><strong>v0 = a single self-contained HTML file</strong> with the question bank embedded as JSON.</li>
+</ul>
+  No server, no hosting, no accounts — she opens it on her laptop or phone, fully
+  private, works offline. Grow into a hosted/synced PWA <em>only</em> if she asks.
+<ul class="article-list">
+  <li>Responsive: must work well on <strong>phone</strong> (she'll drill in 5-minute gaps — micro-study</li>
+</ul>
+  is what an ADHD brain sustains best) and on laptop.
+<ul class="article-list">
+  <li>NOT native mobile, NOT desktop-only. One codebase, every screen.</li>
+</ul>
+
+<h2 id="3-the-core-design">§3 The core design</h2>
+1. <strong>Validated question bank from HER materials.</strong> An AI ingests her PDFs / slide decks
+   <em>once</em> and generates a bank of board-style Q&A <strong>grounded in those documents</strong>. The
+   bank is a <strong>reviewable artifact</strong> (e.g. a JSON file) — NOT freshly generated per
+   session. This is what makes it trustworthy for a high-stakes exam: the content can
+   be spot-checked, and it doesn't hallucinate live. Regenerate/expand when her
+   materials change.
+<ul class="article-list">
+  <li><em>Recommended generator: <strong>Gemini</strong></em> — she already uses it, and its long-context</li>
+</ul>
+     document handling is ideal for ingesting big PDFs/decks. (The builder AI can be
+     anything; the bank-generator is best as Gemini.)
+2. <strong>Source references on every question (the headline feature).</strong> Each question is
+   tagged with its origin: <code>{document, page}</code> or <code>{deck, slide}</code>. When she answers
+   (especially wrong), show <strong>"From: Guideline X, p.42 — review this"</strong> and, if
+   feasible, link/open that page or slide. This is the "study more when she needs to"
+   guidance — it removes the <em>what do I review next?</em> decision entirely.
+3. <strong>Weak-area tracking + spaced repetition.</strong> Remember what she misses, re-surface it,
+   and <strong>roll the misses up by topic/source</strong> → "you keep missing dopaminergic imaging →
+   here are the 3 slides on it." Spaced repetition on missed items (active recall is the
+   engine ADHD brains respond to).
+4. <strong>ADHD-shaped UX:</strong> short sets (10–20 questions), <strong>instant feedback</strong>, visible
+   progress, one-tap start (low activation energy beats a 600-page textbook), clean and
+   uncluttered.
+
+<h2 id="4-data-shape-suggested">§4 Data shape (suggested)</h2>
+A question-bank JSON, e.g.:
+<code></code>`json
+{
+  "questions": [
+    {
+      "id": "q001",
+      "topic": "dopaminergic imaging",
+      "stem": "A DaTscan shows ... Most likely diagnosis?",
+      "choices": ["A ...", "B ...", "C ...", "D ..."],
+      "answer": "B",
+      "explanation": "Because ... (grounded in the source)",
+      "source": {"document": "Neuro NM Guidelines 2025", "page": 42}
+    }
+  ]
+}
+<code></code>`
+The runtime app is <strong>static</strong> — it just serves and scores this bank. (Optional later: a
+"explain this deeper" button that calls Gemini live — but the core loop needs no live AI.)
+
+<h2 id="5-safety-rails-non-negotiable-they-travel-with-this-spec">§5 SAFETY RAILS — non-negotiable, they travel with this spec</h2>
+1. <strong>This is a STUDY tool, not a diagnostic tool.</strong> It must NEVER read real patient
+   scans, never provide a clinical diagnosis, never be used in patient care. Practice /
+   teaching cases only.
+2. <strong>Ground everything in HER validated materials. Cite, don't invent.</strong> Every question
+   and explanation must trace to a source in her documents. Do not generate medical
+   facts from the model's own training — only from her materials.
+3. <strong>The model can misread a doc it's looking at</strong> — so the generated bank must be
+   <strong>spot-checkable</strong> (sources cited per question) and she remains the authority. Build
+   for "cite-and-verify," not "trust-and-pray."
+4. <strong>Do NOT have the AI "read" nuclear-medicine images to determine answers.</strong> General
+   vision models hallucinate on nuclear-med imaging. For any image-based question,
+   ground the answer in <em></em>her annotated teaching cases where she/the source provides the
+   ground truth<em></em> — the AI scaffolds the question around a known answer; it does not
+   diagnose the image.
+
+<h2 id="6-what-you-need-from-her-before-building">§6 What you need from her before building</h2>
+<ul class="article-list">
+  <li>Her <strong>source materials</strong> (PDFs, slide decks, her notes) — the corpus.</li>
+  <li>Her <strong>exam format</strong> (single-best-answer MCQ? multi-select? image-based?), preferred</li>
+</ul>
+  <strong>session length</strong>, and the <strong>topic list</strong> for the exam.
+<ul class="article-list">
+  <li>Then: generate the validated bank (Gemini) → build the single-file PWA (§2) around it.</li>
+</ul>
+
+<h2 id="7-build-philosophy">§7 Build philosophy</h2>
+Compose, don't over-build. Start with the single self-contained HTML file + an embedded
+validated bank. Ship that, let her use it, add sync / spaced-rep polish / live
+"explain deeper" only if she wants them. Thin tool, real value, safe by construction.
+
+<p>---
+*Brief by lab-ovh (the architect cell), 2026-06-07, for hand-off to a fresh builder
+AI — keeps the personal build out of lab's substrate context while carrying the full
+spec + guardrails.*</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#1-who-it-s-for-the-goal">§1 Who it's for + the goal</a></li>
+<li><a href="#2-form-factor-decided-don-t-re-litigate">§2 Form factor — decided, don't re-litigate</a></li>
+<li><a href="#3-the-core-design">§3 The core design</a></li>
+<li><a href="#4-data-shape-suggested">§4 Data shape (suggested)</a></li>
+<li><a href="#5-safety-rails-non-negotiable-they-travel-with-this-spec">§5 SAFETY RAILS — non-negotiable, they travel with this spec</a></li>
+<li><a href="#6-what-you-need-from-her-before-building">§6 What you need from her before building</a></li>
+<li><a href="#7-build-philosophy">§7 Build philosophy</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>How to standardize a dataset into the 1290-dim schema | Technical Whitepaper</title>
+  <meta name="description" content="How to standardize a dataset into the 1290-dim schema — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/HOW_TO_ADD_A_DATASET.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">How to standardize a dataset into the 1290-dim schema</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># How to standardize a dataset into the 1290-dim schema</p>
+
+<p>A step-by-step guide for mapping an existing persona dataset onto MatrAIx's <strong>1,290-dimension</strong>
+schema (<code>persona/schema/dimensions.json</code>) using the shared toolkit in this folder — so you write a
+small <strong>crosswalk</strong>, not a whole pipeline. Worked example: [<code>crosswalks/prism.py</code>](crosswalks/prism.py)
+(the PRISM extraction was built exactly this way).</p>
+
+<h2 id="the-method-two-faithful-layers-8">The method: two faithful layers + §8</h2>
+
+<p>| Layer | What | Tool |
+|---|---|---|
+| <strong>1. Observed (exact)</strong> | fields the source <em>states</em> (demographics, coded survey answers) → exact schema values | [<code>crosswalk_engine.py</code>](crosswalk_engine.py) |
+| <strong>2. Inferred</strong> | the remaining ~1,290 dims, inferred from the persona's free text, grounded in verbatim quotes | LLM pass (team's evidence-grounded prompt) |
+| <strong>3. Normalize (§8)</strong> | demote absence/ungrounded values, null off-allowed, overlay the exact dims | [<code>postprocess_engine.py</code>](postprocess_engine.py) |</p>
+
+<p><strong>Faithfulness is the rule</strong> (see <code>../../../human_extraction/docs/BENCHMARK.md</code> §8): unobserved → <code>null</code>;
+a mapped value <strong>must</strong> be in the dim's allowed set; nothing is invented — unreliable inferences are
+demoted to <code>unsupported</code>, never forced to a "reasonable-looking" value.</p>
+
+<h2 id="steps">Steps</h2>
+
+<p><strong>1. Explore your source.</strong> Decide which fields map <em>cleanly</em> to a schema dim (→ crosswalk) vs which
+need inference (→ LLM). Coded surveys (GSS, Afrobarometer) are mostly crosswalk; free-text sources
+(reviews, conversations) lean on the LLM layer.</p>
+
+<p><strong>2. Write a crosswalk</strong> — copy <code>crosswalks/prism.py</code> to <code>crosswalks/<yourdataset>.py</code>:
+<code></code>`python
+CROSSWALK = {
+    "<dim_id>": {"src": "<source_field>", "map": {"<src value>": "<target>" | None}, "prov": "observed"},
+    "<dim_id>": {"compute": lambda row: "<target>" | None, "prov": "observed"},  # multi-field/derived
+}
+<code></code>`
+<code>map</code> value <code>None</code> = present-but-deliberately-unmapped → null (e.g. a bucket too coarse for the schema).
+Nest-heavy sources: flatten the row first (surface <code>a.b</code> as <code>a_b</code>). Verify with <code>python crosswalks/<yourdataset>.py --selftest</code>.</p>
+
+<p><strong>3. Render a faithful <code>profile_text</code></strong> per persona — the natural-language text the LLM will ground
+on. Include <strong>only</strong> facts the source states (demographics + verbatim self-description / free text);
+omit missing fields, never fabricate.</p>
+
+<p><strong>4. Run the inferred layer.</strong> Feed each <code>profile_text</code> through the team's evidence-grounded prompt
+(per-category chunking, ≤50 dims/chunk = 53 chunks, <code>max_tokens=8192</code>) — via the wiki/Amazon
+<code>run_extraction.py</code> (vLLM) or an OpenAI-compatible API. Output per persona: <code>{user_id, fields:[...]}</code>,
+each field <code>{field_id, value, confidence, evidence, description, assignment_type}</code>.</p>
+
+<p><strong>5. Compose the layers + normalize (§8):</strong>
+<code></code>`python
+from postprocess_engine import load_schema, normalize
+from crosswalk_engine import apply_crosswalk
+from crosswalks.yourdataset import CROSSWALK</p>
+
+<p>order, allowed = load_schema("persona/schema/dimensions.json")</p>
+
+<p>for row in source_rows:
+    row = flatten(row)                                             # your flattener (if nested)
+    observed, prov, unmapped = apply_crosswalk(row, CROSSWALK, allowed)   # layer 1 (exact)
+    profile_text = render(row)                                     # your renderer (faithful NL)
+    raw_fields = llm_extract(profile_text)                        # layer 2 (LLM)
+    fields = normalize(raw_fields, order, allowed,                # layer 3 (§8 + exact overlay)
+                       profile_text=profile_text, observed=observed)
+    emit({"user_id": row["id"], "fields": fields, "observed": observed})
+<code></code>`</p>
+
+<p><strong>6. Validate — must be 0 errors:</strong>
+<code></code>`
+python persona/human_extraction/scripts/validate_extraction.py \
+    --input <dataset>/extraction_v1/shard_00.jsonl.gz \
+    --schema persona/schema/dimensions.json --profiles <profiles.jsonl>
+<code></code>`</p>
+
+<p><strong>7. Upload</strong> to <code>MatrAIx2026/MatrAIx-1290-extractions</code> following that repo's <code>CONTRIBUTING.md</code>
+(one folder per dataset, <code>extraction_v1/</code> shard + <code>manifest.json</code>, PR for review).</p>
+
+<h2 id="checklist">Checklist</h2>
+<ul class="article-list">
+  <li>[ ] crosswalk written + <code>--selftest</code> passes</li>
+  <li>[ ] <code>profile_text</code> is faithful (no invented facts)</li>
+  <li>[ ] LLM layer run over all 1,290 dims (53 chunks)</li>
+  <li>[ ] <code>normalize()</code> applied (§8 + observed overlay)</li>
+  <li>[ ] <code>validate_extraction.py</code> → 0 errors</li>
+  <li>[ ] uploaded per <code>CONTRIBUTING.md</code></li>
+</ul>
+
+<p>Questions → see the PRISM worked example, or ping the <code>team-coordinator</code> channel.</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#the-method-two-faithful-layers-8">The method: two faithful layers + §8</a></li>
+<li><a href="#steps">Steps</a></li>
+<li><a href="#checklist">Checklist</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

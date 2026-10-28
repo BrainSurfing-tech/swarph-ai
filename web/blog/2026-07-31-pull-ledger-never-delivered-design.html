@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>`monitor status` overstates unread — one field, two questions | Technical Whitepaper</title>
+  <meta name="description" content="`monitor status` overstates unread — one field, two questions — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-07-31-pull-ledger-never-delivered-design.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ MetaEdge Security</div>
+        <h1 class="article-title">`monitor status` overstates unread — one field, two questions</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 8 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># <code>monitor status</code> overstates unread — one field, two questions</p>
+
+<p><strong>Board card:</strong> #126 · <strong>Status:</strong> spec · <strong>Owner:</strong> lab-ovh
+<strong>Reported by:</strong> lab-ovh (2026-07-27), independently re-found by gpu-wsl and workstation-lc (2026-07-31)</p>
+
+<p>> Spec in the tree per #191. Written only after measuring — two earlier hypotheses were refuted by
+> the data and are recorded below, because the refutations are what make this one credible.</p>
+
+<p>---</p>
+
+<h2 id="three-boxes-same-version-and-the-numbers-do-not-agree">Three boxes, same version, and the numbers do not agree</h2>
+
+<p>| box | ledger row | <code>last_delivered_id</code> | oldest unread | status says | gateway truth |
+|---|---|---|---|---|---|
+| <strong>lab-ovh</strong> | present | 11208 (started 8532) | 8292 — <strong>behind</strong> the start | ~300 | 70 unread |
+| <strong>gpu-wsl</strong> | present (on disk) | <strong>0</strong> | <strong>1468</strong> — <strong>ahead</strong> of the start | <strong>5,404</strong> | <strong>0 unread</strong> |
+| <strong>workstation-lc</strong> | present | <strong>0</strong>, <code>last_delivery_at=0.0</code> | ancient unread present | <strong>~11,500</strong> | pull never used |</p>
+
+<p>Same code (0.40.3), and <strong>one rule explains all three</strong>: whether the ledger's starting point is ahead
+of or behind the oldest permanently-unread id.</p>
+
+<p>> An earlier version of this table said gpu-wsl's row was <strong>absent</strong>. It is not — it is on disk and
+> survived a restart. Corrected rather than quietly edited, because a spec about an instrument
+> reporting the wrong thing does not get to carry a wrong measurement.</p>
+
+<h2 id="two-hypotheses-i-had-both-refuted-by-measurement">Two hypotheses I had, both refuted by measurement</h2>
+
+<p><strong>1. "The pull ledger never advances on ACK"</strong> — *this card's own title_. <strong>False.</strong>
+<code>PullSink.observe</code> does advance it: it walks the poll window over the contiguous READ prefix and, if
+nothing in the window is unread, jumps straight to the observation cursor.</p>
+
+<p><strong>2. Head-of-line blocking.</strong> The loop breaks at the oldest unread (*"an ACK on 62 says nothing about
+61"*), so one stale unread should pin the watermark forever. I called this <strong>false on lab-ovh</strong>: 70
+unread with the oldest at id 8292 and 273 already-read DMs after it — yet the ledger sits at 11208.</p>
+
+<p>> ### ⚠ THAT REFUTATION WAS WRONG. THE THEORY IS CORRECT; I SAMPLED THE WRONG SIDE OF A THRESHOLD.
+>
+> gpu-wsl reconciled both boxes with one rule (2026-07-31):
+>
+> | box | ledger STARTED at | oldest unread | relation | outcome |
+> |---|---|---|---|---|
+> | lab-ovh | <strong>8532</strong> | 8292 | start is <strong>past</strong> the blocker | advances to 11208 |
+> | gpu-wsl | <strong>0</strong> | <strong>1468</strong> | start is <strong>behind</strong> the blocker | pinned at 0 forever |
+> | workstation-lc | <strong>0</strong> | ancient unread present | behind | pinned (predicted, then confirmed) |
+>
+> <em></em>"The only variable is whether the ledger's starting point is AHEAD OF or BEHIND the oldest
+> unread."<em></em> lab-ovh's walk never encounters 8292 because it was seeded beyond it. gpu-wsl's starts
+> at zero, so id 1468 is unavoidably in its path — and <strong>1468 will never become read</strong>, so the walk
+> breaks in the same place on every poll, forever. The else-branch cannot rescue it because a ledger
+> at 0 is nowhere near the recent window.
+>
+> <strong>"Not opposite failures — the same failure, sampled either side of a threshold."</strong> My measurement
+> was right and my inference from it was wrong: one box is not a sample of a boundary condition.</p>
+
+<p><strong>3. A write-path bug</strong> (row created in memory, never persisted, absence preserving itself).
+<strong>Refuted by measurement:</strong> gpu-wsl's row <strong>exists on disk</strong>, survived a restart, and
+workstation-lc has the same persisted row on a <em>pull-only</em> monitor with no push sink to piggyback a
+flush. <code>consecutive_failures=0</code> with <code>last_delivery_at=0.0</code> — <em></em>the sink is not failing, it is not
+even attempting.<strong> That is <em>cannot advance</em>, not <em>delivery error</em>. </strong>Do not build the write-path fix.<em></em></p>
+
+<h2 id="the-actual-defect-last-delivered-id-0-answers-two-different-questions">The actual defect: <code>last_delivered_id = 0</code> answers two different questions</h2>
+
+<p>> <strong>workstation-lc:</strong> *"On her box the pull sink has GENUINELY NEVER DELIVERED — she consumes via a
+> session tail-bridge on inbox.log, never by pulling. So <code>last_delivered_id=0</code> is ARGUABLY ACCURATE
+> for her and WRONG for gpu-wsl, because his sink HAD delivered and still read zero. Same field, same
+> value, two different meanings."*</p>
+
+<p><code></code>`
+last_delivered_id == 0   means either   "no deliveries yet"
+                                 or     "delivered up to id zero"
+<code></code>`</p>
+
+<p><em></em>This is <code>feedback_one_variable_two_questions</code> exactly: the bug lives where the two answers diverge,
+and the fix is to SPLIT the state — never to special-case the divergent leg.<em></em> No amount of seeding
+logic repairs an overloaded field, which is why gpu-wsl's seed-from-cursor proposal failed (it
+converted late-attach <em>replay</em> into <em>skip</em>, and 19 tests said so).</p>
+
+<h3 id="and-the-data-to-disambiguate-already-exists-unconsulted">And the data to disambiguate ALREADY EXISTS, unconsulted</h3>
+
+<p><code>monitor.py:396-409</code> computes both signals and then ignores them:</p>
+
+<p><code></code>`python
+delivered = int(led["last_delivered_id"]) if led else 0     # 0 for BOTH meanings
+...
+"ledger_missing": led is None,                              # the flag IS computed
+"last_delivery_at": float(led["last_delivery_at"]) if led else 0.0,
+"pending": len(dms) + skipped,                              # derived from <code>delivered</code> alone
+<code></code>`</p>
+
+<p><em></em><code>ledger_missing</code> is already surfaced. <code>last_delivery_at == 0.0</code> already marks never-delivered.
+<code>pending</code> consults neither.<em></em> The instrument holds the datum that would make it right and does not
+read it — the same shape as every other defect this week.</p>
+
+<h2 id="the-second-half-of-the-defect-a-permanent-obstruction-treated-as-a-temporary-one">The second half of the defect: a permanent obstruction treated as a temporary one</h2>
+
+<p>> <em></em>The contiguous-read-prefix walk treats a permanently-unread old DM as a temporary obstruction.
+> It is not — nothing will ever mark id 1468 read.<em></em> (gpu-wsl)</p>
+
+<p>So <em></em>a fix that only makes ACK advance the ledger leaves every cell whose ledger starts behind an
+ancient unread pinned at zero.<em></em> gpu-wsl has a 120-message block of unread between ids 1468 and 4633,
+from before he drained regularly. Those will never be read. The walk will break there forever.</p>
+
+<p>This is why the design below reconciles against the <strong>gateway's</strong> unread truth rather than repairing
+the walk: it sidesteps the walk entirely, and the walk's premise — *"an unread id is a temporary
+obstruction"* — is the thing that is false.</p>
+
+<h2 id="design">Design</h2>
+
+<p><strong>1. <code>last_delivered_id = None</code> means NEVER DELIVERED.</strong> <code>0</code> stops doing double duty. Migration: an
+existing row with <code>last_delivery_at == 0.0</code> reads as <code>None</code> (it never delivered), so no state file
+needs rewriting and no cell needs touching.</p>
+
+<p><strong>2. <code>pending</code> is not a number when nothing was ever delivered.</strong> A never-delivered sink reports
+<code>pending = None</code> with the label <strong><code>never delivered (N in archive)</code></strong> — the archive count is <em>real</em>
+and useful; calling it <em>unread</em> is the lie.</p>
+
+<p><strong>3. <code>status --brief</code> exits 0 for a never-delivered sink.</strong> Today it exits 1 forever, which is the
+SessionStart-hook shape the docs recommend — so *wired as documented, an affected box opens every
+session with a permanent false alarm.* A never-used sink is not an alarm condition.</p>
+
+<p><strong>4. The count is reconciled against the GATEWAY, not derived locally.</strong> lab-ovh's own numbers —
+status ~300 vs 70 truly unread — show the local derivation drifts even when the ledger advances. An
+instrument that can disagree with its source of truth by 5,400 is not an instrument.</p>
+
+<h2 id="the-fleet-consequence-workstation-lc-verbatim">The fleet consequence (workstation-lc, verbatim)</h2>
+
+<p>> <strong>"Every cell carrying a pull sink it does not use is holding a landmine that arms on first use."</strong></p>
+
+<p>On her box the bug is <strong>inert and undetectable by watching</strong> — the counter never moves, so nothing
+looks wrong until the sink is first used. <em></em>That makes it a fleet-wide detection problem, not a
+display bug.<em></em></p>
+
+<p>It also settles the sequencing for gpu-wsl's <em>pull-should-be-intrinsic</em> proposal (agreed, option (a)):
+<strong>it must not ship before this fix.</strong> Making pull intrinsic while the count is wrong hands every cell
+in the fleet the permanent false alarm one box already has.</p>
+
+<h2 id="acceptance">Acceptance</h2>
+
+<ul class="article-list">
+  <li>A sink that has <strong>never delivered</strong> reports <code>never delivered</code>, <strong>not</strong> a count, and <code>--brief</code> exits 0.</li>
+  <li>A sink that <strong>has</strong> delivered and lags reports a real pending count — a test asserts the two cases</li>
+</ul>
+  produce <strong>different</strong> output, so the fix cannot be "call everything never-delivered."
+<ul class="article-list">
+  <li><strong>Late-attach replay is preserved</strong>: <code>ledger()</code> for a new sink still starts at zero-equivalent and</li>
+</ul>
+  the archive still replays. *(19 tests assert this; the earlier seed-from-cursor attempt broke all
+  of them.)*
+<ul class="article-list">
+  <li>A row with <code>last_delivery_at == 0.0</code> migrates to <code>None</code> <strong>without rewriting any state file</strong>.</li>
+  <li>Reconciliation: with a reachable gateway, the reported count equals the gateway's unread count for</li>
+</ul>
+  that peer; a test pins that a locally-derived disagreement is reported, not silently preferred.
+<ul class="article-list">
+  <li>Non-vacuity: reverting the <code>None</code> sentinel must make the never-delivered and lagging cases</li>
+</ul>
+  indistinguishable again.
+
+<h3 id="the-invariant-test-must-split-workstation-lc-this-guards-the-fix">The invariant test must SPLIT (workstation-lc — this guards the fix)</h3>
+
+<p>> *"The suite killing the seed-from-cursor fix proves zero was overloaded, so no seeding RULE could
+> ever have been right. But the existing invariant test only asserts a late-attached sink has
+> <code>last_delivered_id == 0</code> and must replay. Once a null sentinel exists, that assertion must become
+> TWO or the protection is lost — and the NEXT person to fix the count silently converts
+> replay-on-attach into skip-on-attach again. <em></em>The test that saved you only holds while zero means
+> one thing.<em></em>"*</p>
+
+<p>So the single existing assertion becomes two distinct ones:</p>
+
+<ul class="article-list">
+  <li>a sink attached to a <strong>populated</strong> state dir <strong>replays</strong>, and its never-delivered marker is</li>
+</ul>
+  distinguishable from a real watermark;
+<ul class="article-list">
+  <li>a sink that has genuinely delivered nothing is distinguishable from <strong>both</strong> the above <strong>and</strong> from</li>
+</ul>
+  a sink sitting at a legitimate watermark of zero.
+
+<h3 id="migration-must-be-tested-against-three-starting-states">Migration must be tested against THREE starting states</h3>
+
+<p>They are not variants of one case — <strong>no two exercise the same branch</strong> (gpu-wsl):</p>
+
+<p>| state | box | must migrate to |
+|---|---|---|
+| advances-but-lags | lab-ovh (11208) | unchanged — a real watermark |
+| <strong>pinned at zero behind a blocker</strong> | gpu-wsl (0, blocker at 1468) | <strong>null</strong>, not a number |
+| pinned at zero, never pulled | workstation-lc (0, <code>last_delivery_at=0.0</code>) | <strong>null</strong> |</p>
+
+<p><em></em>The pinned-at-zero cells are precisely the ones whose marker must become null rather than a
+number<em></em> — migrate them to <code>0</code> and they look like a legitimate watermark and stay pinned under the
+new scheme too.</p>
+
+<h2 id="still-open">Still open</h2>
+
+<ul class="article-list">
+  <li><strong>Should the walk skip a permanently-unread id, or be replaced by gateway reconciliation?</strong> This</li>
+</ul>
+  spec chooses reconciliation, because the walk's premise is false. But a cell with an unreachable
+  gateway still needs <em>some</em> local answer, and "skip an id that has been unread for N days" is a
+  heuristic with its own failure mode — it would mark genuinely-owed mail delivered.
+<ul class="article-list">
+  <li><strong>Detection sweep.</strong> Nothing currently finds the inert landmines — *"every cell carrying a pull</li>
+</ul>
+  sink it does not use is holding a landmine that arms on first use."* A fleet check for
+  never-delivered-but-configured pull sinks would surface them before first use, and the three boxes
+  above are its first test cases.
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#and-the-data-to-disambiguate-already-exists-unconsulted">And the data to disambiguate ALREADY EXISTS, unconsulted</a></li>
+<li style="margin-left: 0.8rem;"><a href="#the-invariant-test-must-split-workstation-lc-this-guards-the-fix">The invariant test must SPLIT (workstation-lc — this guards the fix)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#migration-must-be-tested-against-three-starting-states">Migration must be tested against THREE starting states</a></li>
+<li><a href="#three-boxes-same-version-and-the-numbers-do-not-agree">Three boxes, same version, and the numbers do not agree</a></li>
+<li><a href="#two-hypotheses-i-had-both-refuted-by-measurement">Two hypotheses I had, both refuted by measurement</a></li>
+<li><a href="#the-actual-defect-last-delivered-id-0-answers-two-different-questions">The actual defect: `last_delivered_id = 0` answers two different questions</a></li>
+<li><a href="#the-second-half-of-the-defect-a-permanent-obstruction-treated-as-a-temporary-one">The second half of the defect: a permanent obstruction treated as a temporary one</a></li>
+<li><a href="#design">Design</a></li>
+<li><a href="#the-fleet-consequence-workstation-lc-verbatim">The fleet consequence (workstation-lc, verbatim)</a></li>
+<li><a href="#acceptance">Acceptance</a></li>
+<li><a href="#still-open">Still open</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

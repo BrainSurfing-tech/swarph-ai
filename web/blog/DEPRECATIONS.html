@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Versioning Policy & Deprecations Tracker | Technical Whitepaper</title>
+  <meta name="description" content="Versioning Policy & Deprecations Tracker — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/DEPRECATIONS.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Versioning Policy & Deprecations Tracker</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 7 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Versioning Policy & Deprecations Tracker</p>
+
+<p>This document defines what counts as a breaking change in <code>swarph-mesh</code>, the deprecation cycle policy, and the live tracker of deprecated surfaces.</p>
+
+<h2 id="why-this-document-exists">Why this document exists</h2>
+
+<p><code>swarph-mesh</code> is the <strong>graph protocol substrate</strong> that third-party CLIs and future enterprise tooling plug into via the <code>LLMAdapter</code> Protocol, <code>MeshClient</code> wire format, and <code>discovery</code> primitives. These contracts are external-facing — silent changes orphan node implementers.</p>
+
+<p>This file makes the contract explicit:</p>
+
+<ul class="article-list">
+  <li>What surfaces are part of the public contract</li>
+  <li>What constitutes a breaking change to each</li>
+  <li>How long deprecation must run before removal</li>
+  <li>The current live deprecations and their removal timelines</li>
+</ul>
+
+<p>Pairs with [SECURITY.md](./SECURITY.md), which lists "Protocol contract violation" as a reportable security class — meaning shipping a breaking change without honoring the policy in this document is itself a security incident.</p>
+
+<h2 id="semantic-versioning-policy">Semantic versioning policy</h2>
+
+<p><code>swarph-mesh</code> follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html) with one tightening:</p>
+
+<ul class="article-list">
+  <li><strong>MAJOR (X.0.0)</strong>: any backwards-incompatible change to the public contract surface.</li>
+  <li><strong>MINOR (0.X.0)</strong>: backwards-compatible additions to public contract; can include backwards-compatible deprecations announced for removal in a future MAJOR.</li>
+  <li><strong>PATCH (0.0.X)</strong>: backwards-compatible bug fixes only. <strong>NO</strong> deprecation announcements, <strong>NO</strong> new public API.</li>
+</ul>
+
+<p>We're currently in <code>0.x</code> zone where some loosening is allowed: <code>0.MINOR.PATCH</code> may add API in MINOR, fix bugs in PATCH. <code>LLMAdapter</code> Protocol changes still require deprecation cycle even pre-1.0 because external node implementers exist.</p>
+
+<p>When <code>1.0.0</code> ships, all rules tighten to standard semver.</p>
+
+<h2 id="what-counts-as-the-public-contract">What counts as the public contract</h2>
+
+<p>Each module/symbol below is part of the contract. Changes to these require deprecation cycle.</p>
+
+<h3 id="tier-1-highest-stability-third-party-node-implementer-facing">Tier 1 (HIGHEST stability — third-party node-implementer-facing)</h3>
+
+<ul class="article-list">
+  <li><strong><code>swarph_mesh.types.LLMAdapter</code></strong> Protocol — methods, signatures, kwarg defaults, return types</li>
+  <li><strong><code>swarph_mesh.types.ChatMessage</code></strong> + <strong><code>LLMResponse</code></strong> field sets</li>
+  <li><strong>Canonical adapter names</strong>: <code>{gemini, deepseek, claude, openai, grok}</code> reserved; cannot be renamed without major version bump</li>
+  <li><strong><code>MeshClient.send</code></strong> + <strong><code>MeshClient.fetch</code></strong> signatures (third-party callers depend on the kwarg shape)</li>
+  <li><strong><code>MeshMessage</code></strong> wire shape (claude_messages JSONL persistence depends on this)</li>
+  <li><strong><code>discovery.list_models</code></strong> / <strong><code>is_model_supported</code></strong> / <strong><code>get_model_info</code></strong> signatures</li>
+  <li><strong><code>discovery.fetch_<em>_pricing</code></strong> + <strong><code>fetch_</em>_cost_buckets</code></strong> + <strong><code>reconcile_*_cost</code></strong> signatures</li>
+</ul>
+
+<h3 id="tier-2-medium-stability-consumer-facing-but-internal-friendly">Tier 2 (MEDIUM stability — consumer-facing but internal-friendly)</h3>
+
+<ul class="article-list">
+  <li><strong><code>SwarphCall</code></strong> public methods + kwargs</li>
+  <li><strong><code>AttributionWriter</code></strong> Protocol + <code>FileAttributionWriter</code> / <code>NullAttributionWriter</code> defaults</li>
+  <li><strong><code>HookSet</code></strong> + <strong><code>CallContext</code></strong> dataclasses</li>
+  <li><strong><code>discovery.normalize_*_id</code></strong> helper signatures (drop DM #745 obs #1)</li>
+  <li><strong><code>discovery._RETIREMENT_REGISTRY</code></strong> keys (consumers may iterate)</li>
+</ul>
+
+<h3 id="tier-3-lower-stability-best-effort-but-documented">Tier 3 (LOWER stability — best-effort but documented)</h3>
+
+<ul class="article-list">
+  <li>Adapter-local <code>PRICING</code> dicts (consumers should call <code>cost_per_token()</code> instead of importing PRICING directly, but some do — flagged in <code>SECURITY.md</code> as cost-attribution concern)</li>
+  <li><code>_normalize_*_id</code> adapter-local copies (preserved for back-compat per drop #745; eventual removal once centralized helpers settle)</li>
+  <li><code>discovery._ANTHROPIC_PRICING</code> static table contents</li>
+</ul>
+
+<h3 id="not-part-of-the-contract-no-stability-guarantee">NOT part of the contract (no stability guarantee)</h3>
+
+<ul class="article-list">
+  <li>Module-level private <code>_*</code> symbols (registry caches, helpers)</li>
+  <li>Test fixtures, internal utility functions</li>
+  <li>Mesh-gateway database schema (separate repo, separate semver)</li>
+  <li>swarph-shared interface (separate package; tracked in its own DEPRECATIONS)</li>
+</ul>
+
+<h2 id="what-counts-as-a-breaking-change">What counts as a breaking change</h2>
+
+<p>For each Tier 1/2 surface:</p>
+
+<h3 id="llmadapter-protocol">LLMAdapter Protocol</h3>
+
+<ul class="article-list">
+  <li><strong>Adding</strong> a method → BREAKING (third-party implementations now fail <code>isinstance(x, LLMAdapter)</code>). Required deprecation: announce in MINOR, ship with default no-op or fallback behavior, remove <code>isinstance</code> requirement enforcement until next MAJOR.</li>
+  <li><strong>Removing</strong> a method → BREAKING. Required deprecation: announce removal in MINOR-1, log <code>DeprecationWarning</code> for 1 minor cycle, remove in next MINOR.</li>
+  <li><strong>Renaming</strong> a method → ALWAYS BREAKING. Treat as add+remove with deprecation cycle on the old name.</li>
+  <li><strong>Changing a method signature</strong> (kwarg removal, kwarg-default change, return-type narrowing) → BREAKING. Add new method, deprecate old, remove old in next MINOR cycle.</li>
+  <li><strong>Adding a method with default behavior</strong> (e.g., <code>list_models()</code> in v0.6.0 with discovery delegation) → STILL BREAKING under runtime-checkable Protocol semantics, but minimally so. Treated as MINOR with deprecation announcement that mocks/stubs need updating.</li>
+</ul>
+
+<h3 id="meshmessage-meshclient-wire-format">MeshMessage / MeshClient wire format</h3>
+
+<ul class="article-list">
+  <li><strong>Adding</strong> a field with default → NON-BREAKING (extra: allow per pydantic config).</li>
+  <li><strong>Removing</strong> a field → BREAKING. Deprecation cycle: 1 minor of <code>DeprecationWarning</code> on <code>model_dump()</code>, then remove.</li>
+  <li><strong>Making an optional field required</strong> → BREAKING. Same cycle.</li>
+  <li><strong>Renaming</strong> a field → ALWAYS BREAKING. Add new + deprecate old + remove old in next MINOR.</li>
+</ul>
+
+<h3 id="canonical-adapter-names">Canonical adapter names</h3>
+
+<ul class="article-list">
+  <li><strong>Renaming</strong> a canonical name (e.g., <code>gemini</code> → <code>google</code>) → MAJOR-version-only change. No deprecation path that doesn't break existing string-pinned consumers.</li>
+  <li><strong>Adding</strong> a new canonical name → NON-BREAKING.</li>
+  <li><strong>Removing</strong> a canonical name (deprecating a provider entirely) → MINOR with <code>DeprecationWarning</code> for 2 cycles, then MAJOR.</li>
+</ul>
+
+<h2 id="deprecation-cycle-requirements">Deprecation cycle requirements</h2>
+
+<p>1. <strong>Announcement</strong>: PR introducing the deprecation must update this file's "Active deprecations" section AND add a <code>DeprecationWarning</code> in the relevant code path.
+2. <strong>Cycle length</strong>: minimum 1 MINOR release where the old surface emits warnings AND continues to work.
+3. <strong>Removal</strong>: in the MINOR after the announcement (or later — never sooner).
+4. <strong>CHANGELOG entry</strong>: every deprecation announcement and every removal lands in <code>CHANGELOG.md</code>.
+5. <strong>Migration guide</strong>: deprecations affecting Tier 1 surfaces require a migration paragraph in this file.</p>
+
+<h2 id="active-deprecations">Active deprecations</h2>
+
+<p>_None at v0.7.2._</p>
+
+<p>When a deprecation lands, this section gains an entry like:</p>
+
+<p><code></code>`
+<h3 id="deprecated-method-name-since-v0-x-y-removal-in-v0-x-1-0">deprecated_method_name (since v0.X.Y, removal in v0.X+1.0)</h3></p>
+
+<p><strong>What:</strong> Old surface description.</p>
+
+<p><strong>Why:</strong> Reason for deprecation (replaced by Z, security tightening, etc.).</p>
+
+<p><strong>Migration:</strong> Concrete code example old→new.</p>
+
+<p><strong>Status:</strong> Announced 2026-MM-DD. DeprecationWarning live since v0.X.Y.
+Removal scheduled for v0.X+1.0.
+<code></code>`</p>
+
+<h2 id="removed-surfaces-historical">Removed surfaces (historical)</h2>
+
+<p>_None — <code>swarph-mesh</code> has not yet removed any public surface._</p>
+
+<p>When a removal happens, this section records it for archaeology:</p>
+
+<p><code></code>`
+<h3 id="method-name-removed-in-v0-x-0">method_name (removed in v0.X.0)</h3></p>
+
+<p><strong>Was:</strong> Old surface description.</p>
+
+<p><strong>Replaced by:</strong> New surface, if any.</p>
+
+<p><strong>Final deprecation cycle:</strong> v0.Y.Z → v0.X.0.
+<code></code>`</p>
+
+<h2 id="forward-references-in-v0-7-0-v0-7-1-resolved-by-this-document">Forward-references in v0.7.0 / v0.7.1 (resolved by this document)</h2>
+
+<ul class="article-list">
+  <li><code>SECURITY.md</code> § 7 (Protocol contract violation): "shipped without a deprecation window per <code>DEPRECATIONS.md</code>" — <strong>policy now lives here</strong>.</li>
+  <li><code>tests/test_protocol_contract.py</code> test failure messages: "If intentional, update <code>PROTOCOL_FROZEN_AT_VERSION</code> + add entry to <code>DEPRECATIONS.md</code>" — <strong>the entry format is "Active deprecations" above</strong>.</li>
+  <li>CI workflow <code>mypy --strict</code> ratchet comment: "each minor version tightens one additional module per the <code>DEPRECATIONS.md</code> ratcheting discipline" — <strong>ratchet schedule documented in next section</strong>.</li>
+</ul>
+
+<h2 id="mypy-strict-module-ratchet-schedule">Mypy --strict module ratchet schedule</h2>
+
+<p>The CI gate (<code>.github/workflows/ci.yml</code>) currently runs <code>mypy --strict</code> on <code>types.py</code> + <code>exceptions.py</code>. Each subsequent minor tightens one more module:</p>
+
+<p>| Version | Module added to strict gate | Status |
+|---|---|---|
+| v0.7.0 | <code>types.py</code>, <code>exceptions.py</code> | ✅ initial |
+| v0.7.1 | (none — security policy release) | ✅ |
+| v0.7.2 | (none — versioning policy release) | ✅ |
+| v0.7.3 | (none — Sphinx docs release; doc surface itself is the hardening) | ✅ |
+| v0.7.4 | <code>discovery.py</code> (after type-tightening pass) | planned |
+| v0.7.5 | <code>__init__.py</code> + <code>mesh_client.py</code> | planned |
+| v0.7.6 | <code>swarph_call.py</code> + <code>attribution.py</code> + <code>hooks.py</code> | planned |
+| v0.8.0 | <code>adapters/*.py</code> (per-adapter strict in major bump window) | planned |</p>
+
+<p>When a module is added to the strict gate, the corresponding type-tightening (e.g., <code>dict</code> → <code>dict[str, Any]</code>) is part of that release's PR, NOT a follow-up. Tightening type annotations is non-breaking (more specific → not less specific).</p>
+
+<h2 id="hardening-commitment-per-release-anchor-point">Hardening commitment per release (anchor point)</h2>
+
+<p><code>SECURITY.md</code> commits to "each minor release tightens at least one of: secret-guard regexes, protocol-stability snapshots, mypy strict-module ratchet, privilege-boundary tests."</p>
+
+<p>Tracked here:</p>
+
+<p>| Version | Hardening dimension | What |
+|---|---|---|
+| v0.7.0 | protocol-stability + mypy | Initial 10 snapshot tests + types.py/exceptions.py strict gate |
+| v0.7.1 | secret-guard | (none — governance release; v0.7.4 includes regex audit) |
+| v0.7.2 | governance | DEPRECATIONS.md anchors policy referenced by SECURITY.md |
+| v0.7.3 | doc-surface | Sphinx auto-docs + GH Pages strict-mode build forces autodoc miss = build break, keeping documented contract in lockstep with code |
+| v0.7.4 | coverage-surface | Codecov patch coverage gate at 70% — fresh uncovered code blocks PR merge; project regression tolerance 1%; baseline 90% line / 88% branch on 1316 statements |
+| v0.7.5+ | TBD per release | tracked here |</p>
+
+<h2 id="how-to-file-a-deprecation">How to file a deprecation</h2>
+
+<p>1. Open a PR adding entry to "Active deprecations" above.
+2. Code change emits <code>warnings.warn("...", DeprecationWarning, stacklevel=2)</code> at the deprecated callsite.
+3. PR description names the removal target version.
+4. CHANGELOG.md "Unreleased" gets the announcement entry.
+5. After the announcement ships, the removal PR (in a later release) moves the entry from "Active deprecations" to "Removed surfaces" in this file + removes the code.</p>
+
+<h2 id="when-in-doubt">When in doubt</h2>
+
+<p>If you're unsure whether a change is breaking, the default is YES. Open a PR with a deprecation cycle. The cost of an unnecessary deprecation cycle is one minor release of warnings; the cost of a silent breaking change is third-party node implementers losing trust in the contract.</p>
+
+<p>That trust is the load-bearing thing. Protect it.</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#tier-1-highest-stability-third-party-node-implementer-facing">Tier 1 (HIGHEST stability — third-party node-implementer-facing)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#tier-2-medium-stability-consumer-facing-but-internal-friendly">Tier 2 (MEDIUM stability — consumer-facing but internal-friendly)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#tier-3-lower-stability-best-effort-but-documented">Tier 3 (LOWER stability — best-effort but documented)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#not-part-of-the-contract-no-stability-guarantee">NOT part of the contract (no stability guarantee)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#llmadapter-protocol">LLMAdapter Protocol</a></li>
+<li style="margin-left: 0.8rem;"><a href="#meshmessage-meshclient-wire-format">MeshMessage / MeshClient wire format</a></li>
+<li style="margin-left: 0.8rem;"><a href="#canonical-adapter-names">Canonical adapter names</a></li>
+<li style="margin-left: 0.8rem;"><a href="#deprecated-method-name-since-v0-x-y-removal-in-v0-x-1-0">deprecated_method_name (since v0.X.Y, removal in v0.X+1.0)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#method-name-removed-in-v0-x-0">method_name (removed in v0.X.0)</a></li>
+<li><a href="#why-this-document-exists">Why this document exists</a></li>
+<li><a href="#semantic-versioning-policy">Semantic versioning policy</a></li>
+<li><a href="#what-counts-as-the-public-contract">What counts as the public contract</a></li>
+<li><a href="#what-counts-as-a-breaking-change">What counts as a breaking change</a></li>
+<li><a href="#deprecation-cycle-requirements">Deprecation cycle requirements</a></li>
+<li><a href="#active-deprecations">Active deprecations</a></li>
+<li><a href="#removed-surfaces-historical">Removed surfaces (historical)</a></li>
+<li><a href="#forward-references-in-v0-7-0-v0-7-1-resolved-by-this-document">Forward-references in v0.7.0 / v0.7.1 (resolved by this document)</a></li>
+<li><a href="#mypy-strict-module-ratchet-schedule">Mypy --strict module ratchet schedule</a></li>
+<li><a href="#hardening-commitment-per-release-anchor-point">Hardening commitment per release (anchor point)</a></li>
+<li><a href="#how-to-file-a-deprecation">How to file a deprecation</a></li>
+<li><a href="#when-in-doubt">When in doubt</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

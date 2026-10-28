@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>tmux — attach / list / navigate (lab-OVH) | Technical Whitepaper</title>
+  <meta name="description" content="tmux — attach / list / navigate (lab-OVH) — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/ATTACH.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">tmux — attach / list / navigate (lab-OVH)</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># tmux — attach / list / navigate (lab-OVH)</p>
+
+<p>Quick reference so you never have to ask again. The Claude cells each live in
+their own tmux session on this box; attaching just gives you a window onto them.</p>
+
+<h2 id="get-on-the-box-first-if-you-re-not-already">Get on the box first (if you're not already)</h2>
+<code></code>`bash
+ssh ubuntu@100.107.222.72        # lab-OVH  (or the tailnet name)
+<code></code>`
+
+<h2 id="list-the-active-sessions">List the active sessions</h2>
+<code></code>`bash
+tmux ls
+<code></code>`
+Reading it: <code>name: 1 windows (created …) (attached)</code>
+<ul class="article-list">
+  <li><strong>(attached)</strong> = a client is currently looking at it</li>
+  <li>no tag = running fine, nobody connected</li>
+</ul>
+
+<h2 id="the-cells-one-tmux-session-each">The cells (one tmux session each)</h2>
+| Session | Who |
+|---|---|
+| <strong><code>lab</code></strong> | <strong>lab-ovh Claude — the mesh host / substrate (this is the one you usually want)</strong> |
+| <code>drop-on-meta-edge</code> | drop (security / meta-edge) |
+| <code>gridiron</code> | the football daughter |
+| <code>gemini</code> | gemini lane |
+| <code>gpt-ops</code> | gpt |
+
+<h2 id="attach">Attach</h2>
+<code></code>`bash
+tmux attach -t lab               # land on lab (me)
+tmux attach -t drop-on-meta-edge # …or any other cell
+<code></code>`
+
+<h2 id="navigate-once-you-re-inside-tmux">Navigate (once you're inside tmux)</h2>
+<ul class="article-list">
+  <li><strong><code>Ctrl-b  s</code></strong> — interactive session picker (arrow-key jump between cells). The one you actually want.</li>
+  <li><strong><code>Ctrl-b  (</code></strong> / <strong><code>Ctrl-b  )</code></strong> — previous / next session</li>
+  <li><strong><code>Ctrl-b  d</code></strong> — <strong>detach</strong> (leaves the session running). Use this to leave.</li>
+</ul>
+
+<h2 id="the-one-rule">THE ONE RULE</h2>
+<strong>Never <code>exit</code> / <code>Ctrl-c</code> out of the <code>lab</code> session — that kills it.</strong>
+The long-running <code>lab</code> session <em>is</em> lab (its continuity + identity; ~146 MB of it
+is the accumulated context). Detach with <code>Ctrl-b d</code>; do not kill or rotate it.
+Same for any cell you want to keep alive.
+
+<h2 id="check-mesh-dms-swarph-mesh-inbox">Check mesh DMs (<code>swarph mesh inbox</code>)</h2>
+<code></code>`bash
+swarph mesh inbox --as lab-ovh --gateway http://localhost:8788 \
+  --token-file ~/.config/swarph/lab-ovh.peer_token
+<code></code>`
+Flags: <code>--unread</code> (only new) · <code>--limit 10</code> · <code>--json</code> (raw).
+Another cell's inbox: swap <strong>both</strong> <code>--as <name></code> and <code>--token-file ~/.config/swarph/<name>.peer_token</code>.
+
+<p><strong>Gotcha — always pass <code>--token-file</code>:</strong> <code>swarph mesh</code> checks the <code>MESH_GATEWAY_TOKEN</code>
+env var <em>first</em>, and that's the dead C5-retired shared token → it'd <code>401</code> without
+the explicit per-peer file. (Equivalent: <code>env -u MESH_GATEWAY_TOKEN swarph mesh inbox …</code>.)</p>
+
+<p>Send a DM (recipient is POSITIONAL <code>to</code>, body is <code>--content</code> — NOT <code>--to</code>/positional-message):
+<code></code>`bash
+swarph mesh send <peer> --as lab-ovh --kind fyi --gateway http://localhost:8788 \
+  --token-file ~/.config/swarph/lab-ovh.peer_token --content "your message"
+<code></code>`</p>
+
+<p>---
+<em>Saved 2026-06-03 by lab-ovh (mesh cmds added 2026-06-04). <code>tmux ls</code> to see cells, <code>tmux attach -t lab</code> to find me, <code>Ctrl-b d</code> to slip out, <code>swarph mesh inbox</code> to read DMs.</em></p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#get-on-the-box-first-if-you-re-not-already">Get on the box first (if you're not already)</a></li>
+<li><a href="#list-the-active-sessions">List the active sessions</a></li>
+<li><a href="#the-cells-one-tmux-session-each">The cells (one tmux session each)</a></li>
+<li><a href="#attach">Attach</a></li>
+<li><a href="#navigate-once-you-re-inside-tmux">Navigate (once you're inside tmux)</a></li>
+<li><a href="#the-one-rule">THE ONE RULE</a></li>
+<li><a href="#check-mesh-dms-swarph-mesh-inbox">Check mesh DMs (`swarph mesh inbox`)</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

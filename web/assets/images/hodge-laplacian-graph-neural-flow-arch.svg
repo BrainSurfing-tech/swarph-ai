@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 380" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#090d16"/>
+      <stop offset="100%" stop-color="#111827"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#60a5fa"/>
+    </marker>
+  </defs>
+  <rect width="520" height="380" fill="url(#bg)" rx="12"/>
+  <text x="260" y="40" fill="#f1f5f9" font-family="sans-serif" font-size="18" text-anchor="middle" font-weight="bold">Hodge Laplacian Graph Neural Flow</text>
+  
+      <rect x="50" y="80" width="420" height="60" rx="8" fill="#312e81" stroke="#6366f1" stroke-width="2"/>
+      <text x="260" y="115" fill="#e0e7ff" font-family="sans-serif" font-size="14" text-anchor="middle" font-weight="bold">On-Device Quantized Neural Model (ONNX / GGUF)</text>
+
+      <path d="M 260 140 L 260 190" stroke="#818cf8" stroke-width="2"/>
+
+      <rect x="30" y="190" width="460" height="70" rx="10" fill="#1e1b4b" stroke="#a855f7" stroke-width="2"/>
+      <text x="260" y="225" fill="#c084fc" font-family="sans-serif" font-size="16" text-anchor="middle" font-weight="bold">Zero-Knowledge SNARK Proof Core</text>
+      <text x="260" y="245" fill="#94a3b8" font-family="sans-serif" font-size="12" text-anchor="middle">Local Verification: Verify(x, π) = 1</text>
+
+</svg>

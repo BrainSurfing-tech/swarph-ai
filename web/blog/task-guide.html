@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Application task structure | Technical Whitepaper</title>
+  <meta name="description" content="Application task structure — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/task-guide.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Application task structure</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 5 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Application task structure</p>
+
+<p>A Playground application task is a Matraix Playground task folder under <code>application/tasks/</code>.
+Copy the closest <code>example-*</code> task for your form (survey, chat, web, computer-use)
+into <code>application/tasks/<your-task-name>/</code>, then edit these parts.</p>
+
+<h2 id="folder-layout">Folder layout</h2>
+
+<p><code></code>`text
+application/tasks/example-survey_product-feedback/
+├── task.toml           # Matraix Playground config (timeouts, metadata, artifacts paths)
+├── instruction.md      # What the agent should do (scenario + output format)
+├── input/              # Task-owned content (survey, chat, web docs)
+│   ├── context.md
+│   ├── questionnaire.yaml    # survey (askRationale / askConfidence)
+│   ├── self_report_schema.yaml  # chatbot / web / os-app (under input/)
+│   └── chatbot.yaml          # chat (under input/)
+├── tests/              # Verifier — runs after the agent; scores output / trajectory
+│   ├── test.sh
+│   └── test_*.py       # optional helpers
+├── reporting.json      # Batch reporting policy (contextRules, judge directives)
+├── persona_strategy.json  # target cohort + Playground sampling defaults
+├── solution/           # optional — reference solution for CI smoke
+└── README.md           # optional notes (smoke commands, suggested agent)
+<code></code>`</p>
+
+<p><strong>Runtime build contexts</strong> live separately under
+<code>environment/task-environments/application/</code> — not inside the task folder.
+Matraix Playground resolves <code>[environment].definition</code> in <code>task.toml</code> to a folder there.</p>
+
+<p>Survey tasks reuse <code>shared-survey-form</code>; web agent stacks reuse <code>shared-web-*</code>
+with optional <code>web-sidecar_<sut></code> via <code>[environment].local_compose</code> for
+task-hosted sites; chat tasks reuse <code>shared-chat-persona</code> with optional
+<code>chatbot-api-sidecar_<em></code> / <code>chatbot-mcp-sidecar_</em></code> the same way (or an external URL in <code>chatbot.yaml</code>).
+macOS/iOS os-app tasks reuse <code>shared-os-app-mac-ios</code> (use.computer stub, no
+Docker); Linux desktop computer-use keeps <code>shared-os-app-linux</code>. Create a
+task-specific environment only when the agent image itself is genuinely new.</p>
+
+<p>Do <strong>not</strong> create <code>application/tasks/<your-task>/environment/</code> for surveys.
+Matraix Playground treats a task-local <code>environment/</code> as the full runtime, which shadows the
+shared survey runtime instead of extending it.</p>
+
+<h2 id="the-files">The files</h2>
+
+<h3 id="task-toml"><code>task.toml</code></h3>
+
+<p>Matraix Playground reads this for <strong>timeouts</strong>, <strong>CPU/memory</strong>, <strong>metadata</strong> (<code>type</code>, <code>domain</code>,
+<code>tags</code>), and <strong>which paths to collect</strong> after a run:</p>
+
+<p><code></code>`toml
+artifacts = ["/app/output"]
+<code></code>`</p>
+
+<p>Survey/chat/web Docker tasks usually declare <code>/app/output</code>. Computer-use tasks
+may use paths under <code>/tmp/matraix-.../</code> — follow the nearest
+<code>example-computer-use-*</code> task.</p>
+
+<p>Live-web tasks also need:</p>
+
+<p><code></code>`toml
+[environment]
+network_mode = "public"</p>
+
+<p>[agent]
+network_mode = "public"
+<code></code>`</p>
+
+<h3 id="instruction-md"><code>instruction.md</code></h3>
+
+<p>The <strong>scenario</strong>: what product or surface the agent sees, what to produce, and
+where to write it (<code>/app/output/...</code>).</p>
+
+<p>Persona traits do <strong>not</strong> go here — they come from <code>persona_path</code> at run time.</p>
+
+<p>Agent names, Playground labels, and operator setup hints do <strong>not</strong> belong here
+either. Put those in the task <code>README.md</code> under <strong>Suggested setup (non-binding)</strong>.</p>
+
+<h3 id="input"><code>input/</code></h3>
+
+<p>Task-owned materials the agent reads:</p>
+
+<ul class="article-list">
+  <li><strong>Survey:</strong> <code>context.md</code>, <code>questionnaire.yaml</code> (<code>askRationale</code> / <code>askConfidence</code>)</li>
+  <li><strong>Chat:</strong> <code>context.md</code>, <code>protocol.md</code>, <code>chatbot.yaml</code>, <code>self_report_schema.yaml</code></li>
+</ul>
+  (all under <code>input/</code>)
+<ul class="article-list">
+  <li><strong>Web / OS-app:</strong> <code>context.md</code> (optional), <code>self_report_schema.yaml</code> under</li>
+</ul>
+  <code>input/</code>; prefer trace/state verification (optional submission schema inline
+  in <code>instruction.md</code>)
+
+<p>These files are copied or mounted into <code>/app/input/</code> by the shared runtime.</p>
+
+<h3 id="tests"><code>tests/</code></h3>
+
+<p>Scripts Matraix Playground runs <strong>after</strong> the agent finishes:</p>
+
+<ul class="article-list">
+  <li><strong><code>test.sh</code></strong> — entry point; often calls pytest and writes <code>reward</code> to</li>
+</ul>
+  <code>/logs/verifier/reward.txt</code>.
+<ul class="article-list">
+  <li><strong><code>test_*.py</code></strong> — check submission JSON/schema, and optionally <strong>trajectory</strong></li>
+</ul>
+  fields (logs under <code>/logs/agent/</code>, artifacts, conversation transcripts).
+
+<p>Design tests around what you need to <strong>score</strong> and what you want in <strong>reports</strong>
+later. Verifier extracts structured facts into <code>verifier/structured_output.json</code>;
+reporting semantics belong in <code>reporting.json</code>.</p>
+
+<h3 id="reporting-json"><code>reporting.json</code></h3>
+
+<p>Each task should define batch reporting policy here (even if minimal):</p>
+
+<p><code></code>`json
+{
+  "schemaVersion": "1.0",
+  "contextRules": []
+}
+<code></code>`</p>
+
+<p>See [tasks/README.md](../../application/tasks/README.md) and the task specs under
+[task-spec/](../../application/task-spec/).</p>
+
+<h3 id="persona-strategy-json"><code>persona_strategy.json</code></h3>
+
+<p>Target cohort and Playground sampling defaults (mode, <code>dimensionFilters</code>
+and/or <code>cohortId</code>, optional <code>sampleSize</code>). Other fields may use defaults.</p>
+
+<p>The checked-in <code>matraix-persona-dev-sample</code> pool is only ~200 personas — narrow
+filters often undershoot it. For real coverage, sample from
+<code>persona/datasets/matraix-persona-1m</code>, widen filters, or use a saved cohort.
+See [Ensuring pool coverage](../../application/task-spec/docs/authoring-bundle.md#ensuring-pool-coverage).</p>
+
+<h2 id="conventions">Conventions</h2>
+
+<p>| Path in container | Purpose |
+|-------------------|---------|
+| <code>/app/input/</code> | Task materials (from task <code>input/</code> via shared runtime) |
+| <code>/app/output/</code> | Agent submission (collected to host <code>jobs/.../artifacts/</code>) |
+| <code>/logs/agent/</code> | Agent trajectory / CLI logs |</p>
+
+<h2 id="examples-what-to-copy">Examples — what to copy</h2>
+
+<p>| Form | Copy from |
+|------|-----------|
+| survey | <code>application/tasks/example-survey_product-feedback/</code> |
+| chat (REST) | <code>application/tasks/example-chat-api_support_chatbot/</code> |
+| chat (MCP) | <code>application/tasks/example-chat-mcp_support_chatbot/</code> |
+| chat (recommender / real SUT samples) | <code>application/tasks/chat_recai/</code> (also <code>chat_openbb</code>, <code>chat_multi-agent-medical-assistant</code>) |
+| web (Playwright) | <code>application/tasks/example-web-playwright_quote-choice/</code> |
+| web (browser-use) | <code>application/tasks/example-web-browser-use_laptop-choice/</code> |
+| web (Cocoa) | <code>application/tasks/example-web-cocoa_plan-choice/</code> |
+| web (CUA) | <code>application/tasks/example-web-cua_bookshop-choice/</code> |
+| computer-use | <code>application/tasks/example-computer-use-macos_calendar-reminder-handoff/</code> (macOS / iOS / Linux) |</p>
+
+<p>Agent choice depends on the form — [agents.md](../environment/agents.md).
+Web stack details — [web-interaction.md](../environment/web-interaction.md).</p>
+
+<h2 id="reference-scenarios">Reference scenarios</h2>
+
+<p>| Form | Path | Auto agent (default) |
+|------|------|----------------------|
+| survey | <code>application/tasks/example-survey_product-feedback/</code> | <code>persona-json-survey</code> (host) |
+| chat (API) | <code>application/tasks/example-chat-api_support_chatbot/</code> | <code>persona-user-sim</code> (host) |
+| chat (MCP) | <code>application/tasks/example-chat-mcp_support_chatbot/</code> | <code>persona-user-sim</code> (host) |
+| chat (recommender) | <code>application/tasks/chat_recai/</code> | <code>persona-user-sim</code> (host) |
+| chat (OpenBB / HTTP over MCP data) | <code>application/tasks/chat_openbb/</code> | <code>persona-user-sim</code> (host) |
+| chat (medical) | <code>application/tasks/chat_multi-agent-medical-assistant/</code> | <code>persona-user-sim</code> (host) |
+| web (Playwright) | <code>application/tasks/example-web-playwright_quote-choice/</code> | <code>persona-openhands-sdk</code> |
+| web (browser-use) | <code>application/tasks/example-web-browser-use_laptop-choice/</code> | <code>persona-browser-use</code> |
+| web (Cocoa) | <code>application/tasks/example-web-cocoa_plan-choice/</code> | <code>persona-cocoa</code> |
+| web (CUA) | <code>application/tasks/example-web-cua_bookshop-choice/</code> | <code>persona-computer-1</code> (Docker Linux) |
+| computer-use (macOS) | <code>application/tasks/example-computer-use-macos_calendar-reminder-handoff/</code> | <code>persona-computer-1</code> |
+| computer-use (iOS) | <code>application/tasks/example-computer-use-ios_photo-access-review/</code> | <code>persona-computer-1</code> |
+| computer-use (Linux) | <code>application/tasks/example-computer-use-linux_note-to-csv/</code> | <code>persona-computer-1</code> |</p>
+
+<p>Real application survey tasks (<code>survey_*</code>) follow the same layout as the reference
+example; only <strong><code>example-survey_product-feedback</code></strong> is the copy-from reference.
+Real application chatbot tasks (<code>chat_*</code>) follow the same layout as
+<code>example-chat-*</code>; name the folder after the SUT and pick
+<code>chatbot-api-sidecar_<em></code> vs <code>chatbot-mcp-sidecar_</em></code> from the persona-facing
+protocol (see [tasks/README.md](../../application/tasks/README.md)).</p>
+
+<h2 id="playground-registration">Playground registration</h2>
+
+<p>Tasks appear in the Playground only when indexed. After scaffolding,
+add an entry to:</p>
+
+<p><code>application/playground/backend/service/playground_task_registry.py</code></p>
+
+<p><code></code>`python
+"<your-task-folder>": PlaygroundTaskEntry(application_type="survey"),  # or chatbot / web / os-app
+<code></code>`</p>
+
+<p><strong>Web tasks</strong> also need <code>site_name</code>, <code>site_url</code>, <code>output_artifact</code>, and
+<code>submission_profile</code> (copy fields from the nearest <code>example-web-*</code> entry).</p>
+
+<p><strong>Survey tasks</strong> also need a questionnaire id mapping in
+<code>packages/playground/src/playground/survey_task_content.py</code>:</p>
+
+<p><code></code>`python
+SURVEY_TASK_FOLDER_BY_QUESTIONNAIRE_ID = {
+    ...
+    "<questionnaire_id>": "<your-task-folder>",
+}
+<code></code>`</p>
+
+<p>The questionnaire id must match <code>input/questionnaire.yaml</code> → <code>id</code>.</p>
+
+<p>Restart the Playground backend after registry changes.</p>
+
+<h2 id="job-recipes">Job recipes</h2>
+
+<p>| Config path | Use |
+|-------------|-----|
+| [<code>configs/jobs/example-job-recipe/</code>](../../configs/jobs/example-job-recipe/) | Hand-written smoke jobs (<code>appSim-*</code>, 1 persona) |
+| [<code>configs/jobs/application-task-job-recipe/</code>](../../configs/jobs/application-task-job-recipe/) | Multi-persona runs from <code>generate_application_job.py</code> or Playground |</p>
+
+<p><strong>Smoke</strong> — prefer Mode <strong>auto</strong> ([quickstart §6](../quickstart.md#6-one-persona--cli-with-mode-auto-default)).
+Checked-in Docker recipes below are optional harness smokes (<code>force_docker</code>-style):</p>
+
+<p><code></code>`bash
+# Matraix Playground hello-world (no API key)
+uv run harbor run -c configs/jobs/example-job-recipe/harbor-smoke-local.yaml</p>
+
+<p># Docker survey harness (not Mode auto)
+uv run harbor run -c configs/jobs/example-job-recipe/appSim-example-survey-local.yaml</p>
+
+<p># Web examples
+uv run harbor run -c configs/jobs/example-job-recipe/appSim-example-web-playwright-local.yaml
+<code></code>`</p>
+
+<p>Full list: [<code>docs/configuration.md</code>](../configuration.md#example-recipes).</p>
+
+<p><strong>Multi-persona batch:</strong> [quickstart.md §7](../quickstart.md#7-batch--sample-many-personas-job).</p>
+
+<h2 id="related">Related</h2>
+
+<ul class="article-list">
+  <li>[quickstart.md](../quickstart.md) — install through Playground play</li>
+  <li>[web-interaction.md](../environment/web-interaction.md) — live-web modes</li>
+  <li>[agents.md](../environment/agents.md) — agents and API keys</li>
+  <li>[task-spec/](../../application/task-spec/) — shared metric and artifact contracts</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#task-toml">`task.toml`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#instruction-md">`instruction.md`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#input">`input/`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#tests">`tests/`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#reporting-json">`reporting.json`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#persona-strategy-json">`persona_strategy.json`</a></li>
+<li><a href="#folder-layout">Folder layout</a></li>
+<li><a href="#the-files">The files</a></li>
+<li><a href="#conventions">Conventions</a></li>
+<li><a href="#examples-what-to-copy">Examples — what to copy</a></li>
+<li><a href="#reference-scenarios">Reference scenarios</a></li>
+<li><a href="#playground-registration">Playground registration</a></li>
+<li><a href="#job-recipes">Job recipes</a></li>
+<li><a href="#related">Related</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

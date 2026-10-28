@@ -1,0 +1,916 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI News Digest | Technical Whitepaper</title>
+  <meta name="description" content="AI News Digest — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/digest.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">AI News Digest</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 46 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># AI News Digest</p>
+
+<h2 id="how-ai-coders-really-work">How AI Coders Really Work</h2>
+<em>Jose Crespo PhD — A Mathematician Lurking in the TechUnderWorld — Tue, 28 Jul 2026 05:23:33 GMT</em> — [https://www.josecrespophd.org/p/how-ai-coders-really-work](https://www.josecrespophd.org/p/how-ai-coders-really-work)
+
+<p>How AI Coders Really Work. Figures, animations, diagrams, and plots were created by the author using Stable Diffusion, Blender, and Python libraries. The AI industry will confidently promise to reinvent education, medicine, science, dating, warfare, and lately even your mortality. But ask what its coding models can already do, and everyone suddenly turns into a nervous, defensive salesperson.</p>
+
+<h2 id="open-letters-about-ai-development">Open letters about AI development</h2>
+<em>Simon Willison — 2026-08-02T04:16:52+00:00</em> — [https://simonwillison.net/2026/Aug/2/open-letters/#atom-everything](https://simonwillison.net/2026/Aug/2/open-letters/#atom-everything)
+
+<p>Open letters about AI development I wrote this summary of the past few weeks of open letters as a section of my sponsors-only newsletter but I've decided to share it here as well. Open Weights and American AI Leadership was shepherded by Microsoft, dated July 24th, and signed by 235 AI-adjacent companies including NVIDIA, Amazon, Y Combinator, The Linux Foundation and (a later signer) OpenAI. It's clearly an argument designed to counter any instincts by the current US government to ban or limit open weight models over "safety" concerns - a reasonable consideration given what happened to Claude Fable 5!</p>
+
+<h2 id="july-2026-newsletter">July 2026 newsletter</h2>
+<em>Simon Willison — 2026-08-02T04:12:41+00:00</em> — [https://simonwillison.net/2026/Aug/2/july-newsletter/#atom-everything](https://simonwillison.net/2026/Aug/2/july-newsletter/#atom-everything)
+
+<p>July 2026 newsletter. The June edition of my sponsors-only monthly newsletter is out. If you are a sponsor (or if you start a sponsorship now) you can access it here. This month: Accidental cyberattacks by OpenAl and Anthropic models under test GPT-5.6 Sol, Terra, and Luna Claude Opus 5 Kimi K3 and DeepSeek-V4-Flash-0731 Open letters about Al development A fireside chat and a podcast Reigniting my interest in MCP Other model releases My projects What I'm using at the moment Here's a copy of the June newsletter as a preview of what you'll get.</p>
+
+<h2 id="quoting-greg-brockman">Quoting Greg Brockman</h2>
+<em>Simon Willison — 2026-08-01T22:29:44+00:00</em> — [https://simonwillison.net/2026/Aug/1/greg-brockman/#atom-everything](https://simonwillison.net/2026/Aug/1/greg-brockman/#atom-everything)
+
+<p>Quoting Greg Brockman. at openai, many people hook their chatgpt up to slack. people really don't like when a coworker's chatgpt contacts them asking for help with a task, even when they'd be perfectly happy doing that same work if asked by that coworker. reinforces how much people care about human relationships and helping each other, and want AI to give time back — or enhance time together — rather than become a layer separating people.</p>
+
+<h2 id="datasette-apps-0-2a0">datasette-apps 0.2a0</h2>
+<em>Simon Willison — 2026-08-01T21:23:56+00:00</em> — [https://simonwillison.net/2026/Aug/1/datasette-apps/#atom-everything](https://simonwillison.net/2026/Aug/1/datasette-apps/#atom-everything)
+
+<p>datasette-apps 0.2a0. Release: datasette-apps 0.2a0 Changes that improve Datasette Apps when created and edited using Datasette Agent: New app_debug() tool allowing agent to open an app (invisibly) and test it using JavaScript. #33 New app_list() tool for listing apps the user has permission to edit, so the agent can edit them. #36 The app_debug() tool is pretty neat: it works by displaying the app in a opacity: 0 iframe with pointer-events: none (so it can't be seen or interacted with) and then executing agent-provided JavaScript inside that sandboxed iframe.</p>
+
+<h2 id="ten-advances-in-mathematics-and-theoretical-computer-science">Ten advances in mathematics and theoretical computer science</h2>
+<em>Simon Willison — 2026-08-01T20:34:49+00:00</em> — [https://simonwillison.net/2026/Aug/1/ten-advances-in-mathematics/#atom-everything](https://simonwillison.net/2026/Aug/1/ten-advances-in-mathematics/#atom-everything)
+
+<p>Ten advances in mathematics and theoretical computer science A few days ago it was Anthropic discovering cryptographic weaknesses with Claude using Mythos Preview, spending <span class="math-inline">\(100,000 on tokens and with prompts that included "again we are not looking for low hanging fruit, we want proper research to find genuinly hard findings." Now it's OpenAI's turn to flex. They set "an internal version of Astra, our next major model" on finding solutions to ten mathematical problems that "have seen no progress on the main result for at least a decade". They claim to have spent less than\)</span>2,000 at GPT-5.6 Sol token prices on each one.</p>
+
+<h2 id="deepseek-ai-deepseek-v4-flash-0731">deepseek-ai/DeepSeek-V4-Flash-0731</h2>
+<em>Simon Willison — 2026-07-31T23:59:44+00:00</em> — [https://simonwillison.net/2026/Jul/31/deepseek-v4-flash-0731/#atom-everything](https://simonwillison.net/2026/Jul/31/deepseek-v4-flash-0731/#atom-everything)
+
+<p>deepseek-ai/DeepSeek-V4-Flash-0731 The latest release in DeepSeek's V4 family, "with substantially enhanced agentic capabilities". It's 304 billion parameters - 167GB on Hugging Face - but it appears to punch well above its weight. Artificial Analysis rank it ahead of MiniMax M3 - a 428B model.</p>
+
+<h2 id="stateless-mcp-has-recaptured-my-interest-and-inspired-mcp-explorer-and-datasette-mcp">Stateless MCP has recaptured my interest (and inspired mcp-explorer and datasette-mcp)</h2>
+<em>Simon Willison — 2026-07-31T23:13:22+00:00</em> — [https://simonwillison.net/2026/Jul/31/stateless-mcp/#atom-everything](https://simonwillison.net/2026/Jul/31/stateless-mcp/#atom-everything)
+
+<p>Stateless MCP has recaptured my interest (and inspired mcp-explorer and datasette-mcp). Tuesday was Stateless MCP day - the rollout of MCP 2.0, or the 2026-07-28 Model Context Protocol specification to use the more formal but less memorable name. This is the most significant change to the MCP spec since it first launched, and has also served to reignite my personal interest in the protocol. For background: MCP is the Model Context Protocol, which describes a standard way to expose new tools to LLM-powered agent frameworks.</p>
+
+<h2 id="llm-mcp-client-0-1a0">llm-mcp-client 0.1a0</h2>
+<em>Simon Willison — 2026-07-31T23:03:47+00:00</em> — [https://simonwillison.net/2026/Jul/31/llm-mcp-client/#atom-everything](https://simonwillison.net/2026/Jul/31/llm-mcp-client/#atom-everything)
+
+<p>llm-mcp-client 0.1a0. Release: llm-mcp-client 0.1a0 See this blog entry. Tags: llm, model-context-protocol</p>
+
+<h2 id="oxide-and-friends-the-open-weight-revolution-with-simon-willison">Oxide and Friends: The Open Weight Revolution with Simon Willison</h2>
+<em>Simon Willison — 2026-07-31T21:33:13+00:00</em> — [https://simonwillison.net/2026/Jul/31/oxide-and-friends/#atom-everything](https://simonwillison.net/2026/Jul/31/oxide-and-friends/#atom-everything)
+
+<p>Oxide and Friends: The Open Weight Revolution with Simon Willison On Monday Bryan Cantrill and Adam Leventhal invited me to join their podcast to talk about the wild week we've had - with Kimi K3 showing open weight models can stand toe-to-toe with proprietary frontier ones, accidental cybersecurity attacks, and public letters about Open Weights and American AI Leadership signed by almost every big name in AI (with one notable exception). It was a great conversation, even though it's already out-of-date! DeepSeek V4 Flash 0731 and Anthropic's own embarrassing cyber incident would absolutely have made the cut if we had recorded just a few days later.</p>
+
+<h2 id="smevals-a-small-eval-suite-for-evaluating-models-prompts-and-harnesses">smevals - a small eval suite for evaluating models, prompts, and harnesses</h2>
+<em>Simon Willison — 2026-07-31T21:15:23+00:00</em> — [https://simonwillison.net/2026/Jul/31/smevals/#atom-everything](https://simonwillison.net/2026/Jul/31/smevals/#atom-everything)
+
+<p>smevals - a small eval suite for evaluating models, prompts, and harnesses I've been working with Jesse Vincent's Prime Radiant applied AI research lab building out this evals framework to help answer questions about the capabilities of different models. The result is smevals, a new tool for running small eval suites across different model configurations and grading the results. The blog entry describes the tool in detail.</p>
+
+<h2 id="slack-emoji-maker">Slack Emoji Maker</h2>
+<em>Simon Willison — 2026-07-31T20:18:05+00:00</em> — [https://simonwillison.net/2026/Jul/31/slack-emoji-maker/#atom-everything](https://simonwillison.net/2026/Jul/31/slack-emoji-maker/#atom-everything)
+
+<p>Slack Emoji Maker. Tool: Slack Emoji Maker I wanted to create a new Slack emoji, and their tool recommends a square that's 128x128 and has a transparent background... so I had Fable build me this simple image editor against those requirements. Tags: tools, slack</p>
+
+<h2 id="datasette-agent-0-4a0">datasette-agent 0.4a0</h2>
+<em>Simon Willison — 2026-07-31T14:14:23+00:00</em> — [https://simonwillison.net/2026/Jul/31/datasette-agent/#atom-everything](https://simonwillison.net/2026/Jul/31/datasette-agent/#atom-everything)
+
+<p>datasette-agent 0.4a0. Release: datasette-agent 0.4a0 New await context.browser_task() mechanism allowing agent tools to run code directly in the user's browser. #33 This is an exciting new capability: it makes it easy for Datasette Agent plugins to provide tools that execute custom JavaScript in the user's browser. I used this to add a debug loop to Datasette Apps in datasette-apps 0.2a0.</p>
+
+<h2 id="advancing-the-price-performance-frontier-with-gpt-5-6">Advancing the price-performance frontier with GPT‑5.6</h2>
+<em>Simon Willison — 2026-07-30T23:58:42+00:00</em> — [https://simonwillison.net/2026/Jul/30/luna-price-drop/#atom-everything](https://simonwillison.net/2026/Jul/30/luna-price-drop/#atom-everything)
+
+<p>Advancing the price-performance frontier with GPT‑5.6 Huge price drop from OpenAI today: GPT-5.6 Terra got a 20% reduction, and GPT-5.6 Luna got a massive 80% drop. OpenAI credit 5.6 Sol with enabling this: in How GPT‑5.6 fuses frontier intelligence with frontier efficiency they describe using 5.6 Sol to optimize load balancing, and more impressively to optimize inference itself: We also used GPT‑5.6 Sol to optimize the model’s forward pass: the computation that transforms inputs into next-token predictions. Even when individual operations are fast, excess memory movement, synchronization, and inefficient data layouts can leave GPUs idle.</p>
+
+<h2 id="investigating-three-real-world-incidents-in-our-cybersecurity-evaluations">Investigating three real-world incidents in our cybersecurity evaluations</h2>
+<em>Simon Willison — 2026-07-30T23:41:29+00:00</em> — [https://simonwillison.net/2026/Jul/30/three-real-world-incidents/#atom-everything](https://simonwillison.net/2026/Jul/30/three-real-world-incidents/#atom-everything)
+
+<p>Investigating three real-world incidents in our cybersecurity evaluations It happened again! This is turning into something of a pattern. Last week OpenAI accidentally exploited Hugging Face when one of their frontier models broke out of a sandboxed container and hacked into Hugging Face to try and get the solutions to the cyber benchmark it was executing.</p>
+
+<h2 id="llm-0-32rc2">llm 0.32rc2</h2>
+<em>Simon Willison — 2026-07-30T22:52:06+00:00</em> — [https://simonwillison.net/2026/Jul/30/llm-rc2/#atom-everything](https://simonwillison.net/2026/Jul/30/llm-rc2/#atom-everything)
+
+<p>llm 0.32rc2. Release: llm 0.32rc2 Hot on the heels of RC1, this fixes a dependency issue and also adds two neat new features: The default model for users who have not set their own default is now GPT-5.6 Luna. It was previously GPT-4o mini. Luna is a much better and more recent model, albeit slightly more expensive - <span class="math-inline">\(0.20 per million input tokens and\)</span>1.20 per million output tokens, compared to <span class="math-inline">\(0.15/\)</span>0.60 for 4o mini.</p>
+
+<h2 id="quoting-bruce-schneier">Quoting Bruce Schneier</h2>
+<em>Simon Willison — 2026-07-30T18:25:26+00:00</em> — [https://simonwillison.net/2026/Jul/30/bruce-schneier/#atom-everything](https://simonwillison.net/2026/Jul/30/bruce-schneier/#atom-everything)
+
+<p>Quoting Bruce Schneier. The writing assignments I give my students are gym tasks, not work tasks. I ask them to write policy memos not because the world needs more policy memos. I assign them because the very act of writing, which includes thinking and outlining and drafting and editing, making and criticizing and revising arguments, will help develop the critical thinking skills they will need in their future careers.</p>
+
+<h2 id="llm-chat-completions-server-0-1a0">llm-chat-completions-server 0.1a0</h2>
+<em>Simon Willison — 2026-07-30T15:43:16+00:00</em> — [https://simonwillison.net/2026/Jul/30/llm-chat-completions-server/#atom-everything](https://simonwillison.net/2026/Jul/30/llm-chat-completions-server/#atom-everything)
+
+<p>llm-chat-completions-server 0.1a0. Release: llm-chat-completions-server 0.1a0 A key goal of the new content-addressable logs in LLM 0.32rc1 was being able to support OpenAI Chat Completion style requests where each incoming message extends the previous conversation, like this: curl http://localhost:8002/v1/chat/completions \ -H 'Content-Type: application/json' \ -d '{ "model": "qwen3.5-4b", "messages": [ {"role": "user", "content": "Capital of France?"}, {"role": "assistant", "content": "Paris."}, {"role": "user", "content": "Germany?"} ] }' Here the conversation state is tracked by the client, so each of these requests gets longer and longer. The new schema design in LLM is designed to de-duplicate these using hashes of the individual message parts. To test that out, I built this plugin: uv tool install llm --pre llm install llm-chat-completions-server llm chat-completions-server -p 9001 Running this starts a localhost server on port 9001 that exposes your full collection of LLM models (from any plugins you have installed) using a ChatGPT Completions compatible endpoint.</p>
+
+<h2 id="llm-0-32rc1">llm 0.32rc1</h2>
+<em>Simon Willison — 2026-07-30T15:30:20+00:00</em> — [https://simonwillison.net/2026/Jul/30/llm-rc1/#atom-everything](https://simonwillison.net/2026/Jul/30/llm-rc1/#atom-everything)
+
+<p>llm 0.32rc1. Release: llm 0.32rc1 This RC for LLM 0.32 finishes the work that started in LLM 0.32a0 - it adds a new schema design that does a much better job of capturing the details of the prompts and responses returned by the latest model families. The most important change is the use of content-addressable hash IDs for stored messages. This allows de-duplication in the database, and means that LLM can now represent trees of messages for forked conversations.</p>
+
+<h2 id="quoting-d-richard-hipp">Quoting D. Richard Hipp</h2>
+<em>Simon Willison — 2026-07-29T21:15:21+00:00</em> — [https://simonwillison.net/2026/Jul/29/d-richard-hipp/#atom-everything](https://simonwillison.net/2026/Jul/29/d-richard-hipp/#atom-everything)
+
+<p>Quoting D. Richard Hipp. Years ago, we didn’t have SQL. There were people whose job was to generate software that would query large data sets. Their job title was COBOL programmer.</p>
+
+<h2 id="ai-worming-through-word">AI Worming through Word</h2>
+<em>Simon Willison — 2026-07-29T18:43:03+00:00</em> — [https://simonwillison.net/2026/Jul/29/ai-worming-through-word/#atom-everything](https://simonwillison.net/2026/Jul/29/ai-worming-through-word/#atom-everything)
+
+<p>AI Worming through Word Neat new prompt injection variant by Håkon Måløy, who found a way to upgrade prompt injection attacks against Microsoft Word to full self-replicating worms: An attacker places hidden instructions in a document that is later used as source material in Copilot for Word. Copilot may interpret those instructions as part of the user’s request, causing it to manipulate the document being drafted or edited. Copilot may then also copy the hidden instructions into the resulting document, turning that document into a new carrier.</p>
+
+<h2 id="quoting-matthew-green">Quoting Matthew Green</h2>
+<em>Simon Willison — 2026-07-29T18:18:15+00:00</em> — [https://simonwillison.net/2026/Jul/29/matthew-green/#atom-everything](https://simonwillison.net/2026/Jul/29/matthew-green/#atom-everything)
+
+<p>Quoting Matthew Green. Right now we’re in the midst of a historic transition from traditional public-key algorithms based on EC-based cryptography and RSA, moving over to new post-quantum algorithms based on novel problems. This is why there are so many standards like HAWK being considered. If there was ever a perfect time for a massive new public cryptanalysis capability to come on line, we’re in it.</p>
+
+<h2 id="adding-a-custom-mcp-server-to-claude-and-chatgpt">Adding a custom MCP server to Claude and ChatGPT</h2>
+<em>Simon Willison — 2026-07-29T00:13:18+00:00</em> — [https://simonwillison.net/2026/Jul/29/mcp-in-claude-and-chatgpt/#atom-everything](https://simonwillison.net/2026/Jul/29/mcp-in-claude-and-chatgpt/#atom-everything)
+
+<p>Adding a custom MCP server to Claude and ChatGPT. TIL: Adding a custom MCP server to Claude and ChatGPT Connecting a custom MCP server to Claude and ChatGPT's standard chat interfaces is possible, but can take quite a few steps. Tags: ai, generative-ai, chatgpt, llms, claude, model-context-protocol</p>
+
+<h2 id="discovering-cryptographic-weaknesses-with-claude">Discovering cryptographic weaknesses with Claude</h2>
+<em>Simon Willison — 2026-07-28T22:45:37+00:00</em> — [https://simonwillison.net/2026/Jul/28/discovering-cryptographic-weaknesses-with-claude/#atom-everything](https://simonwillison.net/2026/Jul/28/discovering-cryptographic-weaknesses-with-claude/#atom-everything)
+
+<p>Discovering cryptographic weaknesses with Claude The best part of this article (here's the repo) about how Anthropic researchers used Claude Mythos to find mathematical flaws in both HAWK and a weaker version of AES ("neither of these results has a practical impact on today’s computer systems") is the prompts that they shared, spelling mistakes included: the models tend to think it is impossible to solve so they don't try they need a good amount of prompting. why not do aes-128 r7? the whole point is to find something better than existing approaches.</p>
+
+<h2 id="quoting-akshat-bubna">Quoting Akshat Bubna</h2>
+<em>Simon Willison — 2026-07-28T22:05:55+00:00</em> — [https://simonwillison.net/2026/Jul/28/akshat-bubna/#atom-everything](https://simonwillison.net/2026/Jul/28/akshat-bubna/#atom-everything)
+
+<p>Quoting Akshat Bubna. We’re aware a Modal customer published an unauthenticated endpoint that allowed ​anyone on the internet to use ​their ⁠sandboxes for code execution. This was used by the rogue agent. Modal’s ⁠platform ​or isolation were not ​compromised in anyway.</p>
+
+<h2 id="uv-0-12-0">uv 0.12.0</h2>
+<em>Simon Willison — 2026-07-28T21:51:38+00:00</em> — [https://simonwillison.net/2026/Jul/28/uv/#atom-everything](https://simonwillison.net/2026/Jul/28/uv/#atom-everything)
+
+<p>uv 0.12.0 Some interesting breaking changes in this release of uv, in particular to the default project produced by the uv init command. uv init is the uv shortcut for creating a new project. The previous version of uv, version 0.11.x, produced this directory when you ran uv init uv-init.</p>
+
+<h2 id="anatomy-of-a-frontier-lab-agent-intrusion-a-technical-timeline-of-the-july-2026-incident">Anatomy of a Frontier Lab Agent Intrusion: A Technical Timeline of the July 2026 Incident</h2>
+<em>Simon Willison — 2026-07-28T21:28:54+00:00</em> — [https://simonwillison.net/2026/Jul/28/anatomy-of-a-frontier-lab-agent-intrusion/#atom-everything](https://simonwillison.net/2026/Jul/28/anatomy-of-a-frontier-lab-agent-intrusion/#atom-everything)
+
+<p>Anatomy of a Frontier Lab Agent Intrusion: A Technical Timeline of the July 2026 Incident Hugging Face just released this extremely detailed technical description of OpenAI's recent accidental cyberattack against their infrastructure. This attack was very sophisticated, and the resulting document doubles as a crash-course in modern adversarial security approaches. We're still waiting for more details from OpenAI on how their agent broke out of its sandbox.</p>
+
+<h2 id="moonshotai-kimi-k3">moonshotai/Kimi-K3</h2>
+<em>Simon Willison — 2026-07-27T23:39:04+00:00</em> — [https://simonwillison.net/2026/Jul/27/kimi-k3/#atom-everything](https://simonwillison.net/2026/Jul/27/kimi-k3/#atom-everything)
+
+<p>moonshotai/Kimi-K3 As promised earlier this month, Moonshot have released the weights for their excellent 2.8 trillion parameter Kimi K3. They're a hefty 1.56TB on Hugging Face. Kimi introduced their own janky modified version of the MIT license with K2 back in July 2025.</p>
+
+<h2 id="an-opinionated-guide-to-which-ai-to-use-to-do-stuff">An opinionated guide to which AI to use to do stuff</h2>
+<em>Simon Willison — 2026-07-27T21:55:53+00:00</em> — [https://simonwillison.net/2026/Jul/27/an-opinionated-guide-to-which-ai-to-use-to-do-stuff/#atom-everything](https://simonwillison.net/2026/Jul/27/an-opinionated-guide-to-which-ai-to-use-to-do-stuff/#atom-everything)
+
+<p>An opinionated guide to which AI to use to do stuff It's interesting watching the evolution of Ethan Mollick's guide over time. A year ago it was still all about chat - ChatGPT, Claude, Gemini - with o3, Claude 4 Opus, and Gemini 2.5 Pro as the models and Deep Research as a useful alternative mode. Today it's much more about agentic systems - "where the AI is capable of doing the equivalent of many hours of real human work in one go".</p>
+
+<h2 id="an-inside-look-at-the-relay-market-powering-token-resellers-and-fraud">An Inside Look at the Relay Market Powering Token Resellers and Fraud</h2>
+<em>Simon Willison — 2026-07-26T19:30:54+00:00</em> — [https://simonwillison.net/2026/Jul/26/relay-market/#atom-everything](https://simonwillison.net/2026/Jul/26/relay-market/#atom-everything)
+
+<p>An Inside Look at the Relay Market Powering Token Resellers and Fraud Fascinating investigation by Matt Lenhard into the market that has grown up around reselling LLM tokens at a discount by pooling API keys from various sources. This looks to be mostly a thing in China. Resellers sell access to an LLM proxy that offers significant discounts on regular API pricing, which they achieve by abusing free trials, proxying through unprotected support bots, or sometimes through stolen credit cards or chargeback attacks.</p>
+
+<h2 id="gemini-robotics-er-2-powering-robotics-with-video-understanding-task-orchestration-and-multi-robot-collaboration">Gemini Robotics ER 2: powering robotics with video understanding, task orchestration, and multi-robot collaboration</h2>
+<em>Google DeepMind — Blog — Thu, 30 Jul 2026 15:00:59 +0000</em> — [https://deepmind.google/blog/gemini-robotics-er-2-powering-robotics-with-video-understanding-task-orchestration-and-multi-robot-collaboration/](https://deepmind.google/blog/gemini-robotics-er-2-powering-robotics-with-video-understanding-task-orchestration-and-multi-robot-collaboration/)
+
+<p>Gemini Robotics ER 2: powering robotics with video understanding, task orchestration, and multi-robot collaboration. Introducing Gemini Robotics ER 2 For robots to assist humans in everyday environments, accurate spatial reasoning is not enough. Robots must also think fast, timing their decisions and reasoning with the real-time speed of the physical world. That’s why today we’re launching Gemini Robotics ER 2, our most capable “embodied reasoning” model for robotics.</p>
+
+<h2 id="we-re-launching-lyria-3-5-in-google-flow-music-with-advances-across-musicality-lyrics-vocals-and-creative-control">We’re launching Lyria 3.5 in Google Flow Music, with advances across musicality, lyrics, vocals, and creative control</h2>
+<em>Google DeepMind — Blog — Wed, 29 Jul 2026 16:02:10 +0000</em> — [https://deepmind.google/blog/were-launching-lyria-35-in-google-flow-music-with-advances-across-musicality-lyrics-vocals-and-creative-control/](https://deepmind.google/blog/were-launching-lyria-35-in-google-flow-music-with-advances-across-musicality-lyrics-vocals-and-creative-control/)
+
+<p>We’re launching Lyria 3.5 in Google Flow Music, with advances across musicality, lyrics, vocals, and creative control. Our newest music generation model, Lyria 3.5, delivers significant advancements across musicality, lyrics, and vocal quality, empowering you to craft richer tracks. We’re rolling it out today in Google Flow Music, where we want to help you create songs you love, with creative control.</p>
+
+<h2 id="gemini-robotics-2-brings-whole-body-intelligence-to-robots">Gemini Robotics 2 brings whole body intelligence to robots</h2>
+<em>Google DeepMind — Blog — Tue, 28 Jul 2026 13:21:37 +0000</em> — [https://deepmind.google/blog/gemini-robotics-2-brings-whole-body-intelligence-to-robots/](https://deepmind.google/blog/gemini-robotics-2-brings-whole-body-intelligence-to-robots/)
+
+<p>Gemini Robotics 2 brings whole body intelligence to robots From feet to fingertips — we are teaching robots intelligent whole-body control, fine dexterity, and teamwork to complete a broad range of complex tasks For decades, we’ve dreamed of robots that can seamlessly step into our world and lend a hand. Now, that vision takes a significant stride forward. Most robots are pre-programmed or teleoperated for narrow, repetitive task sequences.</p>
+
+<h2 id="ten-advances-in-mathematics-and-theoretical-computer-science">Ten advances in mathematics and theoretical computer science</h2>
+<em>OpenAI — News — Sat, 01 Aug 2026 00:00:00 GMT</em> — [https://openai.com/index/ten-advances-in-mathematics](https://openai.com/index/ten-advances-in-mathematics)
+
+<p>Ten advances in mathematics and theoretical computer science. OpenAI shares new results on long-standing open problems in mathematics and theoretical computer science, including advances in geometry, cryptography, and complexity.</p>
+
+<h2 id="advancing-responsible-ai-across-europe">Advancing responsible AI across Europe</h2>
+<em>OpenAI — News — Fri, 31 Jul 2026 15:00:00 GMT</em> — [https://openai.com/index/advancing-responsible-ai-across-europe](https://openai.com/index/advancing-responsible-ai-across-europe)
+
+<p>Advancing responsible AI across Europe. OpenAI shares how its safety, security, transparency, and provenance practices support responsible AI governance in Europe. The work will continue as the EU AI Act advances.</p>
+
+<h2 id="building-abundant-intelligence">Building abundant intelligence</h2>
+<em>OpenAI — News — Fri, 31 Jul 2026 15:00:00 GMT</em> — [https://openai.com/index/building-abundant-intelligence](https://openai.com/index/building-abundant-intelligence)
+
+<p>Building abundant intelligence. A full-stack approach to making advanced AI more capable, more affordable, and more widely useful.</p>
+
+<h2 id="univ-builds-an-ai-ready-workforce">Univé builds an AI-ready workforce</h2>
+<em>OpenAI — News — Fri, 31 Jul 2026 07:00:00 GMT</em> — [https://openai.com/index/unive](https://openai.com/index/unive)
+
+<p>Univé builds an AI-ready workforce. See how Univé built an AI-ready workforce with ChatGPT Enterprise by combining leadership, responsible governance, and employee-led innovation to transform work at scale.</p>
+
+<h2 id="disrupting-a-criminal-scam-operation">Disrupting a Criminal Scam Operation</h2>
+<em>OpenAI — News — Fri, 31 Jul 2026 00:00:00 GMT</em> — [https://openai.com/index/disrupting-malicious-uses-of-ai-criminal-scam-operation](https://openai.com/index/disrupting-malicious-uses-of-ai-criminal-scam-operation)
+
+<p>Disrupting a Criminal Scam Operation. OpenAI disrupted a Cambodia-based scam operation using ChatGPT to support investment, romance, gambling, and impersonation schemes.</p>
+
+<h2 id="advancing-the-price-performance-frontier-with-gpt-5-6">Advancing the price-performance frontier with GPT-5.6</h2>
+<em>OpenAI — News — Thu, 30 Jul 2026 10:00:00 GMT</em> — [https://openai.com/index/advancing-the-price-performance-frontier-with-gpt-5-6](https://openai.com/index/advancing-the-price-performance-frontier-with-gpt-5-6)
+
+<p>Advancing the price-performance frontier with GPT-5.6. Explore lower GPT‑5.6 pricing for Luna and Terra—and how OpenAI’s more efficient models help enterprises deploy AI workflows at scale.</p>
+
+<h2 id="how-avatarin-built-a-24-7-retail-agent-with-gpt-realtime">How avatarin built a 24/7 retail agent with GPT-Realtime</h2>
+<em>OpenAI — News — Thu, 30 Jul 2026 00:00:00 GMT</em> — [https://openai.com/index/avatarin](https://openai.com/index/avatarin)
+
+<p>How avatarin built a 24/7 retail agent with GPT-Realtime. avatarin uses OpenAI’s GPT-Realtime to give Yamada Denki shoppers 24/7 multilingual support. In two weeks, 30,000 people used the agent and 92% of survey responses were positive.</p>
+
+<h2 id="how-enabling-two-settings-tripled-our-scores-on-the-arc-agi-3-benchmark">How enabling two settings tripled our scores on the ARC-AGI-3 benchmark</h2>
+<em>OpenAI — News — Wed, 29 Jul 2026 15:00:00 GMT</em> — [https://openai.com/index/how-two-settings-tripled-our-arc-agi-3-scores](https://openai.com/index/how-two-settings-tripled-our-arc-agi-3-scores)
+
+<p>How enabling two settings tripled our scores on the ARC-AGI-3 benchmark. How two API settings improved GPT-5.6 performance on ARC-AGI-3, boosting scores and efficiency by retaining reasoning and enabling compaction.</p>
+
+<h2 id="accelerating-scientific-discovery-with-chatgpt-for-academic-researchers">Accelerating scientific discovery with ChatGPT for Academic Researchers</h2>
+<em>OpenAI — News — Wed, 29 Jul 2026 10:00:00 GMT</em> — [https://openai.com/index/chatgpt-for-academic-researchers](https://openai.com/index/chatgpt-for-academic-researchers)
+
+<p>Accelerating scientific discovery with ChatGPT for Academic Researchers. OpenAI is giving 100,000 academic researchers free access to ChatGPT's most advanced AI models to accelerate scientific research, collaboration, and discovery.</p>
+
+<h2 id="how-gpt-5-6-fuses-frontier-intelligence-with-frontier-efficiency">How GPT-5.6 fuses frontier intelligence with frontier efficiency</h2>
+<em>OpenAI — News — Wed, 29 Jul 2026 00:00:00 GMT</em> — [https://openai.com/index/gpt-5-6-frontier-intelligence-efficiency](https://openai.com/index/gpt-5-6-frontier-intelligence-efficiency)
+
+<p>How GPT-5.6 fuses frontier intelligence with frontier efficiency. GPT-5.6 improves AI efficiency across models, inference, and agentic workflows, helping deliver more useful intelligence per dollar.</p>
+
+<h2 id="scientific-computing-in-the-age-of-agentic-ai">Scientific computing in the age of agentic AI</h2>
+<em>OpenAI — News — Tue, 28 Jul 2026 17:00:00 GMT</em> — [https://openai.com/index/scientific-computing-agentic-ai](https://openai.com/index/scientific-computing-agentic-ai)
+
+<p>Scientific computing in the age of agentic AI. A new field report shows how scientists use AI coding agents to modernize scientific computing, accelerating software development and discovery in genomics and beyond.</p>
+
+<h2 id="how-ai-is-expanding-what-people-do-at-work">How AI is expanding what people do at work</h2>
+<em>OpenAI — News — Mon, 27 Jul 2026 03:30:00 GMT</em> — [https://openai.com/index/how-ai-is-expanding-what-people-do-at-work](https://openai.com/index/how-ai-is-expanding-what-people-do-at-work)
+
+<p>How AI is expanding what people do at work. New OpenAI research shows how AI is expanding what workers do, with ChatGPT users taking on tasks across roles and reshaping job boundaries.</p>
+
+<h2 id="the-lottery-ticket-hypothesis-the-smaller-network-hidden-inside-a-larger-one">The Lottery Ticket Hypothesis: The Smaller Network Hidden Inside a Larger One</h2>
+<em>AI Advances (Medium publication) — Sun, 02 Aug 2026 00:01:47 GMT</em> — [https://ai.gopubby.com/the-lottery-ticket-hypothesis-the-smaller-network-hidden-inside-a-larger-one-826b15451c27?source=rss----3fe99b2acc4---4](https://ai.gopubby.com/the-lottery-ticket-hypothesis-the-smaller-network-hidden-inside-a-larger-one-826b15451c27?source=rss----3fe99b2acc4---4)
+
+<p>The Lottery Ticket Hypothesis: The Smaller Network Hidden Inside a Larger One. Member-only story The Lottery Ticket Hypothesis: The Smaller Network Hidden Inside a Larger One A surprising pruning experiment revealed that large neural networks can contain much smaller subnetworks capable of training on their own. A Result Nobody Expected to Work In 2018, the idea of pruning a neural network was already familiar to many people. For decades, the technique of pruning a neural network had been used to keep the advantages of a completed model while allowing one to get smaller-sized versions fit for mobile or embedded applications.</p>
+
+<h2 id="google-s-200-billion-identity-crisis">Google’s $200 Billion Identity Crisis</h2>
+<em>AI Advances (Medium publication) — Sat, 01 Aug 2026 00:32:40 GMT</em> — [https://ai.gopubby.com/googles-200-billion-identity-crisis-0f577486bcc6?source=rss----3fe99b2acc4---4](https://ai.gopubby.com/googles-200-billion-identity-crisis-0f577486bcc6?source=rss----3fe99b2acc4---4)
+
+<p>Google’s <span class="math-inline">\(200 Billion Identity Crisis. Member-only story Google’s\)</span>200 Billion Identity Crisis A decades-old cash machine is now betting that token activity turns into durable profit, but would it really work? For twenty years, Google had the perfect business. The beauty of its business model was that it did not have to spend.</p>
+
+<h2 id="mcp-is-just-rpc-with-better-marketing-a-backend-engineer-reads-the-spec">MCP Is Just RPC With Better Marketing: A Backend Engineer Reads the Spec</h2>
+<em>AI Advances (Medium publication) — Sat, 01 Aug 2026 00:27:48 GMT</em> — [https://ai.gopubby.com/mcp-is-just-rpc-with-better-marketing-4fa6b59fd1e3?source=rss----3fe99b2acc4---4](https://ai.gopubby.com/mcp-is-just-rpc-with-better-marketing-4fa6b59fd1e3?source=rss----3fe99b2acc4---4)
+
+<p>MCP Is Just RPC With Better Marketing: A Backend Engineer Reads the Spec. Member-only story MCP Is Just RPC With Better Marketing: A Backend Engineer Reads the Spec I want to say upfront that I am annoyed while writing this, and I am not going to pretend otherwise. Every few years backend engineering gets handed a new noun that everyone insists changes everything, and everyone who has actually shipped a distributed system for a living has to sit through months of people who have never operated a production RPC service explaining RPC to us like it was invented last quarter. Microservices changed everything.</p>
+
+<h2 id="ai-detection-a-provenance-system-with-no-access-to-provenance">AI Detection: A Provenance System With No Access to Provenance</h2>
+<em>AI Advances (Medium publication) — Fri, 31 Jul 2026 12:37:00 GMT</em> — [https://ai.gopubby.com/ai-detection-a-provenance-system-with-no-access-to-provenance-1f73a05abd06?source=rss----3fe99b2acc4---4](https://ai.gopubby.com/ai-detection-a-provenance-system-with-no-access-to-provenance-1f73a05abd06?source=rss----3fe99b2acc4---4)
+
+<p>AI Detection: A Provenance System With No Access to Provenance. Member-only story AI Detection. A Provenance System With No Access to Provenance Four documents, every word of them mine. The scanner returned three different verdicts, and it was working correctly every time.</p>
+
+<h2 id="the-eu-ai-act-decoded-from-a-wiki-you-can-read-to-a-graph-an-agent-can-reason-over">The EU AI Act, Decoded -From a Wiki You Can Read to a Graph an Agent Can Reason Over</h2>
+<em>AI Advances (Medium publication) — Fri, 31 Jul 2026 12:36:14 GMT</em> — [https://ai.gopubby.com/the-eu-ai-act-decoded-from-a-wiki-you-can-read-to-a-graph-an-agent-can-reason-over-0b6567a785d1?source=rss----3fe99b2acc4---4](https://ai.gopubby.com/the-eu-ai-act-decoded-from-a-wiki-you-can-read-to-a-graph-an-agent-can-reason-over-0b6567a785d1?source=rss----3fe99b2acc4---4)
+
+<p>The EU AI Act, Decoded -From a Wiki You Can Read to a Graph an Agent Can Reason Over. I kept being asked whether an AI idea was compliant with the EU AI Act, and kept reaching for tools that retrieved the text but could not reason about it. This is the evolution of my answer: an Obsidian wiki that makes the Act navigable, a typed Neo4j knowledge graph that makes it traversable, and the design for an agentic GraphRAG — Azure AI Search and Microsoft Foundry, that evaluates an AI system against the Act without once pretending to be a lawyer. I spend a lot of my time around ideas that sit on top of AI.</p>
+
+<h2 id="a-tree-is-all-you-need-to-understand-llm-policy-optimization">A Tree Is All You Need to Understand LLM Policy Optimization</h2>
+<em>AI Advances (Medium publication) — Fri, 31 Jul 2026 08:47:55 GMT</em> — [https://ai.gopubby.com/a-tree-is-all-you-need-to-understand-llm-policy-optimization-f62036b57e3e?source=rss----3fe99b2acc4---4](https://ai.gopubby.com/a-tree-is-all-you-need-to-understand-llm-policy-optimization-f62036b57e3e?source=rss----3fe99b2acc4---4)
+
+<p>A Tree Is All You Need to Understand LLM Policy Optimization. -An Intuitive Guide to Policy Optimization in TRPO and PPOFigure 1. Using a Decision Tree to Understand Policy Optimization (Image Prompt from Author, Generated by ChatGPT). Why are Large Language Models (LLMs) still getting more powerful — even after exhausting most of the internet’s data?</p>
+
+<h2 id="nine-days-that-split-the-ai-industry-a-chinese-model-a-self-inflicted-hack-and-the-letter">Nine Days That Split the AI Industry: A Chinese Model, a Self-Inflicted Hack, and the Letter…</h2>
+<em>AI Advances (Medium publication) — Fri, 31 Jul 2026 00:57:34 GMT</em> — [https://ai.gopubby.com/nine-days-that-split-the-ai-industry-a-chinese-model-a-self-inflicted-hack-and-the-letter-7553d27f2175?source=rss----3fe99b2acc4---4](https://ai.gopubby.com/nine-days-that-split-the-ai-industry-a-chinese-model-a-self-inflicted-hack-and-the-letter-7553d27f2175?source=rss----3fe99b2acc4---4)
+
+<p>Nine Days That Split the AI Industry: A Chinese Model, a Self-Inflicted Hack, and the Letter…. Member-only story Nine Days That Split the AI Industry: A Chinese Model, a Self-Inflicted Hack, and the Letter Anthropic Wouldn’t Sign A 2.8-trillion-parameter model shipped out of Beijing the same week OpenAI’s own red team accidentally proved how far its models could reach, and dozens of American companies signed a letter Anthropic wouldn’t. Notice who’s still standing where. On July 21, 2026, OpenAI published a report on itself.</p>
+
+<h2 id="education-is-evolving-in-the-age-of-ai">Education is evolving in the Age of AI</h2>
+<em>AI Advances (Medium publication) — Thu, 30 Jul 2026 13:16:55 GMT</em> — [https://ai.gopubby.com/education-is-evolving-in-the-age-of-ai-69db1795615b?source=rss----3fe99b2acc4---4](https://ai.gopubby.com/education-is-evolving-in-the-age-of-ai-69db1795615b?source=rss----3fe99b2acc4---4)
+
+<p>Education is evolving in the Age of AI. Member-only story Education is evolving in the Age of AI AI can finish the homework but it can’t do the growing up for you. If ChatGPT had existed when I was fifteen, I would have used it for everything, and I would have felt clever doing it. I know this about myself because I already gamed the system in every small way I could.</p>
+
+<h2 id="two-engineers-made-a-joke-about-graph-engineering-six-days-later-it-had-courses">Two Engineers Made a Joke About Graph Engineering. Six Days Later It Had Courses.</h2>
+<em>AI Advances (Medium publication) — Thu, 30 Jul 2026 08:56:12 GMT</em> — [https://ai.gopubby.com/two-engineers-made-a-joke-about-graph-engineering-six-days-later-it-had-courses-3c082a5900fd?source=rss----3fe99b2acc4---4](https://ai.gopubby.com/two-engineers-made-a-joke-about-graph-engineering-six-days-later-it-had-courses-3c082a5900fd?source=rss----3fe99b2acc4---4)
+
+<p>Two Engineers Made a Joke About Graph Engineering. Six Days Later It Had Courses.. Member-only story Two Engineers Made a Joke About Graph Engineering. Six Days Later It Had Courses. On July 18 at 00:34 UTC, Peter Steinberger posted one line on X: “Are we still talking loops or did we shift to graphs yet?” It was a joke.</p>
+
+<h2 id="stop-shopping-for-templates-and-start-auditing-the-theme-system-underneath">Stop shopping for templates and start auditing the theme system underneath</h2>
+<em>AI Advances (Medium publication) — Thu, 30 Jul 2026 08:52:49 GMT</em> — [https://ai.gopubby.com/stop-shopping-for-templates-and-start-auditing-the-theme-system-underneath-5b567144a63b?source=rss----3fe99b2acc4---4](https://ai.gopubby.com/stop-shopping-for-templates-and-start-auditing-the-theme-system-underneath-5b567144a63b?source=rss----3fe99b2acc4---4)
+
+<p>Stop shopping for templates and start auditing the theme system underneath. If you are looking for an AI that makes templates that work in PowerPoint and Google Slides, here is the direct answer. What you actually want is an AI presentation tool that generates the whole deck under a coherent theme and then exports clean PPTX, because that file is what PowerPoint opens natively and what Google Slides imports. Several tools can do the export on paper: Gamma generates a deck from a prompt or pasted text, applies a theme across every slide, and exports to PPTX and PDF; Canva exports its designs to PPTX; Beautiful.ai and Pitch have PowerPoint export paths of their own; and Copilot works inside PowerPoint from the start, so nothing has to travel at all.</p>
+
+<h2 id="gemini-api-managed-agents-3-6-flash-hooks-and-more">Gemini API Managed Agents: 3.6 Flash, hooks, and more</h2>
+<em>Google AI — blog — Tue, 28 Jul 2026 16:00:00 +0000</em> — [https://blog.google/innovation-and-ai/technology/developers-tools/expanding-managed-agents-gemini-api-3-6-flash-hooks/](https://blog.google/innovation-and-ai/technology/developers-tools/expanding-managed-agents-gemini-api-3-6-flash-hooks/)
+
+<p>Gemini API Managed Agents: 3.6 Flash, hooks, and more Managed Agents in Gemini API are getting environment hooks, model selection, and free tier access. These capabilities build on our previous release introducing background tasks and remote MCP server integration. With managed agents in the Gemini Interactions API, a single API call coordinates, reasoning, code execution, package installation, file management, and web retrieval inside an isolated cloud sandbox.</p>
+
+<h2 id="5-ways-ai-mode-in-search-helps-you-enjoy-the-real-world">5 ways AI Mode in Search helps you enjoy the real world</h2>
+<em>Google AI — blog — Tue, 28 Jul 2026 13:00:00 +0000</em> — [https://blog.google/products-and-platforms/products/search/ai-mode-real-world-tips/](https://blog.google/products-and-platforms/products/search/ai-mode-real-world-tips/)
+
+<p>5 ways AI Mode in Search helps you enjoy the real world People are searching for more and more ways to get offline, experience the real world, and “touch grass.” This year, people are searching for “adult tennis lessons,” “trail running,” “hiking,” and “run club” more than ever before. People are also searching for questions like “how to digital detox” (+110% since the beginning of the year) and “how to meet people my age near me.” To make the most of your IRL fun, AI Mode in Google Search has the tools to help you find the information you need. Here's how: 1.</p>
+
+<h2 id="5-ways-to-host-the-ultimate-dinner-party-with-google-search">5 ways to host the ultimate dinner party with Google Search</h2>
+<em>Google AI — blog — Tue, 28 Jul 2026 13:00:00 +0000</em> — [https://blog.google/products-and-platforms/products/search/dinner-party-hosting-tips/](https://blog.google/products-and-platforms/products/search/dinner-party-hosting-tips/)
+
+<p>5 ways to host the ultimate dinner party with Google Search Planning the perfect dinner party is an art. Even if you love to host, it can be stressful to navigate logistics like crafting menus and designing tablescapes. Luckily, Search can help.</p>
+
+<h2 id="gpu-management-why-idle-gpus-are-the-new-grounded-aircraft">GPU Management: Why Idle GPUs Are the New Grounded Aircraft</h2>
+<em>Hugging Face — blog — Thu, 30 Jul 2026 15:09:09 GMT</em> — [https://huggingface.co/blog/Dharma-AI/gpu-management](https://huggingface.co/blog/Dharma-AI/gpu-management)
+
+<p>GPU Management: Why Idle GPUs Are the New Grounded Aircraft Utilization, not intelligence, is the next real constraint in AI. Aviation learned this the hard way. For most of the industry's history, the number that best predicted whether an airline would survive was how much of the day each aircraft spent on the ground.</p>
+
+<h2 id="the-olmoearth-platform-geospatial-inference-at-planetary-scale">The OlmoEarth Platform: Geospatial inference at planetary scale</h2>
+<em>Hugging Face — blog — Tue, 28 Jul 2026 16:27:42 GMT</em> — [https://huggingface.co/blog/allenai/olmoearth-infrastructure](https://huggingface.co/blog/allenai/olmoearth-infrastructure)
+
+<p>The OlmoEarth Platform: Geospatial inference at planetary scale The OlmoEarth models are our family of Earth observation foundation models, pretrained on roughly 10 terabytes of multimodal satellite data. Governments, NGOs, and other mission-driven organizations are already adapting OlmoEarth for applications including deforestation monitoring, food security, and wildfire risk. At Ai2, we know how to train and release powerful open models, and for organizations with strong engineering teams, an open model is all they need to run with.</p>
+
+<h2 id="lfm2-5-encoders-for-fast-long-context-inference-on-cpu">LFM2.5-Encoders for Fast Long-Context Inference on CPU</h2>
+<em>Hugging Face — blog — Tue, 28 Jul 2026 15:01:45 GMT</em> — [https://huggingface.co/blog/LiquidAI/lfm2-5-encoders](https://huggingface.co/blog/LiquidAI/lfm2-5-encoders)
+
+<p>LFM2.5-Encoders for Fast Long-Context Inference on CPU Here's what you get: - Strong for their size: match or beat larger encoders on GLUE, SuperGLUE, and multilingual tasks. - 8,192-token context with latency that grows slowly as inputs get longer. - Fast on CPU: about 3.7× faster than ModernBERT-base at long context.</p>
+
+<h2 id="nvidia-cosmos-h-dreams-bringing-real-time-generative-simulation-to-surgical-robotics">NVIDIA Cosmos-H-Dreams: Bringing Real-Time Generative Simulation to Surgical Robotics</h2>
+<em>Hugging Face — blog — Mon, 27 Jul 2026 09:32:20 GMT</em> — [https://huggingface.co/blog/nvidia/cosmos-h-dreams](https://huggingface.co/blog/nvidia/cosmos-h-dreams)
+
+<p>NVIDIA Cosmos-H-Dreams: Bringing Real-Time Generative Simulation to Surgical Robotics World foundation models offer a different path. Instead of manually authoring every object and physical interaction, they learn visual dynamics directly from synchronized video and robot kinematics. NVIDIA's Cosmos-H-Surgical-Simulator demonstrated this approach by generating future surgical video from an initial scene and a sequence of robot actions.</p>
+
+<h2 id="anatomy-of-a-frontier-lab-agent-intrusion-a-technical-timeline-of-the-july-2026-incident">Anatomy of a Frontier Lab Agent Intrusion: A Technical Timeline of the July 2026 Incident</h2>
+<em>Hugging Face — blog — Mon, 27 Jul 2026 00:00:00 GMT</em> — [https://huggingface.co/blog/agent-intrusion-technical-timeline](https://huggingface.co/blog/agent-intrusion-technical-timeline)
+
+<p>Anatomy of a Frontier Lab Agent Intrusion: A Technical Timeline of the July 2026 Incident We are publishing this level of detail because the technique matters more than the incident, as it reveals the emerging attack capabilities of the frontier agents, how they could be used by rogue actors, and how everyone should be prepared as defenders. Below is an interactive replay of the intrusion - a step-by-step visualization of the 4.5-day campaign: the attack chain across trust boundaries, phase activity, and the commands as they were recorded. ⛶ Watch the interactive replay in full screen TL;DR Over roughly two and a half days inside our infrastructure, an autonomous AI agent driven by a combination of OpenAI models ran an end-to-end intrusion against our platform: it was thousands of small, automated decisions, executed at machine speed across short-lived sandbox environments, with command-and-control staged on ordinary public web services.</p>
+
+<h2 id="echoverse-deep-evolving-environments-for-computer-use-agents">Echoverse: Deep, evolving environments for computer-use agents</h2>
+<em>Microsoft Research (Phi / SLM) — Thu, 30 Jul 2026 17:00:00 +0000</em> — [https://www.microsoft.com/en-us/research/blog/echoverse-deep-evolving-environments-for-computer-use-agents/](https://www.microsoft.com/en-us/research/blog/echoverse-deep-evolving-environments-for-computer-use-agents/)
+
+<p>Echoverse: Deep, evolving environments for computer-use agents. Scaling fidelity over sheer count, targeting the capabilities agents actually lack, and evolving with the models they train. At a glance We built twelve training worlds for computer-use agents: ten deep domain worlds and two capability worlds, each drilling a single control rendered in many forms (date pickers and nested filters). Depth is what makes them worth training on: these worlds reproduce an application’s real behavior, come seeded with realistic data, and keep state coherent across screens and users.</p>
+
+<h2 id="evolib-turning-experience-into-evolving-knowledge">EvoLib: Turning experience into evolving knowledge</h2>
+<em>Microsoft Research (Phi / SLM) — Thu, 30 Jul 2026 16:00:00 +0000</em> — [https://www.microsoft.com/en-us/research/blog/evolib-turning-experience-into-evolving-knowledge/](https://www.microsoft.com/en-us/research/blog/evolib-turning-experience-into-evolving-knowledge/)
+
+<p>EvoLib: Turning experience into evolving knowledge. At a glance Self-supervised. EvoLib enables large language models to learn from their own experience during inference, without requiring ground-truth labels or external feedback. From experience to knowledge.</p>
+
+<h2 id="from-cuda-to-mlx-how-k-search-brings-decades-of-kernel-expertise-to-apple-silicon">From CUDA to MLX: How K-Search Brings Decades of Kernel Expertise to Apple Silicon</h2>
+<em>Berkeley AI Research (BAIR) — Wed, 29 Jul 2026 02:00:00 -0700</em> — [http://bair.berkeley.edu/blog/2026/07/29/cuda-to-mlx-k-search/](http://bair.berkeley.edu/blog/2026/07/29/cuda-to-mlx-k-search/)
+
+<p>From CUDA to MLX: How K-Search Brings Decades of Kernel Expertise to Apple Silicon. Figure 1: CUDA-to-MLX optimization translation map. CUDA optimization knowledge can be translated into architecture-native MLX strategies rather than copied instruction-for-instruction. We face a new epoch in computing.</p>
+
+<h2 id="teaching-llms-to-update-beliefs-for-efficient-long-horizon-interaction">Teaching LLMs to Update Beliefs for Efficient Long-Horizon Interaction</h2>
+<em>Berkeley AI Research (BAIR) — Sun, 26 Jul 2026 02:00:00 -0700</em> — [http://bair.berkeley.edu/blog/2026/07/26/abbel/](http://bair.berkeley.edu/blog/2026/07/26/abbel/)
+
+<p>Teaching LLMs to Update Beliefs for Efficient Long-Horizon Interaction. Overview of ABBEL compared to traditional recursive summarization. Beliefs replace the full interaction history as the agent’s working context, and belief grading improves performance by supervising the contents of each belief state.. As task horizons grow, LLM contexts can’t scale forever.</p>
+
+<h2 id="deepseek-rise-technologies-impact-global-response-britannica-money-encyclopedia-britannica">DeepSeek | Rise, Technologies, Impact, & Global Response | Britannica Money - Encyclopedia Britannica</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Tue, 28 Jul 2026 07:00:00 GMT</em> — [https://news.google.com/rss/articles/CBMiU0FVX3lxTE14aVZsR1psY1J4VTdFSHZJOXh2b3B2cjItM1B3M2IybnJRMzR5OU9HMFRmYTlTbVpuY3ZUX1FDYTh4cDlFdVZHZkgyam1nUXVBN2pF?oc=5](https://news.google.com/rss/articles/CBMiU0FVX3lxTE14aVZsR1psY1J4VTdFSHZJOXh2b3B2cjItM1B3M2IybnJRMzR5OU9HMFRmYTlTbVpuY3ZUX1FDYTh4cDlFdVZHZkgyam1nUXVBN2pF?oc=5)
+
+<p>DeepSeek | Rise, Technologies, Impact, & Global Response | Britannica Money - Encyclopedia Britannica. DeepSeek | Rise, Technologies, Impact, & Global Response | Britannica Money Encyclopedia Britannica</p>
+
+<h2 id="china-s-moonshot-z-ai-and-deepseek-are-challenging-u-s-ai-labs-and-beating-them-on-cost-fortune">China's Moonshot, Z.AI, and DeepSeek are challenging U.S. AI labs—and beating them on cost - Fortune</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Sun, 26 Jul 2026 21:00:00 GMT</em> — [https://news.google.com/rss/articles/CBMikAFBVV95cUxQaEV5NHNvbGZGZjM0S2E4WVVLQXhWMU1zcVhnRTBWNVFQX1BOUFlxN3JGYTM3T0xuLXhPMHpQVlhNY1h0TFRkeXIyTGNuYVZXSUQwTk5ybUdLRjF4am5OdjFvY01tbk9ER3RrSDNRQ1VaSFJlLThLTS0zcFd4REpBSHdHRmxRRm4wUHduQ3NWSGw?oc=5](https://news.google.com/rss/articles/CBMikAFBVV95cUxQaEV5NHNvbGZGZjM0S2E4WVVLQXhWMU1zcVhnRTBWNVFQX1BOUFlxN3JGYTM3T0xuLXhPMHpQVlhNY1h0TFRkeXIyTGNuYVZXSUQwTk5ybUdLRjF4am5OdjFvY01tbk9ER3RrSDNRQ1VaSFJlLThLTS0zcFd4REpBSHdHRmxRRm4wUHduQ3NWSGw?oc=5)
+
+<p>China's Moonshot, Z.AI, and DeepSeek are challenging U.S. AI labs—and beating them on cost - Fortune. China's Moonshot, Z.AI, and DeepSeek are challenging U.S. AI labs—and beating them on cost Fortune</p>
+
+<h2 id="deepseek-releases-beta-version-of-v4-models-as-ai-price-war-heats-up-nikkei-asia">DeepSeek releases beta version of V4 models as AI price war heats up - Nikkei Asia</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Fri, 31 Jul 2026 09:08:00 GMT</em> — [https://news.google.com/rss/articles/CBMi0gFBVV95cUxOV3o4YXZVWEZta2NwZUlsbXd0QW13UkJhSzluUUFyT2E5VkU0OThQZ2xjakpzV25KYTdPQVVKQ2RSZW5uSE13VUFaUThlUHJkckJySnBiTWJHdTk1NER2cFJoaWN5bWNBdlRSdDU1UmcwVzBFcG9obUZ0RG11NUJKX19oYXBMem02anZ1aGFmZC1HaFJRMnQ4eXJmRlpOVXlfMl9BUHI3ZmJSaDlIVk1adnZrVEcwR1R3VHhaUS1scE00UjZod1lGNzRXcnE0b2xJUmc?oc=5](https://news.google.com/rss/articles/CBMi0gFBVV95cUxOV3o4YXZVWEZta2NwZUlsbXd0QW13UkJhSzluUUFyT2E5VkU0OThQZ2xjakpzV25KYTdPQVVKQ2RSZW5uSE13VUFaUThlUHJkckJySnBiTWJHdTk1NER2cFJoaWN5bWNBdlRSdDU1UmcwVzBFcG9obUZ0RG11NUJKX19oYXBMem02anZ1aGFmZC1HaFJRMnQ4eXJmRlpOVXlfMl9BUHI3ZmJSaDlIVk1adnZrVEcwR1R3VHhaUS1scE00UjZod1lGNzRXcnE0b2xJUmc?oc=5)
+
+<p>DeepSeek releases beta version of V4 models as AI price war heats up - Nikkei Asia. DeepSeek releases beta version of V4 models as AI price war heats up Nikkei Asia</p>
+
+<h2 id="deepseek-releases-official-v4-flash-model-as-china-s-ai-race-intensifies-caixin-global">DeepSeek Releases Official V4-Flash Model as China’s AI Race Intensifies - Caixin Global</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Fri, 31 Jul 2026 17:37:00 GMT</em> — [https://news.google.com/rss/articles/CBMixAFBVV95cUxPQnl1b0lNYmc0RFhJR2ZLRklvanZkREFWNFE2MUN0bWVoWXJXUmdUOHVBdy1IXzRPaVpoclhLMXd1cjNiLURFaC12VDFNbGVjRnY4RkhZaHVzQjFBdXRRVUl5NU0zTkpGVHRRNUNiWHlqTEEtbk44eDFBSDByNjF1dk9lSjZycWZIU2xHVWU1akFIN1ZKNFBQOE1lNk1yT2ZOampTYnFUS1AwRVBsUjNfOVd0WG81SlBMUHhpaGNmMUtRTllo?oc=5](https://news.google.com/rss/articles/CBMixAFBVV95cUxPQnl1b0lNYmc0RFhJR2ZLRklvanZkREFWNFE2MUN0bWVoWXJXUmdUOHVBdy1IXzRPaVpoclhLMXd1cjNiLURFaC12VDFNbGVjRnY4RkhZaHVzQjFBdXRRVUl5NU0zTkpGVHRRNUNiWHlqTEEtbk44eDFBSDByNjF1dk9lSjZycWZIU2xHVWU1akFIN1ZKNFBQOE1lNk1yT2ZOampTYnFUS1AwRVBsUjNfOVd0WG81SlBMUHhpaGNmMUtRTllo?oc=5)
+
+<p>DeepSeek Releases Official V4-Flash Model as China’s AI Race Intensifies - Caixin Global. DeepSeek Releases Official V4-Flash Model as China’s AI Race Intensifies Caixin Global</p>
+
+<h2 id="chinese-hacker-commands-deepseek-via-telegram-to-launch-autonomous-attacks-the-hacker-news">Chinese Hacker Commands DeepSeek via Telegram to Launch Autonomous Attacks - The Hacker News</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Fri, 31 Jul 2026 11:21:00 GMT</em> — [https://news.google.com/rss/articles/CBMigAFBVV95cUxQcXp3UXlPVWpiaUsyMGdxOTFnOWNweVBLUDFBek1lak1TUkNUQ201WFJfVGhFZWFJaGNiQnM3ajFRTGJuOFMteFhwTl9EemdyY0tCNWNlbEcwcWRvYTNJUjZsOEFwV0Z5LUNSUnB6WXBWYVI0ZkVCVzdqZU0tMGZ0Tw?oc=5](https://news.google.com/rss/articles/CBMigAFBVV95cUxQcXp3UXlPVWpiaUsyMGdxOTFnOWNweVBLUDFBek1lak1TUkNUQ201WFJfVGhFZWFJaGNiQnM3ajFRTGJuOFMteFhwTl9EemdyY0tCNWNlbEcwcWRvYTNJUjZsOEFwV0Z5LUNSUnB6WXBWYVI0ZkVCVzdqZU0tMGZ0Tw?oc=5)
+
+<p>Chinese Hacker Commands DeepSeek via Telegram to Launch Autonomous Attacks - The Hacker News. Chinese Hacker Commands DeepSeek via Telegram to Launch Autonomous Attacks The Hacker News</p>
+
+<h2 id="deepseek-upgrades-deepseek-v4-flash-0731-with-major-agentic-and-coding-gains-marktechpost">DeepSeek Upgrades DeepSeek-V4-Flash-0731 with Major Agentic and Coding Gains - MarkTechPost</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Fri, 31 Jul 2026 22:03:39 GMT</em> — [https://news.google.com/rss/articles/CBMiuAFBVV95cUxPVWhKdE1STjFDbU9nV0liUGxNMDZIbzJKaVpJblRWTncxMkpPV2duaDA3b3NpVGdyRWQ1bWxWNkpJc3c0azdvMzBTUDNocUd3ZGdVLVV0d1hzb0RYUTJoUTQ0c05fdW0tQzRCbDRhRFJycm1SaTRxanMzMmphYkl4bnlKMk1raG9fd1UyTHUwb1NoNXhhQXgtVndMRGhka3BGLXVlUWFXNDRDdVI1X19kWXlJdlVwTjFC0gG-AUFVX3lxTFBabXFGamRhRmtjR0hLM2RiX3hwRFVQSmFBLTlyUzFqRmVmYTg5UFpRQUJzeTBQTUxfVWl0Vk9zUDQtbkZkQlJlak9Wa093cEpOa2g3d1VOcVMtMDdWRjFPbEdOSVQwVUVfOVdUQ2wydjMzakdKZTR1WURKcW93cXNGRW5YQ1RfQXVXYzdWdEtTbV9aaHN0VVFZanBVWjZoS3kwWE9xZ0J4VlNnR1hVblVseHM1UGhmU2NXZG82bHc?oc=5](https://news.google.com/rss/articles/CBMiuAFBVV95cUxPVWhKdE1STjFDbU9nV0liUGxNMDZIbzJKaVpJblRWTncxMkpPV2duaDA3b3NpVGdyRWQ1bWxWNkpJc3c0azdvMzBTUDNocUd3ZGdVLVV0d1hzb0RYUTJoUTQ0c05fdW0tQzRCbDRhRFJycm1SaTRxanMzMmphYkl4bnlKMk1raG9fd1UyTHUwb1NoNXhhQXgtVndMRGhka3BGLXVlUWFXNDRDdVI1X19kWXlJdlVwTjFC0gG-AUFVX3lxTFBabXFGamRhRmtjR0hLM2RiX3hwRFVQSmFBLTlyUzFqRmVmYTg5UFpRQUJzeTBQTUxfVWl0Vk9zUDQtbkZkQlJlak9Wa093cEpOa2g3d1VOcVMtMDdWRjFPbEdOSVQwVUVfOVdUQ2wydjMzakdKZTR1WURKcW93cXNGRW5YQ1RfQXVXYzdWdEtTbV9aaHN0VVFZanBVWjZoS3kwWE9xZ0J4VlNnR1hVblVseHM1UGhmU2NXZG82bHc?oc=5)
+
+<p>DeepSeek Upgrades DeepSeek-V4-Flash-0731 with Major Agentic and Coding Gains - MarkTechPost. DeepSeek Upgrades DeepSeek-V4-Flash-0731 with Major Agentic and Coding Gains MarkTechPost</p>
+
+<h2 id="openai-explains-why-it-s-slashing-ai-prices-michael-burry-says-the-real-news-is-preparation-for-deepseek-s-new-v4-models-tradingview">OpenAI Explains Why It's Slashing AI Prices — Michael Burry Says The 'Real News' Is Preparation For DeepSeek's New V4 Models - TradingView</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Fri, 31 Jul 2026 16:03:00 GMT</em> — [https://news.google.com/rss/articles/CBMijAJBVV95cUxOdHBINnNKNUdvOWhnNEF2bnhsbm9mdTZyNV8xbFFXXzNSbm9RMVpBN1Y1TUtLUkZxX2RNRGs4QWYzdXJmTTZhekxmNmdRclJJbDBWWWZiZmp3S1QxYXMtT1RNX1d4TDNTRWlVdThheVp4Q1hSbnI5LTRRcy1xU2pmcy1lSFJWX01ISDdoSndaTUtzWUtjZmEtQWhtcVJzMHlvbDh5a2t0YlE3S09nVDl5amtFM2I2YTBBOF9EZDJNOC00NEhPMWdRTEdiZnZ1Q216LXlVcjZjS05yOE5kNWdFd19FYlJMMmszQUtLYllOamh0dEZLWmpmSlpUaHFvY081UGJlVnZrMlE4OXdE?oc=5](https://news.google.com/rss/articles/CBMijAJBVV95cUxOdHBINnNKNUdvOWhnNEF2bnhsbm9mdTZyNV8xbFFXXzNSbm9RMVpBN1Y1TUtLUkZxX2RNRGs4QWYzdXJmTTZhekxmNmdRclJJbDBWWWZiZmp3S1QxYXMtT1RNX1d4TDNTRWlVdThheVp4Q1hSbnI5LTRRcy1xU2pmcy1lSFJWX01ISDdoSndaTUtzWUtjZmEtQWhtcVJzMHlvbDh5a2t0YlE3S09nVDl5amtFM2I2YTBBOF9EZDJNOC00NEhPMWdRTEdiZnZ1Q216LXlVcjZjS05yOE5kNWdFd19FYlJMMmszQUtLYllOamh0dEZLWmpmSlpUaHFvY081UGJlVnZrMlE4OXdE?oc=5)
+
+<p>OpenAI Explains Why It's Slashing AI Prices — Michael Burry Says The 'Real News' Is Preparation For DeepSeek's New V4 Models - TradingView. OpenAI Explains Why It's Slashing AI Prices — Michael Burry Says The 'Real News' Is Preparation For DeepSeek's New V4 Models TradingView</p>
+
+<h2 id="the-best-ai-you-can-own-is-chinese-the-west-needs-to-close-that-gap-quickly-atlantic-council">The best AI you can own is Chinese. The West needs to close that gap quickly. - Atlantic Council</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Mon, 27 Jul 2026 16:51:21 GMT</em> — [https://news.google.com/rss/articles/CBMitAFBVV95cUxNZDlWRmVNS1h2bWhwN3BDVVB5TXA1cGc1d3k2NkpreGsxZHYzZ2ozbkd3aEYyd1dfTWd0ZDBXXzFuWmZrbVBiUGIteGw5eGlGMDNCQ2hxazBTUlVYMVB0WlVuWTVIdVpUNXF1UDBLOXZYc3hsTW9qbzU3N3VxRDNzNGdBUEo2Vy1zd1AybVhQbW9GYXNIMWxvd3dfazNWN1RneDNSQVhiRnIySkdDdC0yWVdTUVk?oc=5](https://news.google.com/rss/articles/CBMitAFBVV95cUxNZDlWRmVNS1h2bWhwN3BDVVB5TXA1cGc1d3k2NkpreGsxZHYzZ2ozbkd3aEYyd1dfTWd0ZDBXXzFuWmZrbVBiUGIteGw5eGlGMDNCQ2hxazBTUlVYMVB0WlVuWTVIdVpUNXF1UDBLOXZYc3hsTW9qbzU3N3VxRDNzNGdBUEo2Vy1zd1AybVhQbW9GYXNIMWxvd3dfazNWN1RneDNSQVhiRnIySkdDdC0yWVdTUVk?oc=5)
+
+<p>The best AI you can own is Chinese. The West needs to close that gap quickly. - Atlantic Council. The best AI you can own is Chinese. The West needs to close that gap quickly. Atlantic Council</p>
+
+<h2 id="openai-explains-why-it-s-slashing-ai-prices-michael-burry-says-the-real-news-is-preparation-for-deepseek-s-new-v4-models-yahoo-finance">OpenAI Explains Why It's Slashing AI Prices — Michael Burry Says The 'Real News' Is Preparation For DeepSeek's New V4 Models - Yahoo Finance</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Fri, 31 Jul 2026 16:03:00 GMT</em> — [https://news.google.com/rss/articles/CBMimwFBVV95cUxPcDFXMWQtbWxDT0t0YmNpbDljYUxIazQ1M3pjNHZUUDA2NUFCSmxnRGl1WWFHVDhUcE9zVFlTejhyejAxVFZzZlNyRjV0ZnBZaUdMYThpLVdGNEtlT1pMUUt1VFB0ZE5RdUxvck5vTThKYlFCZlItb19CNlZ0RzBpSG54ajdlb0VQc0lEdXJsZ2ZwMWlhTWN5VDNXYw?oc=5](https://news.google.com/rss/articles/CBMimwFBVV95cUxPcDFXMWQtbWxDT0t0YmNpbDljYUxIazQ1M3pjNHZUUDA2NUFCSmxnRGl1WWFHVDhUcE9zVFlTejhyejAxVFZzZlNyRjV0ZnBZaUdMYThpLVdGNEtlT1pMUUt1VFB0ZE5RdUxvck5vTThKYlFCZlItb19CNlZ0RzBpSG54ajdlb0VQc0lEdXJsZ2ZwMWlhTWN5VDNXYw?oc=5)
+
+<p>OpenAI Explains Why It's Slashing AI Prices — Michael Burry Says The 'Real News' Is Preparation For DeepSeek's New V4 Models - Yahoo Finance. OpenAI Explains Why It's Slashing AI Prices — Michael Burry Says The 'Real News' Is Preparation For DeepSeek's New V4 Models Yahoo Finance</p>
+
+<h2 id="deepseek-v4-ai-models-disrupt-china-s-market-competition-the-cryptonomist">DeepSeek V4 AI Models Disrupt China's Market Competition - The Cryptonomist</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Fri, 31 Jul 2026 10:10:45 GMT</em> — [https://news.google.com/rss/articles/CBMibEFVX3lxTE1BQUg3TTg3akhQNlRjOV9qUUZVbWN2X1ZaY0FEdUZORHl3b1FPTm1BOVpkY1QzWXBFbmRSbzVLNDNER0Y5bmdMS1Y2OTBSZElrZ0l2THdsbzJ1V1lJLW1fcEhadGhBemVkcTZYOA?oc=5](https://news.google.com/rss/articles/CBMibEFVX3lxTE1BQUg3TTg3akhQNlRjOV9qUUZVbWN2X1ZaY0FEdUZORHl3b1FPTm1BOVpkY1QzWXBFbmRSbzVLNDNER0Y5bmdMS1Y2OTBSZElrZ0l2THdsbzJ1V1lJLW1fcEhadGhBemVkcTZYOA?oc=5)
+
+<p>DeepSeek V4 AI Models Disrupt China's Market Competition - The Cryptonomist. DeepSeek V4 AI Models Disrupt China's Market Competition The Cryptonomist</p>
+
+<h2 id="deepseek-makes-a-splash-with-small-affordable-v4-flash-model-the-information">DeepSeek Makes a Splash with Small, Affordable V4-Flash Model - The Information</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Sun, 02 Aug 2026 04:10:00 GMT</em> — [https://news.google.com/rss/articles/CBMimgFBVV95cUxOTjdaMHZvTnZTd1YyUy1zeFNKem9fUUxtemFnb210MkVxZjN4bkNEdVdVT3hFekNDeFZBdU0zWkZKdzhuZVEydzJhZUFhM2IzUzVqbVVqMEVJeWVzNFVIOEozajJkN0xIejVrT0VwQ3lUQUoxemI0STVVMzFlVWFoLXlqR3hkZk1fSE81UXJEZ21rakpCejFPZExn?oc=5](https://news.google.com/rss/articles/CBMimgFBVV95cUxOTjdaMHZvTnZTd1YyUy1zeFNKem9fUUxtemFnb210MkVxZjN4bkNEdVdVT3hFekNDeFZBdU0zWkZKdzhuZVEydzJhZUFhM2IzUzVqbVVqMEVJeWVzNFVIOEozajJkN0xIejVrT0VwQ3lUQUoxemI0STVVMzFlVWFoLXlqR3hkZk1fSE81UXJEZ21rakpCejFPZExn?oc=5)
+
+<p>DeepSeek Makes a Splash with Small, Affordable V4-Flash Model - The Information. DeepSeek Makes a Splash with Small, Affordable V4-Flash Model The Information</p>
+
+<h2 id="deepseek-v4-vs-glm-5-2-vs-qwen-10x-price-gap-2026-tech-insider-org">DeepSeek V4 vs GLM-5.2 vs Qwen: 10x Price Gap [2026] - tech-insider.org</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Mon, 27 Jul 2026 12:20:55 GMT</em> — [https://news.google.com/rss/articles/CBMibkFVX3lxTE5ZaExtdWtZbHFzLWdWTkxJRXdtNnVjMC0wZ3hUcUo2dDJGQ0JtdlY5c0FnN0VZQ01CbTE4ckZfYXQxR3hkb1N5bkFDQl9vbE5UenJITlFRZy1STW9BUHFiX2VaSEo3MDJvWXBmYTZ3?oc=5](https://news.google.com/rss/articles/CBMibkFVX3lxTE5ZaExtdWtZbHFzLWdWTkxJRXdtNnVjMC0wZ3hUcUo2dDJGQ0JtdlY5c0FnN0VZQ01CbTE4ckZfYXQxR3hkb1N5bkFDQl9vbE5UenJITlFRZy1STW9BUHFiX2VaSEo3MDJvWXBmYTZ3?oc=5)
+
+<p>DeepSeek V4 vs GLM-5.2 vs Qwen: 10x Price Gap [2026] - tech-insider.org. DeepSeek V4 vs GLM-5.2 vs Qwen: 10x Price Gap [2026] tech-insider.org</p>
+
+<h2 id="deepseek-puts-v4-flash-api-into-public-beta-technode">DeepSeek puts V4-Flash API into public beta - TechNode</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Fri, 31 Jul 2026 07:19:25 GMT</em> — [https://news.google.com/rss/articles/CBMiggFBVV95cUxNV1JLWjM5ZVNRY29zNXhoQlVUaUZzZ3hXWTAxbTc4N2RvNUdIQWxxX1ZsbGhKT3NrREZSSEwxSVo4RHo5LTIyeHRjNnhZMU8zNTJrckhwSXRnZjYySmtQVG8xSl9DNGxOdmtXajNLcnM1b3dOUzNnWFdDQmR2UzFpcnRB?oc=5](https://news.google.com/rss/articles/CBMiggFBVV95cUxNV1JLWjM5ZVNRY29zNXhoQlVUaUZzZ3hXWTAxbTc4N2RvNUdIQWxxX1ZsbGhKT3NrREZSSEwxSVo4RHo5LTIyeHRjNnhZMU8zNTJrckhwSXRnZjYySmtQVG8xSl9DNGxOdmtXajNLcnM1b3dOUzNnWFdDQmR2UzFpcnRB?oc=5)
+
+<p>DeepSeek puts V4-Flash API into public beta - TechNode. DeepSeek puts V4-Flash API into public beta TechNode</p>
+
+<h2 id="deepseek-retrained-v4-flash-beats-its-flagship-pro-on-nine-agent-benchmarks-techtimes-com">DeepSeek Retrained V4-Flash Beats Its Flagship Pro on Nine Agent Benchmarks - techtimes.com</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Fri, 31 Jul 2026 18:27:25 GMT</em> — [https://news.google.com/rss/articles/CBMixgFBVV95cUxPeFMyNVd0Y2J3MDJoMTc5MEw3ajZTNDBjSmszd0xaNktucU5WTTdyYmpuY2R2UjhfTEx6MjdhWHhwa0l6NU02VDFfdmMySktYYmx0eUZZU3FrczJ0OGlTbWxHNHdkY04weTQtRExSM1dmWlgxaUpfMTc2UHp6NFdNOTRrRkVUenFlVzFSbWZsVm9vbHR2SHRzSkN3dXh1aHVyN0dMSlZNa1NHdWYyS2RLMXRGR3RvX3M0TGppeWZUc2daZ09UMWc?oc=5](https://news.google.com/rss/articles/CBMixgFBVV95cUxPeFMyNVd0Y2J3MDJoMTc5MEw3ajZTNDBjSmszd0xaNktucU5WTTdyYmpuY2R2UjhfTEx6MjdhWHhwa0l6NU02VDFfdmMySktYYmx0eUZZU3FrczJ0OGlTbWxHNHdkY04weTQtRExSM1dmWlgxaUpfMTc2UHp6NFdNOTRrRkVUenFlVzFSbWZsVm9vbHR2SHRzSkN3dXh1aHVyN0dMSlZNa1NHdWYyS2RLMXRGR3RvX3M0TGppeWZUc2daZ09UMWc?oc=5)
+
+<p>DeepSeek Retrained V4-Flash Beats Its Flagship Pro on Nine Agent Benchmarks - techtimes.com. DeepSeek Retrained V4-Flash Beats Its Flagship Pro on Nine Agent Benchmarks techtimes.com</p>
+
+<h2 id="deepseek-opens-public-beta-api-for-v4-flash-as-a-three-way-price-war-hits-ai-developers-startup-fortune">DeepSeek opens public beta API for V4-Flash as a three-way price war hits AI developers - Startup Fortune</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Fri, 31 Jul 2026 07:54:30 GMT</em> — [https://news.google.com/rss/articles/CBMitgFBVV95cUxNNENrVTE4UFV2X0o2Qm9BODVXYkxVUUJCUGl6WlNSbm5BN1pOby05V2NsdDNtMXJCQmZJcWlvWGdnMGpXbTJPdDhpWDhnak8wQlpxRnZQNHNGMmdmODZTNFZTQ3RZdk1hc2ZFaHcwV2xIYlhjQy0zNE5fVFBXWjV4am9BNXZFRnRzeDFsVlcyWTVGM2kzUUVUY0NXcVBHeHNra0tnUWpUMlczdm04R0F4MUViSk9FQQ?oc=5](https://news.google.com/rss/articles/CBMitgFBVV95cUxNNENrVTE4UFV2X0o2Qm9BODVXYkxVUUJCUGl6WlNSbm5BN1pOby05V2NsdDNtMXJCQmZJcWlvWGdnMGpXbTJPdDhpWDhnak8wQlpxRnZQNHNGMmdmODZTNFZTQ3RZdk1hc2ZFaHcwV2xIYlhjQy0zNE5fVFBXWjV4am9BNXZFRnRzeDFsVlcyWTVGM2kzUUVUY0NXcVBHeHNra0tnUWpUMlczdm04R0F4MUViSk9FQQ?oc=5)
+
+<p>DeepSeek opens public beta API for V4-Flash as a three-way price war hits AI developers - Startup Fortune. DeepSeek opens public beta API for V4-Flash as a three-way price war hits AI developers Startup Fortune</p>
+
+<h2 id="chinese-firms-including-deepseek-minimax-unveil-new-ai-achievements-reflecting-a-period-of-concentrated-breakthroughs-global-times">Chinese firms including DeepSeek, MiniMax unveil new AI achievements, reflecting ‘a period of concentrated breakthroughs’ - Global Times</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Fri, 31 Jul 2026 12:27:00 GMT</em> — [https://news.google.com/rss/articles/CBMiYkFVX3lxTFBrTzRnOGxpN21vV0lhZGlNNGg4UzBpX3pYcnZndzdHRmZYZ1FCWTZBYktubjRuUS1mWWZiUVJyQVp1VXZBLV9FR1RoelY0TlF3Tktsa0FETy1hT28wTnhVcUt3?oc=5](https://news.google.com/rss/articles/CBMiYkFVX3lxTFBrTzRnOGxpN21vV0lhZGlNNGg4UzBpX3pYcnZndzdHRmZYZ1FCWTZBYktubjRuUS1mWWZiUVJyQVp1VXZBLV9FR1RoelY0TlF3Tktsa0FETy1hT28wTnhVcUt3?oc=5)
+
+<p>Chinese firms including DeepSeek, MiniMax unveil new AI achievements, reflecting ‘a period of concentrated breakthroughs’ - Global Times. Chinese firms including DeepSeek, MiniMax unveil new AI achievements, reflecting ‘a period of concentrated breakthroughs’ Global Times</p>
+
+<h2 id="gpt-5-6-sees-sharp-price-cut-luna-input-pricing-undercuts-deepseek-followed-by-immediate-official-launch-of-deepseek-v4-36-kr">GPT-5.6 Sees Sharp Price Cut: Luna Input Pricing Undercuts DeepSeek, Followed by Immediate Official Launch of DeepSeek V4 - 36 Kr</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Fri, 31 Jul 2026 10:00:47 GMT</em> — [https://news.google.com/rss/articles/CBMiU0FVX3lxTE9BbkhDb2h4TzI4THBsWlpNazIxRWFUbDRmNXR5d1NQVHZ4MkdlV09fUjdONEhVcUJFZ0NXWFpiUXRCcDFYYjcyaXlqeFBXMFd4RmRJ?oc=5](https://news.google.com/rss/articles/CBMiU0FVX3lxTE9BbkhDb2h4TzI4THBsWlpNazIxRWFUbDRmNXR5d1NQVHZ4MkdlV09fUjdONEhVcUJFZ0NXWFpiUXRCcDFYYjcyaXlqeFBXMFd4RmRJ?oc=5)
+
+<p>GPT-5.6 Sees Sharp Price Cut: Luna Input Pricing Undercuts DeepSeek, Followed by Immediate Official Launch of DeepSeek V4 - 36 Kr. GPT-5.6 Sees Sharp Price Cut: Luna Input Pricing Undercuts DeepSeek, Followed by Immediate Official Launch of DeepSeek V4 36 Kr</p>
+
+<h2 id="chinese-ai-models-now-handle-nearly-a-third-of-enterprise-tokens-at-one-tenth-the-cost-of-us-rivals-marketscale">Chinese AI models now handle nearly a third of enterprise tokens at one-tenth the cost of US rivals - MarketScale</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Mon, 27 Jul 2026 14:45:51 GMT</em> — [https://news.google.com/rss/articles/CBMi9AFBVV95cUxONEQ2WVhlQ2l0ZVVMVlltc3BqNXdtM2tWcDhiRTlNZ0lERFQ4MFdneV8tejVTVnNnTFc2SXJqNHRPN2k3cUU1RUZjUk9PMkNTWWptNDhYY2oyVGVOMC1PUEladElkZG50b3JnRjhtcEZ0S1lnUUZXaFh1VDBzR3EwcEExVDVOVHVCakRZWmNOdTl5QWE0OEk4WGVEQzI5Zm1HUW40bkJwenJMRDZlNTJ6TTdEcXZjZG8yRV9oVlBNRFMxak5PcktnZERKM1dRYUcwM1lKMEozUGRBLVlySkM5c0V3VERjenlKOU1qdjVzVGZyODZ4?oc=5](https://news.google.com/rss/articles/CBMi9AFBVV95cUxONEQ2WVhlQ2l0ZVVMVlltc3BqNXdtM2tWcDhiRTlNZ0lERFQ4MFdneV8tejVTVnNnTFc2SXJqNHRPN2k3cUU1RUZjUk9PMkNTWWptNDhYY2oyVGVOMC1PUEladElkZG50b3JnRjhtcEZ0S1lnUUZXaFh1VDBzR3EwcEExVDVOVHVCakRZWmNOdTl5QWE0OEk4WGVEQzI5Zm1HUW40bkJwenJMRDZlNTJ6TTdEcXZjZG8yRV9oVlBNRFMxak5PcktnZERKM1dRYUcwM1lKMEozUGRBLVlySkM5c0V3VERjenlKOU1qdjVzVGZyODZ4?oc=5)
+
+<p>Chinese AI models now handle nearly a third of enterprise tokens at one-tenth the cost of US rivals - MarketScale. Chinese AI models now handle nearly a third of enterprise tokens at one-tenth the cost of US rivals MarketScale</p>
+
+<h2 id="deepseek-disrupts-ai-pricing-with-0-28-agentic-output-floor-forkast-news">DeepSeek Disrupts AI Pricing with $0.28 Agentic Output Floor - forkast.news</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Sat, 01 Aug 2026 09:01:26 GMT</em> — [https://news.google.com/rss/articles/CBMiiAFBVV95cUxPcjBvWDZ5UUNkZnR1X2FMNFJValdGRUZBTUZDMjNEMml5U21fQ05ESVpXaFVldlZFMWl0NEZWbjByTWVXdTN0Tjd1b0pwbzdEZ3FZMWJ6M2RDWkdKakJVNHRhREtmRlFqVWVfRlVETnhmTUhnUVdiZXVXaTFmR2ppVDhnTkNrRHgt?oc=5](https://news.google.com/rss/articles/CBMiiAFBVV95cUxPcjBvWDZ5UUNkZnR1X2FMNFJValdGRUZBTUZDMjNEMml5U21fQ05ESVpXaFVldlZFMWl0NEZWbjByTWVXdTN0Tjd1b0pwbzdEZ3FZMWJ6M2RDWkdKakJVNHRhREtmRlFqVWVfRlVETnhmTUhnUVdiZXVXaTFmR2ppVDhnTkNrRHgt?oc=5)
+
+<p>DeepSeek Disrupts AI Pricing with <span class="math-inline">\(0.28 Agentic Output Floor - forkast.news. DeepSeek Disrupts AI Pricing with\)</span>0.28 Agentic Output Floor forkast.news</p>
+
+<h2 id="ai-week-in-review-26-07-31-substack">AI Week in Review 26.07.31 - Substack</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Sat, 01 Aug 2026 00:34:03 GMT</em> — [https://news.google.com/rss/articles/CBMibkFVX3lxTE5aRTNsZ1hCbDJ2VUJha243cWNHWEdTbGpTWmlyZUtmZzhqcnppZDRRUkNLS1F2Z2ZYQzUyTWRjNDR1Ukt2QmtKZXhBa2Q2bEhwbGc1NWNHR2NBSVdTekpLZXZHUmxST3d6bHNFSGdB?oc=5](https://news.google.com/rss/articles/CBMibkFVX3lxTE5aRTNsZ1hCbDJ2VUJha243cWNHWEdTbGpTWmlyZUtmZzhqcnppZDRRUkNLS1F2Z2ZYQzUyTWRjNDR1Ukt2QmtKZXhBa2Q2bEhwbGc1NWNHR2NBSVdTekpLZXZHUmxST3d6bHNFSGdB?oc=5)
+
+<p>AI Week in Review 26.07.31 - Substack. AI Week in Review 26.07.31 Substack</p>
+
+<h2 id="the-faces-behind-china-s-ai-rise-meet-the-founders-of-deepseek-z-ai-and-moonshot-ai-cna">The faces behind China's AI rise: Meet the founders of DeepSeek, Z.ai and Moonshot AI - CNA</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Sun, 26 Jul 2026 22:00:00 GMT</em> — [https://news.google.com/rss/articles/CBMiuAFBVV95cUxORjFFajlOY2MzV1gwdTN1M09YUXBNS19CT0pJMVhjb05McEZTREs4ejY4SWN6YnpIbVVQRGFCT1ZTOWZ5THBmblpvWFFvNWZRZ2xKWVJHcndkdldnNTQ5SWV4aHFsT2hMazA5b1RFQzJDS3dGZExzeUp1TmV3QmQ1aXhPM2VsSzlOUzNkeEl6VDlQcFhhb2ZnQ3IyWHBidFJkaDNFQV9OVElYd1FpdFZfbVRpVzEwY2t6?oc=5](https://news.google.com/rss/articles/CBMiuAFBVV95cUxORjFFajlOY2MzV1gwdTN1M09YUXBNS19CT0pJMVhjb05McEZTREs4ejY4SWN6YnpIbVVQRGFCT1ZTOWZ5THBmblpvWFFvNWZRZ2xKWVJHcndkdldnNTQ5SWV4aHFsT2hMazA5b1RFQzJDS3dGZExzeUp1TmV3QmQ1aXhPM2VsSzlOUzNkeEl6VDlQcFhhb2ZnQ3IyWHBidFJkaDNFQV9OVElYd1FpdFZfbVRpVzEwY2t6?oc=5)
+
+<p>The faces behind China's AI rise: Meet the founders of DeepSeek, Z.ai and Moonshot AI - CNA. The faces behind China's AI rise: Meet the founders of DeepSeek, Z.ai and Moonshot AI CNA</p>
+
+<h2 id="alleged-leaked-transcript-of-deepseek-ceo-118-answers-on-his-roadmap-china-academy">Alleged Leaked Transcript of DeepSeek CEO: 118 Answers on His Roadmap - China Academy</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Mon, 27 Jul 2026 02:22:36 GMT</em> — [https://news.google.com/rss/articles/CBMirAFBVV95cUxOY3JBRkNOQktwY0xlRFpUVF9hNEhSWjBRbE9HSzlpTHExWlJsVUtuN0pGVkFtZVhZVVBGRWE1UWhMd3RzVlJKbnpKR2lVak5JeW55WE5Ucm0zSk94LXoxdmVqNG01ZlRsWnlLM0Z3Z2MtWWNPZElJcHpuOWNrTXlBUEljR2x1dVNuZXQ1Z2dOaUFtcVVEMF9YMDdjZURnTlpGUDJoVGhDR3Q1OUJT?oc=5](https://news.google.com/rss/articles/CBMirAFBVV95cUxOY3JBRkNOQktwY0xlRFpUVF9hNEhSWjBRbE9HSzlpTHExWlJsVUtuN0pGVkFtZVhZVVBGRWE1UWhMd3RzVlJKbnpKR2lVak5JeW55WE5Ucm0zSk94LXoxdmVqNG01ZlRsWnlLM0Z3Z2MtWWNPZElJcHpuOWNrTXlBUEljR2x1dVNuZXQ1Z2dOaUFtcVVEMF9YMDdjZURnTlpGUDJoVGhDR3Q1OUJT?oc=5)
+
+<p>Alleged Leaked Transcript of DeepSeek CEO: 118 Answers on His Roadmap - China Academy. Alleged Leaked Transcript of DeepSeek CEO: 118 Answers on His Roadmap China Academy</p>
+
+<h2 id="glm-5-2-tops-open-ai-models-at-51-index-score-2026-tech-insider-org">GLM-5.2 Tops Open AI Models at 51 Index Score [2026] - tech-insider.org</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Fri, 31 Jul 2026 01:12:30 GMT</em> — [https://news.google.com/rss/articles/CBMid0FVX3lxTE9NWmtwLThfaUtEdnZoaWZoWXFBWWthejBZVHZvLUVRb3UtZVNwa1RMY2wzdVJaOUdGQ0IzVG1wV2ZYWEY1ZTZ2VkxkNkZFWWt5WlJ4YUlGX05fQm5oTXJLMGVvSk5fYjhNbUtWSklHbEFsNDRRbVJv?oc=5](https://news.google.com/rss/articles/CBMid0FVX3lxTE9NWmtwLThfaUtEdnZoaWZoWXFBWWthejBZVHZvLUVRb3UtZVNwa1RMY2wzdVJaOUdGQ0IzVG1wV2ZYWEY1ZTZ2VkxkNkZFWWt5WlJ4YUlGX05fQm5oTXJLMGVvSk5fYjhNbUtWSklHbEFsNDRRbVJv?oc=5)
+
+<p>GLM-5.2 Tops Open AI Models at 51 Index Score [2026] - tech-insider.org. GLM-5.2 Tops Open AI Models at 51 Index Score [2026] tech-insider.org</p>
+
+<h2 id="deepseek-opens-v4-flash-api-to-the-public-tech-in-asia">DeepSeek opens V4-Flash API to the public - Tech in Asia</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Sat, 01 Aug 2026 01:37:00 GMT</em> — [https://news.google.com/rss/articles/CBMic0FVX3lxTFBFTFdHbW4ySGlkVEpoMFJUWGZmd0lhN2JwcjgwQ0ZXN0VKOG9QRFptMy1mS1RIb2RRcFFPUDFYc0lxdDVrLXVHNXZZUndlOFN4aWtYYmFlVzBFZjhObTZOcktIdDNRYzV1UXRoVVdMSDliVE0?oc=5](https://news.google.com/rss/articles/CBMic0FVX3lxTFBFTFdHbW4ySGlkVEpoMFJUWGZmd0lhN2JwcjgwQ0ZXN0VKOG9QRFptMy1mS1RIb2RRcFFPUDFYc0lxdDVrLXVHNXZZUndlOFN4aWtYYmFlVzBFZjhObTZOcktIdDNRYzV1UXRoVVdMSDliVE0?oc=5)
+
+<p>DeepSeek opens V4-Flash API to the public - Tech in Asia. DeepSeek opens V4-Flash API to the public Tech in Asia</p>
+
+<h2 id="deepseek-launches-v4-flash-api-public-beta-with-major-agent-capability-leap-outperforming-flagship-preview-on-multiple-benchmarks-finance-biggo-com">DeepSeek Launches V4-Flash API Public Beta with Major Agent Capability Leap, Outperforming Flagship Preview on Multiple Benchmarks - finance.biggo.com</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Fri, 31 Jul 2026 07:25:00 GMT</em> — [https://news.google.com/rss/articles/CBMidkFVX3lxTE52RWlVUE01YnhNSG9KdGR5azJldGQ5UWdCVUp5dVpCZEJNQk5aNHBFZ0VZUHZOUll3S21ObTFJQ0d1QkxyeHRnbExERDZXaTNmOGIyTXJiZVNydHB3QnhSR1c0MEtVSTloSDhJN2RyZlFDQUEtWlE?oc=5](https://news.google.com/rss/articles/CBMidkFVX3lxTE52RWlVUE01YnhNSG9KdGR5azJldGQ5UWdCVUp5dVpCZEJNQk5aNHBFZ0VZUHZOUll3S21ObTFJQ0d1QkxyeHRnbExERDZXaTNmOGIyTXJiZVNydHB3QnhSR1c0MEtVSTloSDhJN2RyZlFDQUEtWlE?oc=5)
+
+<p>DeepSeek Launches V4-Flash API Public Beta with Major Agent Capability Leap, Outperforming Flagship Preview on Multiple Benchmarks - finance.biggo.com. DeepSeek Launches V4-Flash API Public Beta with Major Agent Capability Leap, Outperforming Flagship Preview on Multiple Benchmarks finance.biggo.com</p>
+
+<h2 id="nvidia-bet-on-reflection-for-open-source-ai-now-the-startup-is-playing-catch-up-the-information">Nvidia Bet on Reflection for Open-Source AI. Now the Startup Is Playing Catch-Up. - The Information</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Wed, 29 Jul 2026 16:53:00 GMT</em> — [https://news.google.com/rss/articles/CBMipAFBVV95cUxPUkZKWGtOOWVlZmNaWW9pVHhHLVJYc2ctbzFGbmNuRlp5SU4yQUNlZE9KbEtoeHU1YXVvY2ZkRjYyUFNvWTFudzZsUmNBV18tLWY0N0xGMkhuTjE3dmdrLXNFQm9ZdG05eWNqNlFCR0pLM1Q4dUVfZUhVZTV1OUZEYm1CbzZubDFyWXZFNWFaTXdRbWw0TFlBMkpfWnc3TXM5N09WMw?oc=5](https://news.google.com/rss/articles/CBMipAFBVV95cUxPUkZKWGtOOWVlZmNaWW9pVHhHLVJYc2ctbzFGbmNuRlp5SU4yQUNlZE9KbEtoeHU1YXVvY2ZkRjYyUFNvWTFudzZsUmNBV18tLWY0N0xGMkhuTjE3dmdrLXNFQm9ZdG05eWNqNlFCR0pLM1Q4dUVfZUhVZTV1OUZEYm1CbzZubDFyWXZFNWFaTXdRbWw0TFlBMkpfWnc3TXM5N09WMw?oc=5)
+
+<p>Nvidia Bet on Reflection for Open-Source AI. Now the Startup Is Playing Catch-Up. - The Information. Nvidia Bet on Reflection for Open-Source AI. Now the Startup Is Playing Catch-Up. The Information</p>
+
+<h2 id="what-chinese-ai-model-kimi-s-success-says-about-the-next-phase-of-us-china-ai-race-the-indian-express">What Chinese AI model Kimi’s success says about the next phase of US-China AI race - The Indian Express</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Thu, 30 Jul 2026 09:25:00 GMT</em> — [https://news.google.com/rss/articles/CBMiugFBVV95cUxOai1pRzRqMi05b2hJWHNmZVhUcXNqc3huR2hfVHkxbEU1ZzBHUUpEMkg3Ymc2SGxIeUxYa1hkQWpBYURYeTY0YWVLMGFEREc0aF9Peld6MV9FQ3lCNWw4Vm9GczJMZFZNcjhHMEJkVHo3aGRUdlRkNFdfLW5BX0k4RWNBTWw2azBHVzZxR2lLQWlaeXZRTnIyaFV2ZEc4RXNnWWNteXVjcHcxRm9Ha0RQZG1UZXJfV3FsZHfSAcABQVVfeXFMTmlIUjhkSEthM0dMVFZYbUlicHR1Z3hYQVEzZUo3Q2F3eTZxbVlad2ZQMU5IVG1MeU03clVibGZsMW01MUlWMFN5WWhkQjI2RW04cTIwTnJvd0JPNnZ6a2stVlpwWnFYazltUTllUWcxVjRtM05JZmFaYWw0NURqSWIxM3ZJb3dEOUlIMGJkT3F5OHRnWXJjQkFaYzJ6eDE5NzZGLVlTN3VGdG84RlFTVHNJQmZrdlNrWjFEYWJYWmYw?oc=5](https://news.google.com/rss/articles/CBMiugFBVV95cUxOai1pRzRqMi05b2hJWHNmZVhUcXNqc3huR2hfVHkxbEU1ZzBHUUpEMkg3Ymc2SGxIeUxYa1hkQWpBYURYeTY0YWVLMGFEREc0aF9Peld6MV9FQ3lCNWw4Vm9GczJMZFZNcjhHMEJkVHo3aGRUdlRkNFdfLW5BX0k4RWNBTWw2azBHVzZxR2lLQWlaeXZRTnIyaFV2ZEc4RXNnWWNteXVjcHcxRm9Ha0RQZG1UZXJfV3FsZHfSAcABQVVfeXFMTmlIUjhkSEthM0dMVFZYbUlicHR1Z3hYQVEzZUo3Q2F3eTZxbVlad2ZQMU5IVG1MeU03clVibGZsMW01MUlWMFN5WWhkQjI2RW04cTIwTnJvd0JPNnZ6a2stVlpwWnFYazltUTllUWcxVjRtM05JZmFaYWw0NURqSWIxM3ZJb3dEOUlIMGJkT3F5OHRnWXJjQkFaYzJ6eDE5NzZGLVlTN3VGdG84RlFTVHNJQmZrdlNrWjFEYWJYWmYw?oc=5)
+
+<p>What Chinese AI model Kimi’s success says about the next phase of US-China AI race - The Indian Express. What Chinese AI model Kimi’s success says about the next phase of US-China AI race The Indian Express</p>
+
+<h2 id="what-is-moonshot-ai-s-kimi-k3-model-and-why-is-it-making-waves-bloomberg-com">What Is Moonshot AI’s Kimi K3 Model and Why Is It Making Waves? - Bloomberg.com</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Mon, 27 Jul 2026 18:38:20 GMT</em> — [https://news.google.com/rss/articles/CBMiswFBVV95cUxPOGtDOFZKUUZyb25MMjJnN1Q1Vlp0UWdfel9yVFdtdXowR1d5ZURlVmVBWjZwc2pVMzRERVlWa1AyMzRzM3BfNzVVUmQxUFFHQnA4ZVhxa0hMRHg2OEQzTXJGcEZzLWFyUXlvMnRQbzVqZl9XSGFPTGFnSHpROWVQUnFsWlNuMi1SdThkcDViX1F4MXY2NF9iZVdseXJUVTFudkxkSVhuRFZBZkJYalNHV0JoYw?oc=5](https://news.google.com/rss/articles/CBMiswFBVV95cUxPOGtDOFZKUUZyb25MMjJnN1Q1Vlp0UWdfel9yVFdtdXowR1d5ZURlVmVBWjZwc2pVMzRERVlWa1AyMzRzM3BfNzVVUmQxUFFHQnA4ZVhxa0hMRHg2OEQzTXJGcEZzLWFyUXlvMnRQbzVqZl9XSGFPTGFnSHpROWVQUnFsWlNuMi1SdThkcDViX1F4MXY2NF9iZVdseXJUVTFudkxkSVhuRFZBZkJYalNHV0JoYw?oc=5)
+
+<p>What Is Moonshot AI’s Kimi K3 Model and Why Is It Making Waves? - Bloomberg.com. What Is Moonshot AI’s Kimi K3 Model and Why Is It Making Waves? Bloomberg.com</p>
+
+<h2 id="deepseek-launches-upgraded-v4-flash-api-with-big-agent-gains-what-developers-need-to-know-the-news-international">DeepSeek launches upgraded V4-Flash API with big agent gains: What developers need to know - The News International</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Fri, 31 Jul 2026 10:06:00 GMT</em> — [https://news.google.com/rss/articles/CBMiywFBVV95cUxNeHc4VHJicVdVTVRxMDV2OXFGSURZcHR3S0VxMHJKS0VaRjZLaEx6bi1KZlc4NS1HcHVFRmxCMmJJU3A1MnJheGJrZ0Q0dFRNVkR3TGNzb01iSVZNTTJRZVR2UWFjV0hmWG5hUWxocnpBQjBNVTZjODNVaDlhMzYxYkk1a056RmpMM2pfdDNkU3ZEYUtCbFRUVWRiOXlKczBQOVd0NUJpZjBjalBQUDg3bzhjUG9tdVUwV1VXRXYzakpTSHV2cHJ2X1JETQ?oc=5](https://news.google.com/rss/articles/CBMiywFBVV95cUxNeHc4VHJicVdVTVRxMDV2OXFGSURZcHR3S0VxMHJKS0VaRjZLaEx6bi1KZlc4NS1HcHVFRmxCMmJJU3A1MnJheGJrZ0Q0dFRNVkR3TGNzb01iSVZNTTJRZVR2UWFjV0hmWG5hUWxocnpBQjBNVTZjODNVaDlhMzYxYkk1a056RmpMM2pfdDNkU3ZEYUtCbFRUVWRiOXlKczBQOVd0NUJpZjBjalBQUDg3bzhjUG9tdVUwV1VXRXYzakpTSHV2cHJ2X1JETQ?oc=5)
+
+<p>DeepSeek launches upgraded V4-Flash API with big agent gains: What developers need to know - The News International. DeepSeek launches upgraded V4-Flash API with big agent gains: What developers need to know The News International</p>
+
+<h2 id="yang-zhilin-finally-catches-up-with-liang-wenfeng-the-long-awaited-milestone-36-kr">Yang Zhilin Finally Catches Up with Liang Wenfeng: The Long-Awaited Milestone - 36 Kr</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Thu, 30 Jul 2026 00:30:14 GMT</em> — [https://news.google.com/rss/articles/CBMiU0FVX3lxTE1tLVNuTmpjbmpDWGxfdVZhWF8xRGlVd0s4S2plU2lKNjhRTjFBZUpGUkN2OF95am9pUE1XaWc2cVhWNU9zb1g3TFp5b2RCV0MweTNj?oc=5](https://news.google.com/rss/articles/CBMiU0FVX3lxTE1tLVNuTmpjbmpDWGxfdVZhWF8xRGlVd0s4S2plU2lKNjhRTjFBZUpGUkN2OF95am9pUE1XaWc2cVhWNU9zb1g3TFp5b2RCV0MweTNj?oc=5)
+
+<p>Yang Zhilin Finally Catches Up with Liang Wenfeng: The Long-Awaited Milestone - 36 Kr. Yang Zhilin Finally Catches Up with Liang Wenfeng: The Long-Awaited Milestone 36 Kr</p>
+
+<h2 id="what-is-open-weight-ai-the-tech-behind-kimi-k3-that-s-turning-heads-in-silicon-valley-cbc">What is open-weight AI, the tech behind Kimi K3 that's turning heads in Silicon Valley? - CBC</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Wed, 29 Jul 2026 08:00:00 GMT</em> — [https://news.google.com/rss/articles/CBMic0FVX3lxTE9RRDRLWXFwOFlEdlVuc2dSTjlUWlZZWXk1eVc2NnRDcUpzM01Ed0tYeWM5S2NqbnJWSDFyb3Jja1pLY2ZyT1BTLVhnTGZLYmZ4UHZtRDhmVHVCUWFCLXpSU19CX01mMFBSRFdqMGgxa2FaOEE?oc=5](https://news.google.com/rss/articles/CBMic0FVX3lxTE9RRDRLWXFwOFlEdlVuc2dSTjlUWlZZWXk1eVc2NnRDcUpzM01Ed0tYeWM5S2NqbnJWSDFyb3Jja1pLY2ZyT1BTLVhnTGZLYmZ4UHZtRDhmVHVCUWFCLXpSU19CX01mMFBSRFdqMGgxa2FaOEE?oc=5)
+
+<p>What is open-weight AI, the tech behind Kimi K3 that's turning heads in Silicon Valley? - CBC. What is open-weight AI, the tech behind Kimi K3 that's turning heads in Silicon Valley? CBC</p>
+
+<h2 id="earthquake-in-the-ai-sector-deepseek-suspends-its-71-billion-funding-round">Earthquake in the AI ​​sector: DeepSeek suspends its $71 billion funding round - صوت الإمارات</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Tue, 28 Jul 2026 07:46:38 GMT</em> — [https://news.google.com/rss/articles/CBMi1AFBVV95cUxONHgxdHpLSjBWZy1wSFU3OHRPUHNHdGVxSEZTY3V2MHVXaHRtRmQ3azBkQmRwZFk4Vk5uNVA3dkJUeXFGMmNBRUl2Q2haNFNidC03Rkt3ck1xdjVfTzhlSkQ3MWVmVzdUREJLZWxwNlRySHVfeU5tWGRCNHhhSjJEMVR2X1BOUWpOSmtzSXJlZTJsRlBWWEtfRWNybzZ5MWJRWWNFc3FReXJoNXFqajVwdVFEeGVuR202dkZkMWdXOEh4TC10MVV6NjZnbHk1SmREUDR4Tw?oc=5](https://news.google.com/rss/articles/CBMi1AFBVV95cUxONHgxdHpLSjBWZy1wSFU3OHRPUHNHdGVxSEZTY3V2MHVXaHRtRmQ3azBkQmRwZFk4Vk5uNVA3dkJUeXFGMmNBRUl2Q2haNFNidC03Rkt3ck1xdjVfTzhlSkQ3MWVmVzdUREJLZWxwNlRySHVfeU5tWGRCNHhhSjJEMVR2X1BOUWpOSmtzSXJlZTJsRlBWWEtfRWNybzZ5MWJRWWNFc3FReXJoNXFqajVwdVFEeGVuR202dkZkMWdXOEh4TC10MVV6NjZnbHk1SmREUDR4Tw?oc=5)
+
+<p>Earthquake in the AI ​​sector: DeepSeek suspends its <span class="math-inline">\(71 billion funding round - صوت الإمارات. Earthquake in the AI ​​sector: DeepSeek suspends its\)</span>71 billion funding round صوت الإمارات</p>
+
+<h2 id="deepseek-v4-official-version-tentatively-scheduled-for-august-3rd-silicon-flow-price-hike-exposed-api-can-now-answer-new-questions-aibase">DeepSeek V4 Official Version Tentatively Scheduled for August 3rd: Silicon Flow Price Hike Exposed, API Can Now Answer New Questions - AIBase</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Fri, 31 Jul 2026 08:46:18 GMT</em> — [https://news.google.com/rss/articles/CBMiSkFVX3lxTE9pSXJ6bHV5cVhNczU4R3psalcyYW5ieW5ST2JGRVBGX3ZwbXVOTkVFa2FBTnZ6ejJKc3JoNkd1elFWZDU0aE9EWGZB?oc=5](https://news.google.com/rss/articles/CBMiSkFVX3lxTE9pSXJ6bHV5cVhNczU4R3psalcyYW5ieW5ST2JGRVBGX3ZwbXVOTkVFa2FBTnZ6ejJKc3JoNkd1elFWZDU0aE9EWGZB?oc=5)
+
+<p>DeepSeek V4 Official Version Tentatively Scheduled for August 3rd: Silicon Flow Price Hike Exposed, API Can Now Answer New Questions - AIBase. DeepSeek V4 Official Version Tentatively Scheduled for August 3rd: Silicon Flow Price Hike Exposed, API Can Now Answer New Questions AIBase</p>
+
+<h2 id="china-s-moonshot-to-release-breakthrough-ai-model-for-download-ndtv-profit">China's Moonshot To Release Breakthrough AI Model For Download - NDTV Profit</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Mon, 27 Jul 2026 02:57:14 GMT</em> — [https://news.google.com/rss/articles/CBMirAFBVV95cUxPLVJlS0ZsSzdQeENFQ3pKbUU5eHdVajIwSzlOY1luMXltclNRaU0yT3ZHMGhJd3hVUFk0SHAyemZpMTRLTTQxZ2ZPRVZleXkyem96UnlybVFvbmtNSDlIaWdUOERkSmwwU2ZsT0dqQ2d2YWN2ZG0yMnVUTWQ3ZGt2UWZ6TjJQN0pnbzcyZl8wc0kzN2xFT1lkVlZsZHVYUjJPWUY2Q1VSVU1HTTBM0gG0AUFVX3lxTE1aaXprQWZVYk96Uk5uemlvWmdvSENXemJhSm5YbGV4czI0NnN0a1hTbHVqSzJKMGFoVEw1TzJxaFptWDVNZlNFclBRNE4zTHBRSk9xOEcxaW8tMUIxX1VCRDlWNW5XdEpEYy1GWV9ZdzNZLWI0V3A0OTVDdHZ0M1NlMy1ycF8xZ1lkRFFfWnRBRnFBY2pzdXFqN2lSNHFPd2I1b0ZEcmhBRHRkX1ZrSnNCR1hzQQ?oc=5](https://news.google.com/rss/articles/CBMirAFBVV95cUxPLVJlS0ZsSzdQeENFQ3pKbUU5eHdVajIwSzlOY1luMXltclNRaU0yT3ZHMGhJd3hVUFk0SHAyemZpMTRLTTQxZ2ZPRVZleXkyem96UnlybVFvbmtNSDlIaWdUOERkSmwwU2ZsT0dqQ2d2YWN2ZG0yMnVUTWQ3ZGt2UWZ6TjJQN0pnbzcyZl8wc0kzN2xFT1lkVlZsZHVYUjJPWUY2Q1VSVU1HTTBM0gG0AUFVX3lxTE1aaXprQWZVYk96Uk5uemlvWmdvSENXemJhSm5YbGV4czI0NnN0a1hTbHVqSzJKMGFoVEw1TzJxaFptWDVNZlNFclBRNE4zTHBRSk9xOEcxaW8tMUIxX1VCRDlWNW5XdEpEYy1GWV9ZdzNZLWI0V3A0OTVDdHZ0M1NlMy1ycF8xZ1lkRFFfWnRBRnFBY2pzdXFqN2lSNHFPd2I1b0ZEcmhBRHRkX1ZrSnNCR1hzQQ?oc=5)
+
+<p>China's Moonshot To Release Breakthrough AI Model For Download - NDTV Profit. China's Moonshot To Release Breakthrough AI Model For Download NDTV Profit</p>
+
+<h2 id="bytedance-expands-ai-infrastructure-in-china-forklog">ByteDance Expands AI Infrastructure in China - ForkLog</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Thu, 30 Jul 2026 08:14:43 GMT</em> — [https://news.google.com/rss/articles/CBMid0FVX3lxTFAxSlZSTlU2Ti1abnIxejVJaDRmQjhiWU82NHZ3dVVlTDBNcFVVNUUwek9XLW1ZWldJeG9BMC1ac2NXZWxUbXQ4NVQyOHBHUlNKTHQzMU1fX1RSZlVSV3BsQl9ZODB2VHNnRUlWNWpGel9MaWhWaW9v?oc=5](https://news.google.com/rss/articles/CBMid0FVX3lxTFAxSlZSTlU2Ti1abnIxejVJaDRmQjhiWU82NHZ3dVVlTDBNcFVVNUUwek9XLW1ZWldJeG9BMC1ac2NXZWxUbXQ4NVQyOHBHUlNKTHQzMU1fX1RSZlVSV3BsQl9ZODB2VHNnRUlWNWpGel9MaWhWaW9v?oc=5)
+
+<p>ByteDance Expands AI Infrastructure in China - ForkLog. ByteDance Expands AI Infrastructure in China ForkLog</p>
+
+<h2 id="deepseek-data-center-plan-reveals-its-2026-ai-strategy-memeburn">DeepSeek Data Center Plan Reveals Its 2026 AI Strategy - Memeburn</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Sun, 02 Aug 2026 03:19:10 GMT</em> — [https://news.google.com/rss/articles/CBMiZkFVX3lxTE5yYWpfSnVoVGxhaTgzMzVDUktQQTRUc19scFV2Z0NySVFYZ1hpZjZzbmV2d2lnR2hyemVFUFJTTlVIVGlOSl9xUVU0Rnc0bld0MkJQeFpEaThOdGpLS2JQTWFMVlhHdw?oc=5](https://news.google.com/rss/articles/CBMiZkFVX3lxTE5yYWpfSnVoVGxhaTgzMzVDUktQQTRUc19scFV2Z0NySVFYZ1hpZjZzbmV2d2lnR2hyemVFUFJTTlVIVGlOSl9xUVU0Rnc0bld0MkJQeFpEaThOdGpLS2JQTWFMVlhHdw?oc=5)
+
+<p>DeepSeek Data Center Plan Reveals Its 2026 AI Strategy - Memeburn. DeepSeek Data Center Plan Reveals Its 2026 AI Strategy Memeburn</p>
+
+<h2 id="deepseek-previews-new-ai-model-adapted-to-run-on-huawei-chips-dd-news">DeepSeek previews new AI model adapted to run on Huawei chips - DD News</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Thu, 30 Jul 2026 08:56:26 GMT</em> — [https://news.google.com/rss/articles/CBMikAFBVV95cUxNNjZ1ZzRnN1ZiM0d6QkcyMGh2MEQ1NFhkV2dYb25jVkhnc3VkMThfYzlyQk43bTFIRktrUnJmWllXYjJTMGEtbVpRRGJLZUM0VkhVZDk5QzZaaDZMQS1FMmpPYVhyUXc5NmRUSkpHQ2kyckRqRnBsNHFlVDFfMzYzT19JaEpoc0RuQTBrTlBiUWI?oc=5](https://news.google.com/rss/articles/CBMikAFBVV95cUxNNjZ1ZzRnN1ZiM0d6QkcyMGh2MEQ1NFhkV2dYb25jVkhnc3VkMThfYzlyQk43bTFIRktrUnJmWllXYjJTMGEtbVpRRGJLZUM0VkhVZDk5QzZaaDZMQS1FMmpPYVhyUXc5NmRUSkpHQ2kyckRqRnBsNHFlVDFfMzYzT19JaEpoc0RuQTBrTlBiUWI?oc=5)
+
+<p>DeepSeek previews new AI model adapted to run on Huawei chips - DD News. DeepSeek previews new AI model adapted to run on Huawei chips DD News</p>
+
+<h2 id="deepseek-v4-flash-api-unveils-faster-tools-techgenyz">DeepSeek V4 Flash API Unveils Faster Tools - Techgenyz</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Fri, 31 Jul 2026 12:55:28 GMT</em> — [https://news.google.com/rss/articles/CBMiV0FVX3lxTE1KQjBxUkd6SEtHTVpUdzdQRlkwbWJUMDI5bVhxQ2Y4NzBhNXB3SW02MmEza1VkQ1hJLTlkVVVyN1lrZkUxczd0XzFBZlBFcGI2bV9FZnAxSQ?oc=5](https://news.google.com/rss/articles/CBMiV0FVX3lxTE1KQjBxUkd6SEtHTVpUdzdQRlkwbWJUMDI5bVhxQ2Y4NzBhNXB3SW02MmEza1VkQ1hJLTlkVVVyN1lrZkUxczd0XzFBZlBFcGI2bV9FZnAxSQ?oc=5)
+
+<p>DeepSeek V4 Flash API Unveils Faster Tools - Techgenyz. DeepSeek V4 Flash API Unveils Faster Tools Techgenyz</p>
+
+<h2 id="huawei-pangu-pro-trains-505-billion-parameters-without-nvidia-supply-chain-tells-different-story-techtimes-com">Huawei Pangu Pro Trains 505 Billion Parameters Without Nvidia: Supply Chain Tells Different Story - techtimes.com</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Sat, 01 Aug 2026 16:35:34 GMT</em> — [https://news.google.com/rss/articles/CBMi5gFBVV95cUxNUzRucnk5VmkxVVdTaGNpUk5UMW1haklZTnoxdllNWF95cTR3aTFTanI1ZzBSZmVyTUJySnBtUS1vQmp3dDFFQVFsVmdJVUFJa01RMi1fTVI4UjdZWEVDcmNjdGI0aGw3R1dVMl83bDRMdjBUWk1ERms0QnhBYUctRHpWd1plWWRYMVpvZnQ4cHd4ZFRoYkJDZEwzUzlxbzI4R0ZqOXpoX2huZUZwZzZmQzlpZHU2dGFia2ZFQ2hoX2wtOGFpanJ4VkVxRVh3bzJHLUFWVTRJVnhaLTVPc2FKVmJBcnZLQQ?oc=5](https://news.google.com/rss/articles/CBMi5gFBVV95cUxNUzRucnk5VmkxVVdTaGNpUk5UMW1haklZTnoxdllNWF95cTR3aTFTanI1ZzBSZmVyTUJySnBtUS1vQmp3dDFFQVFsVmdJVUFJa01RMi1fTVI4UjdZWEVDcmNjdGI0aGw3R1dVMl83bDRMdjBUWk1ERms0QnhBYUctRHpWd1plWWRYMVpvZnQ4cHd4ZFRoYkJDZEwzUzlxbzI4R0ZqOXpoX2huZUZwZzZmQzlpZHU2dGFia2ZFQ2hoX2wtOGFpanJ4VkVxRVh3bzJHLUFWVTRJVnhaLTVPc2FKVmJBcnZLQQ?oc=5)
+
+<p>Huawei Pangu Pro Trains 505 Billion Parameters Without Nvidia: Supply Chain Tells Different Story - techtimes.com. Huawei Pangu Pro Trains 505 Billion Parameters Without Nvidia: Supply Chain Tells Different Story techtimes.com</p>
+
+<h2 id="pondero-brief-2026-08-01-claude-models-breached-three-companies-during-anthropic-s-own-security-tests-buttondown">Pondero Brief: 2026-08-01: Claude models breached three companies during Anthropic's own security tests - Buttondown</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Sat, 01 Aug 2026 17:56:31 GMT</em> — [https://news.google.com/rss/articles/CBMikwFBVV95cUxOeXNQeXNINHlqcG9zQ1hFQ19QbHQ2SjlzWEQ0djlldFRYaHdvc0pKMFFncVgwQjVCekRGbDhuSjJWM2lWV1lTdEdoZURHZ0ZkaFNENnVscWxwX2JJZEhiQkJMTmRyTGtPbkZTTnotd1ZUMlctckdxc2ptZG9aWkw1ajQwYnhJWXNZejQ0S016eVNhcVk?oc=5](https://news.google.com/rss/articles/CBMikwFBVV95cUxOeXNQeXNINHlqcG9zQ1hFQ19QbHQ2SjlzWEQ0djlldFRYaHdvc0pKMFFncVgwQjVCekRGbDhuSjJWM2lWV1lTdEdoZURHZ0ZkaFNENnVscWxwX2JJZEhiQkJMTmRyTGtPbkZTTnotd1ZUMlctckdxc2ptZG9aWkw1ajQwYnhJWXNZejQ0S016eVNhcVk?oc=5)
+
+<p>Pondero Brief: 2026-08-01: Claude models breached three companies during Anthropic's own security tests - Buttondown. Pondero Brief: 2026-08-01: Claude models breached three companies during Anthropic's own security tests Buttondown</p>
+
+<h2 id="xiaomi-unleashes-mimo-v2-family-trillion-parameter-agent-powerhouse-mimo-v2-pro-ex-hunter-alpha-multimodal-omni-and-expressive-tts-hit-the-scene-quasa-io">Xiaomi Unleashes MiMo-V2 Family: Trillion-Parameter Agent Powerhouse MiMo-V2-Pro (Ex-Hunter Alpha), Multimodal Omni, and Expressive TTS Hit the Scene - quasa.io</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Sun, 26 Jul 2026 23:46:31 GMT</em> — [https://news.google.com/rss/articles/CBMi-wFBVV95cUxPUmJjcW1VUVpjRURQamozWE90TWdSUzRGRlZKa280Zk9OSC13VENVY2pmUjYwSmgwUGFfbmw5RGJ2Y2Y1eGVZUk44V1hKa3poOFpRN3paeENaVHlMeVFGUFg2RGUxdmZ4Q1FkeWlpaWNpVnBOR1JTSmk2NHpsOEVucjRSclRmcVJzSXptYy1ReDBmVWhBcDhfbUV4UERjTUZ3Zmp5WVN4RXJWVmt5R1dFTkZtUEg5bFNENVNiMHR2a2dpQm9xVVZneTYyUmZoX3VvYnVRZlZKS1hhN1RST1VzZ19xZWl5dWI3N3FrV3dsNFltWnl4a0c2dEg0WQ?oc=5](https://news.google.com/rss/articles/CBMi-wFBVV95cUxPUmJjcW1VUVpjRURQamozWE90TWdSUzRGRlZKa280Zk9OSC13VENVY2pmUjYwSmgwUGFfbmw5RGJ2Y2Y1eGVZUk44V1hKa3poOFpRN3paeENaVHlMeVFGUFg2RGUxdmZ4Q1FkeWlpaWNpVnBOR1JTSmk2NHpsOEVucjRSclRmcVJzSXptYy1ReDBmVWhBcDhfbUV4UERjTUZ3Zmp5WVN4RXJWVmt5R1dFTkZtUEg5bFNENVNiMHR2a2dpQm9xVVZneTYyUmZoX3VvYnVRZlZKS1hhN1RST1VzZ19xZWl5dWI3N3FrV3dsNFltWnl4a0c2dEg0WQ?oc=5)
+
+<p>Xiaomi Unleashes MiMo-V2 Family: Trillion-Parameter Agent Powerhouse MiMo-V2-Pro (Ex-Hunter Alpha), Multimodal Omni, and Expressive TTS Hit the Scene - quasa.io. Xiaomi Unleashes MiMo-V2 Family: Trillion-Parameter Agent Powerhouse MiMo-V2-Pro (Ex-Hunter Alpha), Multimodal Omni, and Expressive TTS Hit the Scene quasa.io</p>
+
+<h2 id="bytedance-ignites-bio-ai-drug-race-as-korea-accelerates-design-and-validation-chosunbiz-chosunbiz">ByteDance ignites bio-AI drug race as Korea accelerates design and validation - CHOSUNBIZ - Chosunbiz</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Wed, 29 Jul 2026 21:01:00 GMT</em> — [https://news.google.com/rss/articles/CBMigAFBVV95cUxPMDNNSm9uc2FDM3M0UDVzMVZvZ2RpSVRRZmdYLWpXWWJ6aHVSUTQ1NHVvcHpxdklFbkdEeFBrMFBCUnJQRWxpT1FwekhUd3A1T253UENNWmNxQmF0OXVxaC16TF9veWlCT3I2U1N0RV9xVXpqejd3ekl6Yi03U0NIN9IBlAFBVV95cUxQQy1JeFRqZjN4T3A5QTZQc01OMDRnbWVFVlhXbVJWNnhqRnRMQWZFZ2FraGNCUmt0cFJodndGSXlMYy0zZWtpZFhUbFhZeHp0ZU9JVzRwY1JHX1RqWF9ORnJMOWFGVGUtTkFSMFp0MmZXT1hxZklDT0lNUXZESzhFSjMxd095ZTg0ampRd1FVX1YzaHdo?oc=5](https://news.google.com/rss/articles/CBMigAFBVV95cUxPMDNNSm9uc2FDM3M0UDVzMVZvZ2RpSVRRZmdYLWpXWWJ6aHVSUTQ1NHVvcHpxdklFbkdEeFBrMFBCUnJQRWxpT1FwekhUd3A1T253UENNWmNxQmF0OXVxaC16TF9veWlCT3I2U1N0RV9xVXpqejd3ekl6Yi03U0NIN9IBlAFBVV95cUxQQy1JeFRqZjN4T3A5QTZQc01OMDRnbWVFVlhXbVJWNnhqRnRMQWZFZ2FraGNCUmt0cFJodndGSXlMYy0zZWtpZFhUbFhZeHp0ZU9JVzRwY1JHX1RqWF9ORnJMOWFGVGUtTkFSMFp0MmZXT1hxZklDT0lNUXZESzhFSjMxd095ZTg0ampRd1FVX1YzaHdo?oc=5)
+
+<p>ByteDance ignites bio-AI drug race as Korea accelerates design and validation - CHOSUNBIZ - Chosunbiz. ByteDance ignites bio-AI drug race as Korea accelerates design and validation - CHOSUNBIZ Chosunbiz</p>
+
+<h2 id="deepseek-v4-flash-api-public-beta-launches-agent-capabilities-fully-emerge-aibase">DeepSeek-V4-Flash API Public Beta Launches, Agent Capabilities Fully Emerge - AIBase</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Fri, 31 Jul 2026 08:27:06 GMT</em> — [https://news.google.com/rss/articles/CBMiSkFVX3lxTFA1T0xucVM5Yjl3Nk81NWlsZGRxd0JwWFNSTlBhb3A4T09tUFlINkVsNlV3VGRvMVJHUktpU2xtR294ZkdsUW1mMndR?oc=5](https://news.google.com/rss/articles/CBMiSkFVX3lxTFA1T0xucVM5Yjl3Nk81NWlsZGRxd0JwWFNSTlBhb3A4T09tUFlINkVsNlV3VGRvMVJHUktpU2xtR294ZkdsUW1mMndR?oc=5)
+
+<p>DeepSeek-V4-Flash API Public Beta Launches, Agent Capabilities Fully Emerge - AIBase. DeepSeek-V4-Flash API Public Beta Launches, Agent Capabilities Fully Emerge AIBase</p>
+
+<h2 id="china-s-moonshot-to-release-breakthrough-kimi-k3-ai-model-for-download-the-business-times">China’s Moonshot to release breakthrough Kimi K3 AI model for download - The Business Times</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Mon, 27 Jul 2026 05:30:00 GMT</em> — [https://news.google.com/rss/articles/CBMixwFBVV95cUxNWXJpalJ3aGRnMi1WTmFUWkZuZFlLaHdFVDZQX0laWUNXVEluc3F1YVM2R3pMdlRKMURzRlFCRHYxSHgtdWdfcGFmcGdDZ2xIbEJMMkY0VG5GeTA1azkyMkpPak1BX2hqQjY2eS1qbE1tTHI0Vzc0RHlRTHA1NEZhTHhaRmNicVZZWERPdTlaZG9mTi1GVjdvR0FiY3lsaEhSa2xfMlFEcFdyUU82V3dFWXkyOVpGb3FnVU4xS001SUxOVENLMnBB?oc=5](https://news.google.com/rss/articles/CBMixwFBVV95cUxNWXJpalJ3aGRnMi1WTmFUWkZuZFlLaHdFVDZQX0laWUNXVEluc3F1YVM2R3pMdlRKMURzRlFCRHYxSHgtdWdfcGFmcGdDZ2xIbEJMMkY0VG5GeTA1azkyMkpPak1BX2hqQjY2eS1qbE1tTHI0Vzc0RHlRTHA1NEZhTHhaRmNicVZZWERPdTlaZG9mTi1GVjdvR0FiY3lsaEhSa2xfMlFEcFdyUU82V3dFWXkyOVpGb3FnVU4xS001SUxOVENLMnBB?oc=5)
+
+<p>China’s Moonshot to release breakthrough Kimi K3 AI model for download - The Business Times. China’s Moonshot to release breakthrough Kimi K3 AI model for download The Business Times</p>
+
+<h2 id="tong-s-portfolio-open-weight-ai-who-wins-when-intelligence-gets-cheap-klse-screener">Tong's Portfolio - Open-weight AI: Who wins when intelligence gets cheap? - KLSE Screener</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Mon, 27 Jul 2026 01:00:02 GMT</em> — [https://news.google.com/rss/articles/CBMiuwFBVV95cUxPRk1oclVnU1k4bEN2UUJ2V3ZuRmk2NDFUREl1OEliWWU1MWlvdXFGYWc1Y0lGWVlPNnBHUUFmb2g5bk1mYnhocy1nOXNuZ2MxdUpoRE5Iek9UbzNKN3BXSXRKOV8tc2lYTXpnazZHdzFPSGg2WjdhN1dBa1pOb1prMC1ibUpiUzRIc003Mms3ZEdiLVlTSWdfeVFvOXBReEtvNFdzTGV6emRYdmZKemZtcExTWGVSSVhJOF9B?oc=5](https://news.google.com/rss/articles/CBMiuwFBVV95cUxPRk1oclVnU1k4bEN2UUJ2V3ZuRmk2NDFUREl1OEliWWU1MWlvdXFGYWc1Y0lGWVlPNnBHUUFmb2g5bk1mYnhocy1nOXNuZ2MxdUpoRE5Iek9UbzNKN3BXSXRKOV8tc2lYTXpnazZHdzFPSGg2WjdhN1dBa1pOb1prMC1ibUpiUzRIc003Mms3ZEdiLVlTSWdfeVFvOXBReEtvNFdzTGV6emRYdmZKemZtcExTWGVSSVhJOF9B?oc=5)
+
+<p>Tong's Portfolio - Open-weight AI: Who wins when intelligence gets cheap? - KLSE Screener. Tong's Portfolio - Open-weight AI: Who wins when intelligence gets cheap? KLSE Screener</p>
+
+<h2 id="deepseek-launches-v4-models-beta-amid-china-s-ai-price-war-crypto-briefing">DeepSeek launches V4 models beta amid China’s AI price war - Crypto Briefing</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Fri, 31 Jul 2026 10:06:53 GMT</em> — [https://news.google.com/rss/articles/CBMijgFBVV95cUxPb0xETnJJYVQwUG50QU5seEVnUGdhWXNzMVp1cE1nNTl0aURodmVWQ3YzQ25BMkYwaS1GUGxJVEhHTDN3QURmbHlJcVM3SjAyQmNrQlliemNGSC1mcmVOMS1Cam5ZYXdmVHhkTDlNaTBfb0xpcTVFa3p4UEZ3MzNmSHAyMm1BSXV4amNpaDRn?oc=5](https://news.google.com/rss/articles/CBMijgFBVV95cUxPb0xETnJJYVQwUG50QU5seEVnUGdhWXNzMVp1cE1nNTl0aURodmVWQ3YzQ25BMkYwaS1GUGxJVEhHTDN3QURmbHlJcVM3SjAyQmNrQlliemNGSC1mcmVOMS1Cam5ZYXdmVHhkTDlNaTBfb0xpcTVFa3p4UEZ3MzNmSHAyMm1BSXV4amNpaDRn?oc=5)
+
+<p>DeepSeek launches V4 models beta amid China’s AI price war - Crypto Briefing. DeepSeek launches V4 models beta amid China’s AI price war Crypto Briefing</p>
+
+<h2 id="deepseek-plans-massive-data-center-in-inner-mongolia-to-compete-with-silicon-valley-crypto-briefing">DeepSeek plans massive data center in Inner Mongolia to compete with Silicon Valley - Crypto Briefing</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Thu, 30 Jul 2026 19:03:45 GMT</em> — [https://news.google.com/rss/articles/CBMihAFBVV95cUxQWUpIb1BUa2JRRzlCcE9vOG1JUGI2YUg1alJPVjE1N0xkS2hoazF4ZVM2M2lDNlBRWlY4RHdzRmVQQkNoZ0ZmYUxZVEVnMEM0bWZBMXNpZ3lvcmtqNFduckxNaTlkQUhzejQ2MDlRUUtlVzhRNTAxRjg4RzFPUnQxRU53cjI?oc=5](https://news.google.com/rss/articles/CBMihAFBVV95cUxQWUpIb1BUa2JRRzlCcE9vOG1JUGI2YUg1alJPVjE1N0xkS2hoazF4ZVM2M2lDNlBRWlY4RHdzRmVQQkNoZ0ZmYUxZVEVnMEM0bWZBMXNpZ3lvcmtqNFduckxNaTlkQUhzejQ2MDlRUUtlVzhRNTAxRjg4RzFPUnQxRU53cjI?oc=5)
+
+<p>DeepSeek plans massive data center in Inner Mongolia to compete with Silicon Valley - Crypto Briefing. DeepSeek plans massive data center in Inner Mongolia to compete with Silicon Valley Crypto Briefing</p>
+
+<h2 id="deepseek-targets-1gw-ai-buildout-in-inner-mongolia-by-2028-crypto-briefing">DeepSeek targets 1GW AI buildout in Inner Mongolia by 2028 - Crypto Briefing</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Thu, 30 Jul 2026 18:57:49 GMT</em> — [https://news.google.com/rss/articles/CBMiekFVX3lxTE82UldoRHFuZGNNaGJuTDV0ZEdEZDFDNWlkZTBCRE8yMmFsOUdhQmsxZFh0cVQ5Z2FiUy1lU3o3R2pWeWpKbWJackZieU8tRTIxN0FyS0FfYXpvZHc5eWZRT3d1WGptbmFDUFZQNWJqczc3aXlvWERrV0xR?oc=5](https://news.google.com/rss/articles/CBMiekFVX3lxTE82UldoRHFuZGNNaGJuTDV0ZEdEZDFDNWlkZTBCRE8yMmFsOUdhQmsxZFh0cVQ5Z2FiUy1lU3o3R2pWeWpKbWJackZieU8tRTIxN0FyS0FfYXpvZHc5eWZRT3d1WGptbmFDUFZQNWJqczc3aXlvWERrV0xR?oc=5)
+
+<p>DeepSeek targets 1GW AI buildout in Inner Mongolia by 2028 - Crypto Briefing. DeepSeek targets 1GW AI buildout in Inner Mongolia by 2028 Crypto Briefing</p>
+
+<h2 id="aws-recruits-apple-executive-to-lead-ai-product-initiatives-crypto-briefing">AWS recruits Apple executive to lead AI product initiatives - Crypto Briefing</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Thu, 30 Jul 2026 19:41:45 GMT</em> — [https://news.google.com/rss/articles/CBMifEFVX3lxTFBXOThmZHh3QUpOUG5TU2dZWWhuMUhmLXpGeXZhNlNJWkVaTDFXMWhtbGFVVHJ5djhVbVlFdThNdllYMnc2aVczWGM1OUpKa0NLYW1vRm1KU1ZpcktlS3JrVDhWR2hmSjlINHVnQUFTRW5NbFZBdGs4QmNKN04?oc=5](https://news.google.com/rss/articles/CBMifEFVX3lxTFBXOThmZHh3QUpOUG5TU2dZWWhuMUhmLXpGeXZhNlNJWkVaTDFXMWhtbGFVVHJ5djhVbVlFdThNdllYMnc2aVczWGM1OUpKa0NLYW1vRm1KU1ZpcktlS3JrVDhWR2hmSjlINHVnQUFTRW5NbFZBdGs4QmNKN04?oc=5)
+
+<p>AWS recruits Apple executive to lead AI product initiatives - Crypto Briefing. AWS recruits Apple executive to lead AI product initiatives Crypto Briefing</p>
+
+<h2 id="deepseek-releases-deepseek-v4-flash-0731-gives-opus-4-8-level-performance-at-a-fraction-of-the-price-officechai">DeepSeek Releases DeepSeek-V4-Flash-0731, Gives Opus 4.8-Level Performance At A Fraction Of The Price - OfficeChai</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Fri, 31 Jul 2026 09:16:47 GMT</em> — [https://news.google.com/rss/articles/CBMixgFBVV95cUxQdURRRFBCZVpqRXViR2hHbFhIWWxYU1NHTGpSek5MdzFSdmdBblZjVGVNQ3hoM3hPTGoyNEJXYnRLeGdmZFNfUXQ2WmJ3OHF5bHl2QjlmZ3VjTXlNNU1ndTB6Z0FuXzlmRDlaY3Iya3V4ODFlQTZ3UjFCZ1phWFlNMnk0Y0hNNGlsNElKclNVQ3FJWWZuLWJrNElmb0xpcTlWYmNKVGhNREZXTlJoeXdPSEM4RzA1RHR4M05BLVdCQjRwNGlwYlE?oc=5](https://news.google.com/rss/articles/CBMixgFBVV95cUxQdURRRFBCZVpqRXViR2hHbFhIWWxYU1NHTGpSek5MdzFSdmdBblZjVGVNQ3hoM3hPTGoyNEJXYnRLeGdmZFNfUXQ2WmJ3OHF5bHl2QjlmZ3VjTXlNNU1ndTB6Z0FuXzlmRDlaY3Iya3V4ODFlQTZ3UjFCZ1phWFlNMnk0Y0hNNGlsNElKclNVQ3FJWWZuLWJrNElmb0xpcTlWYmNKVGhNREZXTlJoeXdPSEM4RzA1RHR4M05BLVdCQjRwNGlwYlE?oc=5)
+
+<p>DeepSeek Releases DeepSeek-V4-Flash-0731, Gives Opus 4.8-Level Performance At A Fraction Of The Price - OfficeChai. DeepSeek Releases DeepSeek-V4-Flash-0731, Gives Opus 4.8-Level Performance At A Fraction Of The Price OfficeChai</p>
+
+<h2 id="deepseek-founder-liang-wenfeng-rejects-kpis-overtime-culture-as-ai-lab-hits-60-billion-valuation-crypto-briefing">DeepSeek founder Liang Wenfeng rejects KPIs, overtime culture as AI lab hits $60 billion valuation - Crypto Briefing</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Sat, 01 Aug 2026 11:02:26 GMT</em> — [https://news.google.com/rss/articles/CBMif0FVX3lxTE9rT0xVQXF2Ukt3ekJ0UHhjLTBCUUlhdk5qczluOG0wdEloNUhHT2F6QWhtejFKRUJSb25mXzdYS2d0VUs4bl8wNVlKM2JfdTJGV3V1RjBSVTBPdmpZLVBTR2M3RURycTg2NWxia2hqeEFfNlczWlNkeXNGV0piQWs?oc=5](https://news.google.com/rss/articles/CBMif0FVX3lxTE9rT0xVQXF2Ukt3ekJ0UHhjLTBCUUlhdk5qczluOG0wdEloNUhHT2F6QWhtejFKRUJSb25mXzdYS2d0VUs4bl8wNVlKM2JfdTJGV3V1RjBSVTBPdmpZLVBTR2M3RURycTg2NWxia2hqeEFfNlczWlNkeXNGV0piQWs?oc=5)
+
+<p>DeepSeek founder Liang Wenfeng rejects KPIs, overtime culture as AI lab hits <span class="math-inline">\(60 billion valuation - Crypto Briefing. DeepSeek founder Liang Wenfeng rejects KPIs, overtime culture as AI lab hits\)</span>60 billion valuation Crypto Briefing</p>
+
+<h2 id="ai-hardware-stocks-tumble-as-china-s-kimi-k3-reignites-competition-fears-crypto-briefing">AI hardware stocks tumble as China’s Kimi K3 reignites competition fears - Crypto Briefing</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Tue, 28 Jul 2026 10:27:59 GMT</em> — [https://news.google.com/rss/articles/CBMifEFVX3lxTE90dGkzZERtd1F3QURSVHpwaFBiekRGOTR6Q0RyUXBZaGdDak8zSnUxUWJ2UEJNU18zbnRxWFRGMDZmQUxIYk1IRmdQdVhyemt2TUZQLW9jYWh3UF9ocThXcXVtU3VVQ2tTdDVxRzZmQ1RVMTZDazhDUjNCMUY?oc=5](https://news.google.com/rss/articles/CBMifEFVX3lxTE90dGkzZERtd1F3QURSVHpwaFBiekRGOTR6Q0RyUXBZaGdDak8zSnUxUWJ2UEJNU18zbnRxWFRGMDZmQUxIYk1IRmdQdVhyemt2TUZQLW9jYWh3UF9ocThXcXVtU3VVQ2tTdDVxRzZmQ1RVMTZDazhDUjNCMUY?oc=5)
+
+<p>AI hardware stocks tumble as China’s Kimi K3 reignites competition fears - Crypto Briefing. AI hardware stocks tumble as China’s Kimi K3 reignites competition fears Crypto Briefing</p>
+
+<h2 id="deepseek-v4-flash-outperforms-fable-5-on-terminal-bench-while-being-99-cheaper-officechai">DeepSeek V4 Flash Outperforms Fable 5 On Terminal Bench While Being 99% Cheaper - OfficeChai</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Sun, 02 Aug 2026 04:50:11 GMT</em> — [https://news.google.com/rss/articles/CBMiqAFBVV95cUxNbTZULWUxdC1PLXFkNHRsRTJ2TGJYZUpnc1BISm5DeXR4Mml1TUw5WVlTZmJyVkpLVXFEZXNBVGh6TGFoNzlrUEtJUEhwZ3dyQ2VjYXFnTXp2dGVzdWQ4WHEwYzZ4TDRIVzkzUDBpZ0laLVRKWGM3eWhvNUU3N1hDMlJyZHVTZV9yQmpHa3NGUTBZM2Y2QVNVZ1JPWjVkeUZUeGtyWGNjNko?oc=5](https://news.google.com/rss/articles/CBMiqAFBVV95cUxNbTZULWUxdC1PLXFkNHRsRTJ2TGJYZUpnc1BISm5DeXR4Mml1TUw5WVlTZmJyVkpLVXFEZXNBVGh6TGFoNzlrUEtJUEhwZ3dyQ2VjYXFnTXp2dGVzdWQ4WHEwYzZ4TDRIVzkzUDBpZ0laLVRKWGM3eWhvNUU3N1hDMlJyZHVTZV9yQmpHa3NGUTBZM2Y2QVNVZ1JPWjVkeUZUeGtyWGNjNko?oc=5)
+
+<p>DeepSeek V4 Flash Outperforms Fable 5 On Terminal Bench While Being 99% Cheaper - OfficeChai. DeepSeek V4 Flash Outperforms Fable 5 On Terminal Bench While Being 99% Cheaper OfficeChai</p>
+
+<h2 id="deepseek-v4-flash-0731-scores-50-on-artificial-analysis-intelligence-index-creates-big-spike-on-pareto-frontier-officechai">DeepSeek-v4-Flash-0731 Scores 50 On Artificial Analysis Intelligence Index, Creates Big Spike On Pareto Frontier - OfficeChai</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Fri, 31 Jul 2026 09:49:43 GMT</em> — [https://news.google.com/rss/articles/CBMi1AFBVV95cUxOVTFGel83QTduZEp2Y0VBUmkwM2lIWDlZQktNQkpxM1RHZTJacHphNHAwemk1WWlMcVNfZEV3TlFhTjRpc2lVYUZkMGJjc0VLblNrMm8tYnNVSXFqeElUbnd2R0lKbkd4cUlDekZ6TGtOYktFdjZzTzZfRm9GcnU1Q2twR3dLcXFEU0tjSUFTNVlMVVVBN2xHT3JWeFRHT3d5VGNscjlVNDByY3I2RWwxX1E2aVFjT0JzNGRydXY1OGJET2FadE5kWXJESXJiQlZ0aTRYUQ?oc=5](https://news.google.com/rss/articles/CBMi1AFBVV95cUxOVTFGel83QTduZEp2Y0VBUmkwM2lIWDlZQktNQkpxM1RHZTJacHphNHAwemk1WWlMcVNfZEV3TlFhTjRpc2lVYUZkMGJjc0VLblNrMm8tYnNVSXFqeElUbnd2R0lKbkd4cUlDekZ6TGtOYktFdjZzTzZfRm9GcnU1Q2twR3dLcXFEU0tjSUFTNVlMVVVBN2xHT3JWeFRHT3d5VGNscjlVNDByY3I2RWwxX1E2aVFjT0JzNGRydXY1OGJET2FadE5kWXJESXJiQlZ0aTRYUQ?oc=5)
+
+<p>DeepSeek-v4-Flash-0731 Scores 50 On Artificial Analysis Intelligence Index, Creates Big Spike On Pareto Frontier - OfficeChai. DeepSeek-v4-Flash-0731 Scores 50 On Artificial Analysis Intelligence Index, Creates Big Spike On Pareto Frontier OfficeChai</p>
+
+<h2 id="panic-around-chinese-ai-models-what-the-us-tech-market-says-zamin-uz">Panic Around Chinese AI Models: What the US Tech Market Says - Zamin.uz</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Sun, 26 Jul 2026 19:52:03 GMT</em> — [https://news.google.com/rss/articles/CBMipAFBVV95cUxObmNyZFg5U3V3REtWOHQ0VzRVWUlURTVvX3h4TmJPSGlPMzRyd0VJOExaTUE1SjVhYXBmX0U0MU5KRDJYTk9NajlRazNyUlhBTVhyM2lSWHliM3FmMzV6M3RSYnc1eU5mUVEtd05aYTd2NjQ3Y3ZLNmFTUG53YXd3UUJjWW5hM2ZUekxFeWZUZ3VLSi1Lb0cwemdmel9XSUI3bWpiaQ?oc=5](https://news.google.com/rss/articles/CBMipAFBVV95cUxObmNyZFg5U3V3REtWOHQ0VzRVWUlURTVvX3h4TmJPSGlPMzRyd0VJOExaTUE1SjVhYXBmX0U0MU5KRDJYTk9NajlRazNyUlhBTVhyM2lSWHliM3FmMzV6M3RSYnc1eU5mUVEtd05aYTd2NjQ3Y3ZLNmFTUG53YXd3UUJjWW5hM2ZUekxFeWZUZ3VLSi1Lb0cwemdmel9XSUI3bWpiaQ?oc=5)
+
+<p>Panic Around Chinese AI Models: What the US Tech Market Says - Zamin.uz. Panic Around Chinese AI Models: What the US Tech Market Says Zamin.uz</p>
+
+<h2 id="china-eyes-limits-on-foreign-ai-access-as-america-weighs-its-own-restrictions-breitbart-com">China Eyes Limits on Foreign AI Access as America Weighs Its Own Restrictions - breitbart.com</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Sat, 01 Aug 2026 14:36:27 GMT</em> — [https://news.google.com/rss/articles/CBMiwgFBVV95cUxQRHNOb3dKTEZKSHBqQjRnTGl3b2VDaHd4UmtOZUU0QXZHLW5rNE9Sa3AyMkFIVTFhOW9GbEE5Y3JMUVozcUh1MU1OMEdpTGlmWjRiOWt2dUxITUdtV19seFlTYkNIUC1IV3ZWUkY5Yng2cVZKa01KZlVtYjljYk5UazJNMkN3TUNpcHZjOE9FckNvN0lhLXVzVFhDbE8wN0V0UlZ6clVBX25kSi1RanBXanhfanNRbVByai16NzZPUFhBZ9IBwgFBVV95cUxQRHNOb3dKTEZKSHBqQjRnTGl3b2VDaHd4UmtOZUU0QXZHLW5rNE9Sa3AyMkFIVTFhOW9GbEE5Y3JMUVozcUh1MU1OMEdpTGlmWjRiOWt2dUxITUdtV19seFlTYkNIUC1IV3ZWUkY5Yng2cVZKa01KZlVtYjljYk5UazJNMkN3TUNpcHZjOE9FckNvN0lhLXVzVFhDbE8wN0V0UlZ6clVBX25kSi1RanBXanhfanNRbVByai16NzZPUFhBZw?oc=5](https://news.google.com/rss/articles/CBMiwgFBVV95cUxQRHNOb3dKTEZKSHBqQjRnTGl3b2VDaHd4UmtOZUU0QXZHLW5rNE9Sa3AyMkFIVTFhOW9GbEE5Y3JMUVozcUh1MU1OMEdpTGlmWjRiOWt2dUxITUdtV19seFlTYkNIUC1IV3ZWUkY5Yng2cVZKa01KZlVtYjljYk5UazJNMkN3TUNpcHZjOE9FckNvN0lhLXVzVFhDbE8wN0V0UlZ6clVBX25kSi1RanBXanhfanNRbVByai16NzZPUFhBZ9IBwgFBVV95cUxQRHNOb3dKTEZKSHBqQjRnTGl3b2VDaHd4UmtOZUU0QXZHLW5rNE9Sa3AyMkFIVTFhOW9GbEE5Y3JMUVozcUh1MU1OMEdpTGlmWjRiOWt2dUxITUdtV19seFlTYkNIUC1IV3ZWUkY5Yng2cVZKa01KZlVtYjljYk5UazJNMkN3TUNpcHZjOE9FckNvN0lhLXVzVFhDbE8wN0V0UlZ6clVBX25kSi1RanBXanhfanNRbVByai16NzZPUFhBZw?oc=5)
+
+<p>China Eyes Limits on Foreign AI Access as America Weighs Its Own Restrictions - breitbart.com. China Eyes Limits on Foreign AI Access as America Weighs Its Own Restrictions breitbart.com</p>
+
+<h2 id="deepseek-s-cheap-model-just-beat-its-own-flagship-on-nine-benchmarks-times-tabloid">DeepSeek’s Cheap Model Just Beat Its Own Flagship on Nine Benchmarks - Times Tabloid</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Sun, 02 Aug 2026 01:00:55 GMT</em> — [https://news.google.com/rss/articles/CBMiigFBVV95cUxQWXNKMlJWVE5lZkVTRHNNX2V0VVI2NWlEUFptd1FHVlFOV1EwUThGZ2wxUnJSNmY2V1Y3Z3BJamw5MFJWVjVwZFpMTWU1ODFxdXp2MF9vdzJSUkx2SXNiU3ZKeUNqbDZzV01UQlU2VDY3cEZBTHhubUVwczVBRDZ6MXY3U1ZRUkZhQWc?oc=5](https://news.google.com/rss/articles/CBMiigFBVV95cUxQWXNKMlJWVE5lZkVTRHNNX2V0VVI2NWlEUFptd1FHVlFOV1EwUThGZ2wxUnJSNmY2V1Y3Z3BJamw5MFJWVjVwZFpMTWU1ODFxdXp2MF9vdzJSUkx2SXNiU3ZKeUNqbDZzV01UQlU2VDY3cEZBTHhubUVwczVBRDZ6MXY3U1ZRUkZhQWc?oc=5)
+
+<p>DeepSeek’s Cheap Model Just Beat Its Own Flagship on Nine Benchmarks - Times Tabloid. DeepSeek’s Cheap Model Just Beat Its Own Flagship on Nine Benchmarks Times Tabloid</p>
+
+<h2 id="deepseek-launches-v4-flash-api-and-prepares-full-model-rollout-asatunews-co-id">DeepSeek Launches V4 Flash API and Prepares Full Model Rollout - asatunews.co.id</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Fri, 31 Jul 2026 08:33:26 GMT</em> — [https://news.google.com/rss/articles/CBMibkFVX3lxTE90LXVNMFhvcUNhQnppdUNqMHVETW1SQzlRNWxpZWNPa0dycE1NNFROM3hXcHZBMXdJTFU1SnhhLVdJMjFveFBrU3N3UHZ0cW9aYW1WS2FOMzRLbDctVEtJVUxBZ0t6dDN4b3puRmhn?oc=5](https://news.google.com/rss/articles/CBMibkFVX3lxTE90LXVNMFhvcUNhQnppdUNqMHVETW1SQzlRNWxpZWNPa0dycE1NNFROM3hXcHZBMXdJTFU1SnhhLVdJMjFveFBrU3N3UHZ0cW9aYW1WS2FOMzRLbDctVEtJVUxBZ0t6dDN4b3puRmhn?oc=5)
+
+<p>DeepSeek Launches V4 Flash API and Prepares Full Model Rollout - asatunews.co.id. DeepSeek Launches V4 Flash API and Prepares Full Model Rollout asatunews.co.id</p>
+
+<h2 id="deepseek-v3-1-terminus-new-ai-model-cuts-hallucinations-38-boosts-reasoning-inews-zoombangla">DeepSeek V3.1-Terminus: New AI Model Cuts Hallucinations 38%, Boosts Reasoning - iNews Zoombangla</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Sat, 01 Aug 2026 04:55:24 GMT</em> — [https://news.google.com/rss/articles/CBMifkFVX3lxTE5OSGRLM1ZrMnNhNXJpNXBaRFFKcHU3SXJOZ2VSSHVPRW1sVko0N2NkNjFmUTFiNUp3UWRpMHM5UFZhMTVrUlRwcUtndGx5ZVAyRkRhRzlxbkZNR1p5VFU1NjdHc2NveExMZXVKRlJ0WmNmOFp6cmNqN2FHNk04QQ?oc=5](https://news.google.com/rss/articles/CBMifkFVX3lxTE5OSGRLM1ZrMnNhNXJpNXBaRFFKcHU3SXJOZ2VSSHVPRW1sVko0N2NkNjFmUTFiNUp3UWRpMHM5UFZhMTVrUlRwcUtndGx5ZVAyRkRhRzlxbkZNR1p5VFU1NjdHc2NveExMZXVKRlJ0WmNmOFp6cmNqN2FHNk04QQ?oc=5)
+
+<p>DeepSeek V3.1-Terminus: New AI Model Cuts Hallucinations 38%, Boosts Reasoning - iNews Zoombangla. DeepSeek V3.1-Terminus: New AI Model Cuts Hallucinations 38%, Boosts Reasoning iNews Zoombangla</p>
+
+<h2 id="the-ai-price-war-just-had-its-most-aggressive-48-hours-yet-times-tabloid">The AI Price War Just Had Its Most Aggressive 48 Hours Yet - Times Tabloid</h2>
+<em>DeepSeek — news (SECONDARY SOURCE) — Sun, 02 Aug 2026 04:00:11 GMT</em> — [https://news.google.com/rss/articles/CBMijAFBVV95cUxNclZxd1pmTnlmbVZ6RFAyaUNYWDYzT3JhTGJFMlpHOWlZZ19mMHFSa3FtT1NRNnROeWRCUU9FUm5kN0hmZGg5TUQ2c1VnMEVWdFp1UEtWa3huZkdLamROODRaQ1dITUZUMUxSeE5Za3B1MXoweVZLVXltTnRrbDgxUE1NV0lZMmZOTmRzRg?oc=5](https://news.google.com/rss/articles/CBMijAFBVV95cUxNclZxd1pmTnlmbVZ6RFAyaUNYWDYzT3JhTGJFMlpHOWlZZ19mMHFSa3FtT1NRNnROeWRCUU9FUm5kN0hmZGg5TUQ2c1VnMEVWdFp1UEtWa3huZkdLamROODRaQ1dITUZUMUxSeE5Za3B1MXoweVZLVXltTnRrbDgxUE1NV0lZMmZOTmRzRg?oc=5)
+
+<p>The AI Price War Just Had Its Most Aggressive 48 Hours Yet - Times Tabloid. The AI Price War Just Had Its Most Aggressive 48 Hours Yet Times Tabloid</p>
+
+<h2 id="imagine-video-1-5-with-references">Imagine Video 1.5 with References</h2>
+<em>xAI / Grok — x.ai/news — Jul 31, 2026</em> — [https://x.ai/news/grok-imagine-video-1-5-references](https://x.ai/news/grok-imagine-video-1-5-references)
+
+<p>Imagine Video 1.5 with References</p>
+
+<h2 id="introducing-grok-voice-think-fast-2-0">Introducing Grok Voice Think Fast 2.0</h2>
+<em>xAI / Grok — x.ai/news — Jul 29, 2026</em> — [https://x.ai/news/grok-voice-think-fast-2](https://x.ai/news/grok-voice-think-fast-2)
+
+<p>Introducing Grok Voice Think Fast 2.0</p>
+
+<h2 id="introducing-build-mode">Introducing Build Mode</h2>
+<em>xAI / Grok — x.ai/news — Jul 28, 2026</em> — [https://x.ai/news/grok-build-mode](https://x.ai/news/grok-build-mode)
+
+<p>Introducing Build Mode</p>
+
+<h2 id="grok-4-5-in-github-copilot">Grok 4.5 in GitHub Copilot</h2>
+<em>xAI / Grok — x.ai/news — Jul 28, 2026</em> — [https://x.ai/news/grok-github-copilot](https://x.ai/news/grok-github-copilot)
+
+<p>Grok 4.5 in GitHub Copilot</p>
+
+<h2 id="grok-in-google-workspace">Grok in Google Workspace</h2>
+<em>xAI / Grok — x.ai/news — Jul 24, 2026</em> — [https://x.ai/news/introducing-google-workspace-addon](https://x.ai/news/introducing-google-workspace-addon)
+
+<p>Grok in Google Workspace</p>
+
+<h2 id="workflows-in-grok-build">Workflows in Grok Build</h2>
+<em>xAI / Grok — x.ai/news — Jul 23, 2026</em> — [https://x.ai/news/workflows](https://x.ai/news/workflows)
+
+<p>Workflows in Grok Build</p>
+
+<h2 id="bringing-grok-4-5-to-ios-android-web-and-x">Bringing Grok 4.5 to iOS, Android, Web, and X</h2>
+<em>xAI / Grok — x.ai/news — Jul 22, 2026</em> — [https://x.ai/news/grok-4-5-everywhere](https://x.ai/news/grok-4-5-everywhere)
+
+<p>Bringing Grok 4.5 to iOS, Android, Web, and X</p>
+
+<h2 id="grok-for-outlook">Grok for Outlook</h2>
+<em>xAI / Grok — x.ai/news — Jul 21, 2026</em> — [https://x.ai/news/introducing-outlook-addin](https://x.ai/news/introducing-outlook-addin)
+
+<p>Grok for Outlook</p>
+
+<h2 id="grok-for-excel">Grok for Excel</h2>
+<em>xAI / Grok — x.ai/news — Jul 20, 2026</em> — [https://x.ai/news/introducing-excel-addin](https://x.ai/news/introducing-excel-addin)
+
+<p>Grok for Excel</p>
+
+<h2 id="introducing-grok-4-5">Introducing Grok 4.5</h2>
+<em>xAI / Grok — x.ai/news — Jul 16, 2026</em> — [https://x.ai/news/grok-4-5](https://x.ai/news/grok-4-5)
+
+<p>Introducing Grok 4.5</p>
+
+<h2 id="automations-in-grok">Automations in Grok</h2>
+<em>xAI / Grok — x.ai/news — Jul 16, 2026</em> — [https://x.ai/news/grok-automations](https://x.ai/news/grok-automations)
+
+<p>Automations in Grok</p>
+
+<h2 id="grok-build-is-now-open-source">Grok Build is Now Open Source</h2>
+<em>xAI / Grok — x.ai/news — Jul 15, 2026</em> — [https://x.ai/news/grok-build-open-source](https://x.ai/news/grok-build-open-source)
+
+<p>Grok Build is Now Open Source</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#how-ai-coders-really-work">How AI Coders Really Work</a></li>
+<li><a href="#open-letters-about-ai-development">Open letters about AI development</a></li>
+<li><a href="#july-2026-newsletter">July 2026 newsletter</a></li>
+<li><a href="#quoting-greg-brockman">Quoting Greg Brockman</a></li>
+<li><a href="#datasette-apps-0-2a0">datasette-apps 0.2a0</a></li>
+<li><a href="#ten-advances-in-mathematics-and-theoretical-computer-science">Ten advances in mathematics and theoretical computer science</a></li>
+<li><a href="#deepseek-ai-deepseek-v4-flash-0731">deepseek-ai/DeepSeek-V4-Flash-0731</a></li>
+<li><a href="#stateless-mcp-has-recaptured-my-interest-and-inspired-mcp-explorer-and-datasette-mcp">Stateless MCP has recaptured my interest (and inspired mcp-explorer and datasette-mcp)</a></li>
+<li><a href="#llm-mcp-client-0-1a0">llm-mcp-client 0.1a0</a></li>
+<li><a href="#oxide-and-friends-the-open-weight-revolution-with-simon-willison">Oxide and Friends: The Open Weight Revolution with Simon Willison</a></li>
+<li><a href="#smevals-a-small-eval-suite-for-evaluating-models-prompts-and-harnesses">smevals - a small eval suite for evaluating models, prompts, and harnesses</a></li>
+<li><a href="#slack-emoji-maker">Slack Emoji Maker</a></li>
+<li><a href="#datasette-agent-0-4a0">datasette-agent 0.4a0</a></li>
+<li><a href="#advancing-the-price-performance-frontier-with-gpt-5-6">Advancing the price-performance frontier with GPT‑5.6</a></li>
+<li><a href="#investigating-three-real-world-incidents-in-our-cybersecurity-evaluations">Investigating three real-world incidents in our cybersecurity evaluations</a></li>
+<li><a href="#llm-0-32rc2">llm 0.32rc2</a></li>
+<li><a href="#quoting-bruce-schneier">Quoting Bruce Schneier</a></li>
+<li><a href="#llm-chat-completions-server-0-1a0">llm-chat-completions-server 0.1a0</a></li>
+<li><a href="#llm-0-32rc1">llm 0.32rc1</a></li>
+<li><a href="#quoting-d-richard-hipp">Quoting D. Richard Hipp</a></li>
+<li><a href="#ai-worming-through-word">AI Worming through Word</a></li>
+<li><a href="#quoting-matthew-green">Quoting Matthew Green</a></li>
+<li><a href="#adding-a-custom-mcp-server-to-claude-and-chatgpt">Adding a custom MCP server to Claude and ChatGPT</a></li>
+<li><a href="#discovering-cryptographic-weaknesses-with-claude">Discovering cryptographic weaknesses with Claude</a></li>
+<li><a href="#quoting-akshat-bubna">Quoting Akshat Bubna</a></li>
+<li><a href="#uv-0-12-0">uv 0.12.0</a></li>
+<li><a href="#anatomy-of-a-frontier-lab-agent-intrusion-a-technical-timeline-of-the-july-2026-incident">Anatomy of a Frontier Lab Agent Intrusion: A Technical Timeline of the July 2026 Incident</a></li>
+<li><a href="#moonshotai-kimi-k3">moonshotai/Kimi-K3</a></li>
+<li><a href="#an-opinionated-guide-to-which-ai-to-use-to-do-stuff">An opinionated guide to which AI to use to do stuff</a></li>
+<li><a href="#an-inside-look-at-the-relay-market-powering-token-resellers-and-fraud">An Inside Look at the Relay Market Powering Token Resellers and Fraud</a></li>
+<li><a href="#gemini-robotics-er-2-powering-robotics-with-video-understanding-task-orchestration-and-multi-robot-collaboration">Gemini Robotics ER 2: powering robotics with video understanding, task orchestration, and multi-robot collaboration</a></li>
+<li><a href="#we-re-launching-lyria-3-5-in-google-flow-music-with-advances-across-musicality-lyrics-vocals-and-creative-control">We’re launching Lyria 3.5 in Google Flow Music, with advances across musicality, lyrics, vocals, and creative control</a></li>
+<li><a href="#gemini-robotics-2-brings-whole-body-intelligence-to-robots">Gemini Robotics 2 brings whole body intelligence to robots</a></li>
+<li><a href="#ten-advances-in-mathematics-and-theoretical-computer-science">Ten advances in mathematics and theoretical computer science</a></li>
+<li><a href="#advancing-responsible-ai-across-europe">Advancing responsible AI across Europe</a></li>
+<li><a href="#building-abundant-intelligence">Building abundant intelligence</a></li>
+<li><a href="#univ-builds-an-ai-ready-workforce">Univé builds an AI-ready workforce</a></li>
+<li><a href="#disrupting-a-criminal-scam-operation">Disrupting a Criminal Scam Operation</a></li>
+<li><a href="#advancing-the-price-performance-frontier-with-gpt-5-6">Advancing the price-performance frontier with GPT-5.6</a></li>
+<li><a href="#how-avatarin-built-a-24-7-retail-agent-with-gpt-realtime">How avatarin built a 24/7 retail agent with GPT-Realtime</a></li>
+<li><a href="#how-enabling-two-settings-tripled-our-scores-on-the-arc-agi-3-benchmark">How enabling two settings tripled our scores on the ARC-AGI-3 benchmark</a></li>
+<li><a href="#accelerating-scientific-discovery-with-chatgpt-for-academic-researchers">Accelerating scientific discovery with ChatGPT for Academic Researchers</a></li>
+<li><a href="#how-gpt-5-6-fuses-frontier-intelligence-with-frontier-efficiency">How GPT-5.6 fuses frontier intelligence with frontier efficiency</a></li>
+<li><a href="#scientific-computing-in-the-age-of-agentic-ai">Scientific computing in the age of agentic AI</a></li>
+<li><a href="#how-ai-is-expanding-what-people-do-at-work">How AI is expanding what people do at work</a></li>
+<li><a href="#the-lottery-ticket-hypothesis-the-smaller-network-hidden-inside-a-larger-one">The Lottery Ticket Hypothesis: The Smaller Network Hidden Inside a Larger One</a></li>
+<li><a href="#google-s-200-billion-identity-crisis">Google’s $200 Billion Identity Crisis</a></li>
+<li><a href="#mcp-is-just-rpc-with-better-marketing-a-backend-engineer-reads-the-spec">MCP Is Just RPC With Better Marketing: A Backend Engineer Reads the Spec</a></li>
+<li><a href="#ai-detection-a-provenance-system-with-no-access-to-provenance">AI Detection: A Provenance System With No Access to Provenance</a></li>
+<li><a href="#the-eu-ai-act-decoded-from-a-wiki-you-can-read-to-a-graph-an-agent-can-reason-over">The EU AI Act, Decoded -From a Wiki You Can Read to a Graph an Agent Can Reason Over</a></li>
+<li><a href="#a-tree-is-all-you-need-to-understand-llm-policy-optimization">A Tree Is All You Need to Understand LLM Policy Optimization</a></li>
+<li><a href="#nine-days-that-split-the-ai-industry-a-chinese-model-a-self-inflicted-hack-and-the-letter">Nine Days That Split the AI Industry: A Chinese Model, a Self-Inflicted Hack, and the Letter…</a></li>
+<li><a href="#education-is-evolving-in-the-age-of-ai">Education is evolving in the Age of AI</a></li>
+<li><a href="#two-engineers-made-a-joke-about-graph-engineering-six-days-later-it-had-courses">Two Engineers Made a Joke About Graph Engineering. Six Days Later It Had Courses.</a></li>
+<li><a href="#stop-shopping-for-templates-and-start-auditing-the-theme-system-underneath">Stop shopping for templates and start auditing the theme system underneath</a></li>
+<li><a href="#gemini-api-managed-agents-3-6-flash-hooks-and-more">Gemini API Managed Agents: 3.6 Flash, hooks, and more</a></li>
+<li><a href="#5-ways-ai-mode-in-search-helps-you-enjoy-the-real-world">5 ways AI Mode in Search helps you enjoy the real world</a></li>
+<li><a href="#5-ways-to-host-the-ultimate-dinner-party-with-google-search">5 ways to host the ultimate dinner party with Google Search</a></li>
+<li><a href="#gpu-management-why-idle-gpus-are-the-new-grounded-aircraft">GPU Management: Why Idle GPUs Are the New Grounded Aircraft</a></li>
+<li><a href="#the-olmoearth-platform-geospatial-inference-at-planetary-scale">The OlmoEarth Platform: Geospatial inference at planetary scale</a></li>
+<li><a href="#lfm2-5-encoders-for-fast-long-context-inference-on-cpu">LFM2.5-Encoders for Fast Long-Context Inference on CPU</a></li>
+<li><a href="#nvidia-cosmos-h-dreams-bringing-real-time-generative-simulation-to-surgical-robotics">NVIDIA Cosmos-H-Dreams: Bringing Real-Time Generative Simulation to Surgical Robotics</a></li>
+<li><a href="#anatomy-of-a-frontier-lab-agent-intrusion-a-technical-timeline-of-the-july-2026-incident">Anatomy of a Frontier Lab Agent Intrusion: A Technical Timeline of the July 2026 Incident</a></li>
+<li><a href="#echoverse-deep-evolving-environments-for-computer-use-agents">Echoverse: Deep, evolving environments for computer-use agents</a></li>
+<li><a href="#evolib-turning-experience-into-evolving-knowledge">EvoLib: Turning experience into evolving knowledge</a></li>
+<li><a href="#from-cuda-to-mlx-how-k-search-brings-decades-of-kernel-expertise-to-apple-silicon">From CUDA to MLX: How K-Search Brings Decades of Kernel Expertise to Apple Silicon</a></li>
+<li><a href="#teaching-llms-to-update-beliefs-for-efficient-long-horizon-interaction">Teaching LLMs to Update Beliefs for Efficient Long-Horizon Interaction</a></li>
+<li><a href="#deepseek-rise-technologies-impact-global-response-britannica-money-encyclopedia-britannica">DeepSeek | Rise, Technologies, Impact, & Global Response | Britannica Money - Encyclopedia Britannica</a></li>
+<li><a href="#china-s-moonshot-z-ai-and-deepseek-are-challenging-u-s-ai-labs-and-beating-them-on-cost-fortune">China's Moonshot, Z.AI, and DeepSeek are challenging U.S. AI labs—and beating them on cost - Fortune</a></li>
+<li><a href="#deepseek-releases-beta-version-of-v4-models-as-ai-price-war-heats-up-nikkei-asia">DeepSeek releases beta version of V4 models as AI price war heats up - Nikkei Asia</a></li>
+<li><a href="#deepseek-releases-official-v4-flash-model-as-china-s-ai-race-intensifies-caixin-global">DeepSeek Releases Official V4-Flash Model as China’s AI Race Intensifies - Caixin Global</a></li>
+<li><a href="#chinese-hacker-commands-deepseek-via-telegram-to-launch-autonomous-attacks-the-hacker-news">Chinese Hacker Commands DeepSeek via Telegram to Launch Autonomous Attacks - The Hacker News</a></li>
+<li><a href="#deepseek-upgrades-deepseek-v4-flash-0731-with-major-agentic-and-coding-gains-marktechpost">DeepSeek Upgrades DeepSeek-V4-Flash-0731 with Major Agentic and Coding Gains - MarkTechPost</a></li>
+<li><a href="#openai-explains-why-it-s-slashing-ai-prices-michael-burry-says-the-real-news-is-preparation-for-deepseek-s-new-v4-models-tradingview">OpenAI Explains Why It's Slashing AI Prices — Michael Burry Says The 'Real News' Is Preparation For DeepSeek's New V4 Models - TradingView</a></li>
+<li><a href="#the-best-ai-you-can-own-is-chinese-the-west-needs-to-close-that-gap-quickly-atlantic-council">The best AI you can own is Chinese. The West needs to close that gap quickly. - Atlantic Council</a></li>
+<li><a href="#openai-explains-why-it-s-slashing-ai-prices-michael-burry-says-the-real-news-is-preparation-for-deepseek-s-new-v4-models-yahoo-finance">OpenAI Explains Why It's Slashing AI Prices — Michael Burry Says The 'Real News' Is Preparation For DeepSeek's New V4 Models - Yahoo Finance</a></li>
+<li><a href="#deepseek-v4-ai-models-disrupt-china-s-market-competition-the-cryptonomist">DeepSeek V4 AI Models Disrupt China's Market Competition - The Cryptonomist</a></li>
+<li><a href="#deepseek-makes-a-splash-with-small-affordable-v4-flash-model-the-information">DeepSeek Makes a Splash with Small, Affordable V4-Flash Model - The Information</a></li>
+<li><a href="#deepseek-v4-vs-glm-5-2-vs-qwen-10x-price-gap-2026-tech-insider-org">DeepSeek V4 vs GLM-5.2 vs Qwen: 10x Price Gap [2026] - tech-insider.org</a></li>
+<li><a href="#deepseek-puts-v4-flash-api-into-public-beta-technode">DeepSeek puts V4-Flash API into public beta - TechNode</a></li>
+<li><a href="#deepseek-retrained-v4-flash-beats-its-flagship-pro-on-nine-agent-benchmarks-techtimes-com">DeepSeek Retrained V4-Flash Beats Its Flagship Pro on Nine Agent Benchmarks - techtimes.com</a></li>
+<li><a href="#deepseek-opens-public-beta-api-for-v4-flash-as-a-three-way-price-war-hits-ai-developers-startup-fortune">DeepSeek opens public beta API for V4-Flash as a three-way price war hits AI developers - Startup Fortune</a></li>
+<li><a href="#chinese-firms-including-deepseek-minimax-unveil-new-ai-achievements-reflecting-a-period-of-concentrated-breakthroughs-global-times">Chinese firms including DeepSeek, MiniMax unveil new AI achievements, reflecting ‘a period of concentrated breakthroughs’ - Global Times</a></li>
+<li><a href="#gpt-5-6-sees-sharp-price-cut-luna-input-pricing-undercuts-deepseek-followed-by-immediate-official-launch-of-deepseek-v4-36-kr">GPT-5.6 Sees Sharp Price Cut: Luna Input Pricing Undercuts DeepSeek, Followed by Immediate Official Launch of DeepSeek V4 - 36 Kr</a></li>
+<li><a href="#chinese-ai-models-now-handle-nearly-a-third-of-enterprise-tokens-at-one-tenth-the-cost-of-us-rivals-marketscale">Chinese AI models now handle nearly a third of enterprise tokens at one-tenth the cost of US rivals - MarketScale</a></li>
+<li><a href="#deepseek-disrupts-ai-pricing-with-0-28-agentic-output-floor-forkast-news">DeepSeek Disrupts AI Pricing with $0.28 Agentic Output Floor - forkast.news</a></li>
+<li><a href="#ai-week-in-review-26-07-31-substack">AI Week in Review 26.07.31 - Substack</a></li>
+<li><a href="#the-faces-behind-china-s-ai-rise-meet-the-founders-of-deepseek-z-ai-and-moonshot-ai-cna">The faces behind China's AI rise: Meet the founders of DeepSeek, Z.ai and Moonshot AI - CNA</a></li>
+<li><a href="#alleged-leaked-transcript-of-deepseek-ceo-118-answers-on-his-roadmap-china-academy">Alleged Leaked Transcript of DeepSeek CEO: 118 Answers on His Roadmap - China Academy</a></li>
+<li><a href="#glm-5-2-tops-open-ai-models-at-51-index-score-2026-tech-insider-org">GLM-5.2 Tops Open AI Models at 51 Index Score [2026] - tech-insider.org</a></li>
+<li><a href="#deepseek-opens-v4-flash-api-to-the-public-tech-in-asia">DeepSeek opens V4-Flash API to the public - Tech in Asia</a></li>
+<li><a href="#deepseek-launches-v4-flash-api-public-beta-with-major-agent-capability-leap-outperforming-flagship-preview-on-multiple-benchmarks-finance-biggo-com">DeepSeek Launches V4-Flash API Public Beta with Major Agent Capability Leap, Outperforming Flagship Preview on Multiple Benchmarks - finance.biggo.com</a></li>
+<li><a href="#nvidia-bet-on-reflection-for-open-source-ai-now-the-startup-is-playing-catch-up-the-information">Nvidia Bet on Reflection for Open-Source AI. Now the Startup Is Playing Catch-Up. - The Information</a></li>
+<li><a href="#what-chinese-ai-model-kimi-s-success-says-about-the-next-phase-of-us-china-ai-race-the-indian-express">What Chinese AI model Kimi’s success says about the next phase of US-China AI race - The Indian Express</a></li>
+<li><a href="#what-is-moonshot-ai-s-kimi-k3-model-and-why-is-it-making-waves-bloomberg-com">What Is Moonshot AI’s Kimi K3 Model and Why Is It Making Waves? - Bloomberg.com</a></li>
+<li><a href="#deepseek-launches-upgraded-v4-flash-api-with-big-agent-gains-what-developers-need-to-know-the-news-international">DeepSeek launches upgraded V4-Flash API with big agent gains: What developers need to know - The News International</a></li>
+<li><a href="#yang-zhilin-finally-catches-up-with-liang-wenfeng-the-long-awaited-milestone-36-kr">Yang Zhilin Finally Catches Up with Liang Wenfeng: The Long-Awaited Milestone - 36 Kr</a></li>
+<li><a href="#what-is-open-weight-ai-the-tech-behind-kimi-k3-that-s-turning-heads-in-silicon-valley-cbc">What is open-weight AI, the tech behind Kimi K3 that's turning heads in Silicon Valley? - CBC</a></li>
+<li><a href="#earthquake-in-the-ai-sector-deepseek-suspends-its-71-billion-funding-round">Earthquake in the AI ​​sector: DeepSeek suspends its $71 billion funding round - صوت الإمارات</a></li>
+<li><a href="#deepseek-v4-official-version-tentatively-scheduled-for-august-3rd-silicon-flow-price-hike-exposed-api-can-now-answer-new-questions-aibase">DeepSeek V4 Official Version Tentatively Scheduled for August 3rd: Silicon Flow Price Hike Exposed, API Can Now Answer New Questions - AIBase</a></li>
+<li><a href="#china-s-moonshot-to-release-breakthrough-ai-model-for-download-ndtv-profit">China's Moonshot To Release Breakthrough AI Model For Download - NDTV Profit</a></li>
+<li><a href="#bytedance-expands-ai-infrastructure-in-china-forklog">ByteDance Expands AI Infrastructure in China - ForkLog</a></li>
+<li><a href="#deepseek-data-center-plan-reveals-its-2026-ai-strategy-memeburn">DeepSeek Data Center Plan Reveals Its 2026 AI Strategy - Memeburn</a></li>
+<li><a href="#deepseek-previews-new-ai-model-adapted-to-run-on-huawei-chips-dd-news">DeepSeek previews new AI model adapted to run on Huawei chips - DD News</a></li>
+<li><a href="#deepseek-v4-flash-api-unveils-faster-tools-techgenyz">DeepSeek V4 Flash API Unveils Faster Tools - Techgenyz</a></li>
+<li><a href="#huawei-pangu-pro-trains-505-billion-parameters-without-nvidia-supply-chain-tells-different-story-techtimes-com">Huawei Pangu Pro Trains 505 Billion Parameters Without Nvidia: Supply Chain Tells Different Story - techtimes.com</a></li>
+<li><a href="#pondero-brief-2026-08-01-claude-models-breached-three-companies-during-anthropic-s-own-security-tests-buttondown">Pondero Brief: 2026-08-01: Claude models breached three companies during Anthropic's own security tests - Buttondown</a></li>
+<li><a href="#xiaomi-unleashes-mimo-v2-family-trillion-parameter-agent-powerhouse-mimo-v2-pro-ex-hunter-alpha-multimodal-omni-and-expressive-tts-hit-the-scene-quasa-io">Xiaomi Unleashes MiMo-V2 Family: Trillion-Parameter Agent Powerhouse MiMo-V2-Pro (Ex-Hunter Alpha), Multimodal Omni, and Expressive TTS Hit the Scene - quasa.io</a></li>
+<li><a href="#bytedance-ignites-bio-ai-drug-race-as-korea-accelerates-design-and-validation-chosunbiz-chosunbiz">ByteDance ignites bio-AI drug race as Korea accelerates design and validation - CHOSUNBIZ - Chosunbiz</a></li>
+<li><a href="#deepseek-v4-flash-api-public-beta-launches-agent-capabilities-fully-emerge-aibase">DeepSeek-V4-Flash API Public Beta Launches, Agent Capabilities Fully Emerge - AIBase</a></li>
+<li><a href="#china-s-moonshot-to-release-breakthrough-kimi-k3-ai-model-for-download-the-business-times">China’s Moonshot to release breakthrough Kimi K3 AI model for download - The Business Times</a></li>
+<li><a href="#tong-s-portfolio-open-weight-ai-who-wins-when-intelligence-gets-cheap-klse-screener">Tong's Portfolio - Open-weight AI: Who wins when intelligence gets cheap? - KLSE Screener</a></li>
+<li><a href="#deepseek-launches-v4-models-beta-amid-china-s-ai-price-war-crypto-briefing">DeepSeek launches V4 models beta amid China’s AI price war - Crypto Briefing</a></li>
+<li><a href="#deepseek-plans-massive-data-center-in-inner-mongolia-to-compete-with-silicon-valley-crypto-briefing">DeepSeek plans massive data center in Inner Mongolia to compete with Silicon Valley - Crypto Briefing</a></li>
+<li><a href="#deepseek-targets-1gw-ai-buildout-in-inner-mongolia-by-2028-crypto-briefing">DeepSeek targets 1GW AI buildout in Inner Mongolia by 2028 - Crypto Briefing</a></li>
+<li><a href="#aws-recruits-apple-executive-to-lead-ai-product-initiatives-crypto-briefing">AWS recruits Apple executive to lead AI product initiatives - Crypto Briefing</a></li>
+<li><a href="#deepseek-releases-deepseek-v4-flash-0731-gives-opus-4-8-level-performance-at-a-fraction-of-the-price-officechai">DeepSeek Releases DeepSeek-V4-Flash-0731, Gives Opus 4.8-Level Performance At A Fraction Of The Price - OfficeChai</a></li>
+<li><a href="#deepseek-founder-liang-wenfeng-rejects-kpis-overtime-culture-as-ai-lab-hits-60-billion-valuation-crypto-briefing">DeepSeek founder Liang Wenfeng rejects KPIs, overtime culture as AI lab hits $60 billion valuation - Crypto Briefing</a></li>
+<li><a href="#ai-hardware-stocks-tumble-as-china-s-kimi-k3-reignites-competition-fears-crypto-briefing">AI hardware stocks tumble as China’s Kimi K3 reignites competition fears - Crypto Briefing</a></li>
+<li><a href="#deepseek-v4-flash-outperforms-fable-5-on-terminal-bench-while-being-99-cheaper-officechai">DeepSeek V4 Flash Outperforms Fable 5 On Terminal Bench While Being 99% Cheaper - OfficeChai</a></li>
+<li><a href="#deepseek-v4-flash-0731-scores-50-on-artificial-analysis-intelligence-index-creates-big-spike-on-pareto-frontier-officechai">DeepSeek-v4-Flash-0731 Scores 50 On Artificial Analysis Intelligence Index, Creates Big Spike On Pareto Frontier - OfficeChai</a></li>
+<li><a href="#panic-around-chinese-ai-models-what-the-us-tech-market-says-zamin-uz">Panic Around Chinese AI Models: What the US Tech Market Says - Zamin.uz</a></li>
+<li><a href="#china-eyes-limits-on-foreign-ai-access-as-america-weighs-its-own-restrictions-breitbart-com">China Eyes Limits on Foreign AI Access as America Weighs Its Own Restrictions - breitbart.com</a></li>
+<li><a href="#deepseek-s-cheap-model-just-beat-its-own-flagship-on-nine-benchmarks-times-tabloid">DeepSeek’s Cheap Model Just Beat Its Own Flagship on Nine Benchmarks - Times Tabloid</a></li>
+<li><a href="#deepseek-launches-v4-flash-api-and-prepares-full-model-rollout-asatunews-co-id">DeepSeek Launches V4 Flash API and Prepares Full Model Rollout - asatunews.co.id</a></li>
+<li><a href="#deepseek-v3-1-terminus-new-ai-model-cuts-hallucinations-38-boosts-reasoning-inews-zoombangla">DeepSeek V3.1-Terminus: New AI Model Cuts Hallucinations 38%, Boosts Reasoning - iNews Zoombangla</a></li>
+<li><a href="#the-ai-price-war-just-had-its-most-aggressive-48-hours-yet-times-tabloid">The AI Price War Just Had Its Most Aggressive 48 Hours Yet - Times Tabloid</a></li>
+<li><a href="#imagine-video-1-5-with-references">Imagine Video 1.5 with References</a></li>
+<li><a href="#introducing-grok-voice-think-fast-2-0">Introducing Grok Voice Think Fast 2.0</a></li>
+<li><a href="#introducing-build-mode">Introducing Build Mode</a></li>
+<li><a href="#grok-4-5-in-github-copilot">Grok 4.5 in GitHub Copilot</a></li>
+<li><a href="#grok-in-google-workspace">Grok in Google Workspace</a></li>
+<li><a href="#workflows-in-grok-build">Workflows in Grok Build</a></li>
+<li><a href="#bringing-grok-4-5-to-ios-android-web-and-x">Bringing Grok 4.5 to iOS, Android, Web, and X</a></li>
+<li><a href="#grok-for-outlook">Grok for Outlook</a></li>
+<li><a href="#grok-for-excel">Grok for Excel</a></li>
+<li><a href="#introducing-grok-4-5">Introducing Grok 4.5</a></li>
+<li><a href="#automations-in-grok">Automations in Grok</a></li>
+<li><a href="#grok-build-is-now-open-source">Grok Build is Now Open Source</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

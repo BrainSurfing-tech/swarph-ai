@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>claude-service on Linux — install notes | Technical Whitepaper</title>
+  <meta name="description" content="claude-service on Linux — install notes — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/linux_install.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">claude-service on Linux — install notes</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># claude-service on Linux — install notes</p>
+
+<p>The Linux install path runs claude-service as a systemd unit under the operator account, with a narrow sudoers.d bake-out for routine self-service (daemon restart). Validated on <strong>lab-OVH</strong> and <strong>gpu-wsl</strong> (peers onboarded over the OMEGA Phase 13.6 mesh build week).</p>
+
+<p>For the Windows (NSSM) substrate, see [<code>windows_install.md</code>](./windows_install.md). The privilege-boundary shape differs substantively between the two; this doc covers Linux only.</p>
+
+<h2 id="pre-flight">Pre-flight</h2>
+
+<ul class="article-list">
+  <li>Linux distro with systemd (Ubuntu 22.04+ / Debian 12+ / similar)</li>
+  <li><code>sudo</code> installed and the operator account in <code>sudo</code> group (or equivalent)</li>
+  <li>Tailscale installed and <code>tailscale up</code> completed (peer must be on the tailnet for mesh-gateway peer-routing to work)</li>
+  <li><code>claude</code> CLI installed and <code>claude login</code> completed under the operator account (the <code>claude -p</code> subprocess inherits this auth — Max-subscription-billed)</li>
+  <li>Python 3.10+ on PATH; <code>python3 -m venv</code> available</li>
+</ul>
+
+<h2 id="1-clone-the-repo-create-the-venv">1. Clone the repo + create the venv</h2>
+
+<p><code></code>`bash
+sudo -u <OPERATOR> bash -c '
+    cd ~
+    git clone https://github.com/darw007d/claude-service.git
+    cd claude-service
+    python3 -m venv venv
+    venv/bin/pip install -r requirements.txt
+'
+<code></code>`</p>
+
+<p>Replace <code><OPERATOR></code> with the operator account (e.g., <code>darw007d</code> on gpu-wsl, <code>ubuntu</code> on lab-OVH).</p>
+
+<h2 id="2-configure-env">2. Configure <code>.env</code></h2>
+
+<p><code></code>`bash
+sudo -u <OPERATOR> cp ~/claude-service/.env.example ~/claude-service/.env
+sudo -u <OPERATOR> ${EDITOR:-nano} ~/claude-service/.env
+<code></code>`</p>
+
+<p>Set at minimum: <code>MESH_GATEWAY_URL</code>, <code>MESH_GATEWAY_TOKEN</code>, <code>CLAUDE_SERVICE_TOKEN</code>, <code>MESH_NODE_NAME</code>, plus any per-origin CWD allowlists per the v0.3.1 asymmetric capability flags.</p>
+
+<h2 id="3-install-the-systemd-unit">3. Install the systemd unit</h2>
+
+<p>The repo ships <code>systemd/claude-service.service</code> as a template. Customize the <code>User=</code> and path lines for the operator account, then:</p>
+
+<p><code></code>`bash
+sudo cp systemd/claude-service.service /etc/systemd/system/claude-service.service
+sudo systemctl daemon-reload
+sudo systemctl enable claude-service
+<code></code>`</p>
+
+<p>Don't <code>start</code> it yet — install the sudoers bake-out first (next section), so the agent has the autonomy to restart the service once running.</p>
+
+<h2 id="4-install-the-narrow-sudoers-d-bake-out">4. Install the narrow sudoers.d bake-out</h2>
+
+<p>claude-service runs as a systemd unit under the operator account. Routine restarts (after config changes, version bumps, etc.) are in-remit work for the agent — but <code>sudo systemctl restart</code> requires either a tty for the password prompt or a passwordless sudoers entry. The agent shell typically lacks the tty.</p>
+
+<p>The Swarph paper §6.3 + the in-remit-credential-gap discriminator (lab+gpu-wsl observation 2026-05-01) named the right shape: <strong>bake out the credential gap with a narrow privilege grant</strong>, not punt to commander every restart.</p>
+
+<p>This repo ships exactly that grant as <code>install/sudoers.d-claude-service</code>. Install via:</p>
+
+<p><code></code>`bash
+sudo bash install/install_linux.sh --user <OPERATOR>
+<code></code>`</p>
+
+<p>The script:</p>
+
+<p>1. Renders the template with <code><USER></code> replaced by the operator account
+2. Stages to a tmp file
+3. Runs <code>visudo -c -f</code> on the staged file (validation BEFORE install)
+4. Installs at <code>/etc/sudoers.d/claude-service</code> with mode 440 (root:root)
+5. Re-runs <code>visudo -c</code> against the full sudoers tree (validation AFTER install)
+6. Backs out the installed file if post-install validation fails</p>
+
+<p>The grant covers exactly four commands:</p>
+
+<p><code></code>`
+<OPERATOR> ALL=(ALL) NOPASSWD: /bin/systemctl restart claude-service
+<OPERATOR> ALL=(ALL) NOPASSWD: /bin/systemctl status claude-service
+<OPERATOR> ALL=(ALL) NOPASSWD: /bin/systemctl restart inbox-watcher
+<OPERATOR> ALL=(ALL) NOPASSWD: /bin/systemctl status inbox-watcher
+<code></code>`</p>
+
+<p>Anything else (any other systemctl unit, any other sudoers grant) requires a separate sudoers.d file with explicit operator approval — <strong>narrow scope is the load-bearing safety property.</strong></p>
+
+<h2 id="5-start-the-service">5. Start the service</h2>
+
+<p><code></code>`bash
+sudo systemctl start claude-service
+sudo systemctl status claude-service   # should print active (running)
+curl -s http://localhost:8787/health   # should return JSON with node + service_version
+<code></code>`</p>
+
+<p>If <code>claude -p</code> returns "Not logged in" via <code>/delegate</code>, the systemd unit's <code>User=</code> is wrong (running as a user that doesn't have <code>~/.claude/.credentials.json</code> populated). Fix and reload.</p>
+
+<h2 id="6-register-with-mesh-gateway">6. Register with mesh-gateway</h2>
+
+<p>The systemd unit auto-registers on startup (since v0.3.0). To verify:</p>
+
+<p><code></code>`bash
+TOKEN=$(grep '^MESH_GATEWAY_TOKEN=' .env | cut -d= -f2)
+curl -s -H "Authorization: Bearer $TOKEN" \
+    http://lab-ovh:8788/peers | jq '.peers[] | select(.name == "<MESH_NODE_NAME>")'
+<code></code>`</p>
+
+<p>Should return your peer entry with the capability dict from <code>/health</code>.</p>
+
+<h2 id="7-verify-the-bake-out-works-agent-side">7. Verify the bake-out works (agent-side)</h2>
+
+<p>From an agent shell on the operator account:</p>
+
+<p><code></code>`bash
+sudo -n systemctl status claude-service
+<code></code>`</p>
+
+<p><code>-n</code> disables prompting; if the bake-out is in effect, this returns the status without asking for a password. If it prompts (or fails with <code>sudo: a password is required</code>), the sudoers.d entry is missing, malformed, or the user doesn't match. Re-run <code>install_linux.sh</code> if needed.</p>
+
+<p>Once verified, future agent invocations of <code>sudo -n systemctl restart claude-service</code> execute autonomously per the AI-to-AI cooperative-protocol default. The bake-out is a one-time operator gate; the autonomy is durable.</p>
+
+<h2 id="8-install-cli-version-watcher-optional-but-recommended">8. Install cli-version-watcher (Optional but recommended)</h2>
+
+<p>Claude Code auto-updates its CLI frequently (e.g., 2.1.123 → 2.1.126). <code>claude-service</code> caches the version at boot. <code>cli-version-watcher.py</code> ensures the mesh registry advertises the correct version by triggering a <code>/capabilities/refresh</code> when the on-disk binary changes.</p>
+
+<p>1. <strong>Test the script</strong>:
+   <code></code>`bash
+   venv/bin/python scripts/cli_version_watcher.py
+   <code></code>`
+2. <strong>Install the systemd timer</strong>:
+   <code></code>`bash
+   sudo cp systemd/cli-version-watcher.service /etc/systemd/system/
+   sudo cp systemd/cli-version-watcher.timer /etc/systemd/system/
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now cli-version-watcher.timer
+   <code></code>`</p>
+
+<h2 id="9-install-mesh-inbox-watcher-the-sibling-daemon">9. Install mesh-inbox-watcher (The sibling daemon)</h2>
+
+<p>Peer DMs are delivered via <code>mesh-gateway</code>. To receive them without being in a live session, you need a poller. <code>inbox_watcher.py</code> polls the gateway every 60s and writes DMs to <code>logs/inbox.log</code>.</p>
+
+<p>1. <strong>Configure environment</strong>: Ensure <code>.env</code> has <code>MESH_NODE_NAME</code> and <code>INBOX_LOG_FILE</code> (default: <code>logs/inbox.log</code>).
+2. <strong>Install the systemd unit</strong>:
+   <code></code>`bash
+   sudo cp systemd/inbox-watcher.service /etc/systemd/system/
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now inbox-watcher
+   <code></code>`
+3. <strong>Verify</strong>:
+   <code></code>`bash
+   tail -f logs/inbox.log
+   <code></code>`
+   Send a DM to yourself from another node (or via <code>curl</code> to <code>mesh-gateway</code>) to see it land. The <code>SessionStart</code> hook in your agent environment should be configured to <code>tail</code> this log to pull in missed messages at boot.</p>
+
+<h2 id="cross-link">Cross-link</h2>
+
+<ul class="article-list">
+  <li>Main paper §6.3 — privilege-boundary exception class. The bake-out IS the refinement: don't over-apply §6.3 to bake-outable cases.</li>
+  <li>Memory entry <code>feedback_in_remit_credential_gap.md</code> (lab + gpu-wsl side) — the discriminator: <em>can this credential be granted to the agent narrowly without compromising the privilege boundary?</em></li>
+  <li>[<code>windows_install.md</code>](./windows_install.md) — Windows (NSSM) substrate is NOT bake-outable (UAC + LogonType=Interactive), §6.3 fires correctly there. See windows_install.md §7 for the canonical operational sequence.</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#pre-flight">Pre-flight</a></li>
+<li><a href="#1-clone-the-repo-create-the-venv">1. Clone the repo + create the venv</a></li>
+<li><a href="#2-configure-env">2. Configure `.env`</a></li>
+<li><a href="#3-install-the-systemd-unit">3. Install the systemd unit</a></li>
+<li><a href="#4-install-the-narrow-sudoers-d-bake-out">4. Install the narrow sudoers.d bake-out</a></li>
+<li><a href="#5-start-the-service">5. Start the service</a></li>
+<li><a href="#6-register-with-mesh-gateway">6. Register with mesh-gateway</a></li>
+<li><a href="#7-verify-the-bake-out-works-agent-side">7. Verify the bake-out works (agent-side)</a></li>
+<li><a href="#8-install-cli-version-watcher-optional-but-recommended">8. Install cli-version-watcher (Optional but recommended)</a></li>
+<li><a href="#9-install-mesh-inbox-watcher-the-sibling-daemon">9. Install mesh-inbox-watcher (The sibling daemon)</a></li>
+<li><a href="#cross-link">Cross-link</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

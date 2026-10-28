@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Persona Extraction: Extraction-Quality Rubric | Technical Whitepaper</title>
+  <meta name="description" content="Persona Extraction: Extraction-Quality Rubric — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/EXTRACTION_QUALITY_RUBRIC.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Persona Extraction: Extraction-Quality Rubric</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 7 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Persona Extraction: Extraction-Quality Rubric</p>
+
+<p><strong>Purpose.</strong> Score how well an automatic extraction (the Qwen3.6-35B persona extractor) turned a
+<em>source profile</em> into structured persona <em>fields</em>. One rubric, two raters: an <strong>LLM judge</strong> and
+<strong>human annotators</strong> apply the <em>same</em> seven metrics and the <em>same</em> 1–5 Likert scale, so their scores
+are directly comparable and we can measure agreement. This formalizes the manual-scoring approach
+sketched in <code>BENCHMARK.md</code> §8 and drives the 100-persona extraction-quality human validation
+(sample, score, majority vote).</p>
+
+<p><strong>Unit of scoring.</strong> One extracted persona record at a time. The rater sees two things:</p>
+
+<ul class="article-list">
+  <li>the <strong>source profile</strong> (the ground truth; everything is judged against this), and</li>
+  <li>the <strong>extracted fields</strong>, each with <code>field_id</code>, <code>value</code>, <code>evidence</code>, <code>assignment_type</code>, <code>confidence</code>.</li>
+</ul>
+
+<p><strong>Order of work (top to bottom):</strong></p>
+
+<p>1. <strong>Step 1 (quality of what it extracted, field by field):</strong> M1 value → M2 evidence → M3 description
+2. <strong>Step 2 (did it extract the right set, whole record):</strong> M4 over-claim → M5 coverage
+3. <strong>Step 3 (coherence & gut check):</strong> M6 consistency → M7 overall</p>
+
+<p>Each metric looks at a <strong>different part</strong> of the record: M1–M3 judge the <code>value</code> / <code>evidence</code> /
+<code>description</code> fields, M4–M5 judge the <em>set</em> of attributes, M6 judges <em>across</em> fields, and M7 judges
+the whole.</p>
+
+<h2 id="the-1-5-likert-scale-shared-by-every-metric">The 1–5 Likert scale (shared by every metric)</h2>
+
+<p>| Score | Meaning | Rule of thumb |
+|:--:|---|---|
+| <strong>5</strong> | No problem | nothing a careful reader would flag |
+| <strong>4</strong> | Minor issue | cosmetic; does not mislead |
+| <strong>3</strong> | Moderate issue | a few clear errors; usable only with caution |
+| <strong>2</strong> | Major issue | many or serious errors; misleading |
+| <strong>1</strong> | Completely wrong | unusable for this person |</p>
+
+<p>Each metric below spells out the five levels concretely. Use <code>n/a</code> when a metric does not apply to a
+record (for example, M3 when the record has no <code>description</code> field).</p>
+
+<h2 id="metrics">Metrics</h2>
+
+<h3 id="step-1-quality-of-what-it-extracted-look-at-each-field">Step 1: quality of what it extracted (look at each field)</h3>
+
+<p><strong>M1. Value accuracy</strong> (for attributes the profile supports, is the <code>value</code> in the right bucket?)
+<ul class="article-list">
+  <li><strong>5:</strong> almost all values correct</li>
+  <li><strong>4:</strong> one or two borderline-bucket slips, nothing that misleads</li>
+  <li><strong>3:</strong> several values in the wrong bucket</li>
+  <li><strong>2:</strong> many wrong, some plainly contradict the profile</li>
+  <li><strong>1:</strong> values broadly contradict the profile</li>
+  <li><em>Example:</em> profile says "born 1809, died 1865", so <code>age_bracket = 55–64</code> fits (56 at death) and scores 5; <code>age_bracket = 25–34</code> is a wrong bucket and pulls M1 down.</li>
+</ul></p>
+
+<p><strong>M2. Evidence grounding</strong> (is each <code>evidence</code> a real span from the profile that supports the value?)
+<ul class="article-list">
+  <li><strong>5:</strong> quotes are present in the profile and genuinely support the value</li>
+  <li><strong>4:</strong> mostly grounded; a couple of weak-but-not-wrong quotes</li>
+  <li><strong>3:</strong> some evidence weak, loose, or only tangentially related</li>
+  <li><strong>2:</strong> much evidence fabricated or mismatched to its value</li>
+  <li><strong>1:</strong> evidence largely missing or fabricated</li>
+  <li><em>Example:</em> for <code>urbanicity = Rural</code>, evidence "Born in a one-room log cabin in Kentucky" supports it (5); evidence "led the United States" says nothing about rural/urban, so it is mismatched and scores low.</li>
+</ul></p>
+
+<p><strong>M3. Description faithfulness</strong> (does any <code>description</code> / free text invent or exaggerate?)
+<ul class="article-list">
+  <li><strong>5:</strong> concrete, accurate, traceable to the profile</li>
+  <li><strong>4:</strong> minor vagueness, no invention</li>
+  <li><strong>3:</strong> some vague or mildly exaggerated detail</li>
+  <li><strong>2:</strong> notable invented or exaggerated detail</li>
+  <li><strong>1:</strong> fabricates detail or contradicts the profile</li>
+  <li><em>Example:</em> description "self-educated frontier lawyer" is traceable to the profile (5); "beloved by all Americans, never told a lie" exaggerates beyond it and scores low.</li>
+  <li><em>(score <code>n/a</code> if this record has no <code>description</code> field)</em></li>
+</ul></p>
+
+<h3 id="step-2-did-it-extract-the-right-set-step-back-to-the-whole-record">Step 2: did it extract the right set (step back to the whole record)</h3>
+
+<p><strong>M4. No over-claiming</strong> (did it assign values to attributes the profile does <em>not</em> support?)
+<ul class="article-list">
+  <li><strong>5:</strong> nothing invented; unsupported attributes left null</li>
+  <li><strong>4:</strong> a single thin-evidence call</li>
+  <li><strong>3:</strong> a few over-claims on thin evidence</li>
+  <li><strong>2:</strong> several hallucinated attributes</li>
+  <li><strong>1:</strong> many hallucinated attributes</li>
+  <li><em>Example:</em> the profile never mentions marriage, so <code>demo_marital_status = null (unsupported)</code> is correct (5); filling <code>demo_marital_status = Married</code> with no evidence is an over-claim and scores low.</li>
+</ul></p>
+
+<p><strong>M5. Coverage</strong> (did it miss attributes the profile clearly states?)
+<ul class="article-list">
+  <li><strong>5:</strong> almost everything the profile states is captured</li>
+  <li><strong>4:</strong> caught the obvious, missed one or two</li>
+  <li><strong>3:</strong> got the obvious, missed some</li>
+  <li><strong>2:</strong> missed a lot of clearly stated attributes</li>
+  <li><strong>1:</strong> misses most of what the profile states</li>
+  <li><em>Example:</em> the profile clearly states his occupation ("became a lawyer", "president"); capturing <code>occupation</code> scores well, leaving it empty despite that clear statement lowers coverage.</li>
+  <li><em>(judge on the full record, not on a short field excerpt)</em></li>
+</ul></p>
+
+<h3 id="step-3-coherence-gut-check">Step 3: coherence & gut check</h3>
+
+<p><strong>M6. Internal consistency</strong> (do fields contradict each other? age ↔ generation ↔ life_stage, job ↔ region, …)
+<ul class="article-list">
+  <li><strong>5:</strong> fully coherent, all fields fit one person</li>
+  <li><strong>4:</strong> one very mild tension</li>
+  <li><strong>3:</strong> one or two mild tensions</li>
+  <li><strong>2:</strong> a clear contradiction between fields</li>
+  <li><strong>1:</strong> fields clearly contradict each other</li>
+  <li><em>Example:</em> <code>age_bracket = 55–64</code> with <code>life_stage = Adolescent</code>, or <code>region = North America</code> with <code>nationality = Japanese</code>, are contradictions and score low; fields that all fit one person score 5.</li>
+</ul></p>
+
+<p><strong>M7. Overall fidelity</strong> (could you faithfully role-play this person from the record?)
+<ul class="article-list">
+  <li><strong>5:</strong> faithful and usable as-is</li>
+  <li><strong>4:</strong> broadly right, a couple of harmless errors</li>
+  <li><strong>3:</strong> broadly right, several misleading errors</li>
+  <li><strong>2:</strong> distorted in important ways</li>
+  <li><strong>1:</strong> seriously distorted, not this person</li>
+  <li><em>Example:</em> from the example record below you could plausibly role-play a 19th-century American statesman (5); if half the fields were wrong or invented, you would be role-playing a different person, which scores low.</li>
+</ul></p>
+
+<p>> <strong>Note on M7.</strong> It is a deliberate summary gut-check, so it will correlate with M1–M6. For a more
+> <em>independent</em> seventh signal, swap it for <strong>Assignment-type correctness</strong>: is each field labeled
+> <code>direct</code> / <code>summary_inference</code> / <code>structured_claim</code> / <code>unsupported</code> correctly? (same 1–5 scale).</p>
+
+<h2 id="how-the-two-raters-use-this-rubric">How the two raters use this rubric</h2>
+
+<p><strong>LLM judge.</strong> Give it the source profile, the extracted fields, and this rubric, and require a
+<strong>structured</strong> result: one JSON object, one entry per metric, each with a <code>score</code> and a short <code>reason</code>
+that cites the field(s) or profile span that drove it.</p>
+
+<p><code></code>`json
+{
+  "M1_value":       {"score": 5, "reason": "..."},
+  "M2_evidence":    {"score": 4, "reason": "..."},
+  "M3_description": {"score": "n/a", "reason": "no description field"},
+  "M4_overclaim":   {"score": 5, "reason": "..."},
+  "M5_coverage":    {"score": 3, "reason": "..."},
+  "M6_consistency": {"score": 5, "reason": "..."},
+  "M7_overall":     {"score": 4, "reason": "..."}
+}
+<code></code>`</p>
+
+<p><strong>Human annotators.</strong> Same seven scores per record, entered in a scoring sheet (one row per record).
+For the 100-persona validation, put <strong>≥2 annotators on each record</strong> and take the <strong>majority vote</strong>, so
+we can:
+<ul class="article-list">
+  <li>measure <strong>inter-rater reliability</strong> among humans (e.g. quadratic-weighted κ or Krippendorff's α), and</li>
+  <li><strong>calibrate the LLM judge against humans</strong> (per-metric agreement and correlation on the same records).</li>
+</ul></p>
+
+<h2 id="worked-example-calibration-anchor">Worked example (calibration anchor)</h2>
+
+<p>> ⚠️ <strong>Illustrative placeholder, not a sampled validation record.</strong> This repo does not yet ship the
+> Qwen-extracted persona dataset, so the record below is a minimal, hand-checked example (a real
+> Wikipedia source profile with real extraction fields) whose only job is to anchor the scale. Replace
+> it with a <strong>sampled real Qwen extraction</strong> once that dataset is available; the full extractor output
+> also carries a <code>description</code> field and the complete ~1,290-attribute record, which this cut-down
+> example does not show.</p>
+
+<p><strong>Source profile</strong> (ground truth):</p>
+
+<p>> Abraham Lincoln (February 12, 1809 – April 15, 1865) was the 16th president of the United States,
+> serving from 1861 until his assassination in 1865. Born into poverty in a one-room log cabin in
+> Kentucky, he became a lawyer and Whig Party leader, led the Union through the Civil War, and
+> abolished slavery with the Emancipation Proclamation.</p>
+
+<p><strong>Extracted fields:</strong></p>
+
+<p>| field_id | value | evidence | assignment_type | conf |
+|---|---|---|---|:--:|
+| age_bracket | 55–64 | (February 12, 1809 - April 15, 1865) | structured_claim | 0.40 |
+| region | North America | the 16th president of the United States | structured_claim | 0.96 |
+| gender_identity | Man | He led the United States | direct | 0.95 |
+| urbanicity | Rural | Born in a one-room log cabin in Kentucky | summary_inference | 0.45 |
+| demo_marital_status | <em>(null)</em> | <em>(empty)</em> | unsupported | 0.00 |</p>
+
+<p><strong>Scores</strong> (one line each, scored honestly against the anchors above):</p>
+
+<p>| metric | score | note |
+|---|:--:|---|
+| M1 Value accuracy | 5 | every value matches the profile |
+| M2 Evidence grounding | 5 | each quote is taken verbatim from the profile |
+| M3 Description faithfulness | n/a | this cut-down record has no <code>description</code> field |
+| M4 No over-claiming | 5 | nothing invented; <code>demo_marital_status</code> correctly left null |
+| M5 Coverage | n/a | judge on the full record, not the five fields shown |
+| M6 Internal consistency | 5 | all fields fit one coherent person |
+| M7 Overall fidelity | 5 | faithful and fully grounded, no hallucination |</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#step-1-quality-of-what-it-extracted-look-at-each-field">Step 1: quality of what it extracted (look at each field)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#step-2-did-it-extract-the-right-set-step-back-to-the-whole-record">Step 2: did it extract the right set (step back to the whole record)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#step-3-coherence-gut-check">Step 3: coherence & gut check</a></li>
+<li><a href="#the-1-5-likert-scale-shared-by-every-metric">The 1–5 Likert scale (shared by every metric)</a></li>
+<li><a href="#metrics">Metrics</a></li>
+<li><a href="#how-the-two-raters-use-this-rubric">How the two raters use this rubric</a></li>
+<li><a href="#worked-example-calibration-anchor">Worked example (calibration anchor)</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Amazon Reviews 2023 User Pool Stats | Technical Whitepaper</title>
+  <meta name="description" content="Amazon Reviews 2023 User Pool Stats — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/amazon_reviews_2023_pool_stats.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Amazon Reviews 2023 User Pool Stats</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Amazon Reviews 2023 User Pool Stats</p>
+
+<p>Exploration run over application-relevant categories from the 2018-2023 window.</p>
+
+<h2 id="categories">Categories</h2>
+
+<ul class="article-list">
+  <li><code>Books</code>: 10,606,530 kept reviews</li>
+  <li><code>Kindle_Store</code>: 11,510,161 kept reviews</li>
+  <li><code>Movies_and_TV</code>: 4,435,640 kept reviews</li>
+  <li><code>Electronics</code>: 26,479,442 kept reviews</li>
+  <li><code>Office_Products</code>: 8,808,413 kept reviews</li>
+  <li><code>Home_and_Kitchen</code>: 49,642,221 kept reviews</li>
+  <li><code>Clothing_Shoes_and_Jewelry</code>: 48,476,985 kept reviews</li>
+</ul>
+
+<h2 id="review-volume">Review Volume</h2>
+
+<p>The full Amazon Reviews 2023 dataset contains 571.54M reviews across all categories.
+The selected categories account for about 262.5M full-dataset reviews, or 45.9%
+of all reviews. In this run, the 2018-2023 window kept 159,959,392 reviews from
+the selected categories, or 28.0% of the full dataset.</p>
+
+<p>| Category | Full dataset reviews | % of all reviews | Kept 2018-2023 reviews | Kept % of all reviews |
+| --- | ---: | ---: | ---: | ---: |
+| <code>Books</code> | 29.5M | 5.16% | 10,606,530 | 1.86% |
+| <code>Kindle_Store</code> | 25.6M | 4.48% | 11,510,161 | 2.01% |
+| <code>Movies_and_TV</code> | 17.3M | 3.03% | 4,435,640 | 0.78% |
+| <code>Electronics</code> | 43.9M | 7.68% | 26,479,442 | 4.63% |
+| <code>Office_Products</code> | 12.8M | 2.24% | 8,808,413 | 1.54% |
+| <code>Home_and_Kitchen</code> | 67.4M | 11.79% | 49,642,221 | 8.69% |
+| <code>Clothing_Shoes_and_Jewelry</code> | 66.0M | 11.55% | 48,476,985 | 8.48% |
+| <strong>Total selected</strong> | <strong>262.5M</strong> | <strong>45.93%</strong> | <strong>159,959,392</strong> | <strong>27.99%</strong> |</p>
+
+<h3 id="2018-2023-volume-ranking">2018-2023 Volume Ranking</h3>
+
+<p>| Rank | Category | Kept 2018-2023 reviews |
+| ---: | --- | ---: |
+| 1 | <code>Home_and_Kitchen</code> | 49,642,221 |
+| 2 | <code>Clothing_Shoes_and_Jewelry</code> | 48,476,985 |
+| 3 | <code>Electronics</code> | 26,479,442 |
+| 4 | <code>Kindle_Store</code> | 11,510,161 |
+| 5 | <code>Books</code> | 10,606,530 |
+| 6 | <code>Office_Products</code> | 8,808,413 |
+| 7 | <code>Movies_and_TV</code> | 4,435,640 |</p>
+
+<h2 id="published-full-dataset-category-ranking">Published Full-Dataset Category Ranking</h2>
+
+<p>This ranking uses the published Amazon Reviews 2023 category-level <code>#Rating</code>
+counts over the full May 1996-Sep 2023 dataset. It is not restricted to the
+2018-2023 window.</p>
+
+<p>| Rank | Category | Full dataset reviews |
+| ---: | --- | ---: |
+| 1 | <code>Home_and_Kitchen</code> | 67.4M |
+| 2 | <code>Clothing_Shoes_and_Jewelry</code> | 66.0M |
+| 3 | <code>Unknown</code> | 63.8M |
+| 4 | <code>Electronics</code> | 43.9M |
+| 5 | <code>Books</code> | 29.5M |
+| 6 | <code>Tools_and_Home_Improvement</code> | 27.0M |
+| 7 | <code>Health_and_Household</code> | 25.6M |
+| 8 | <code>Kindle_Store</code> | 25.6M |
+| 9 | <code>Beauty_and_Personal_Care</code> | 23.9M |
+| 10 | <code>Cell_Phones_and_Accessories</code> | 20.8M |
+| 11 | <code>Automotive</code> | 20.0M |
+| 12 | <code>Sports_and_Outdoors</code> | 19.6M |
+| 13 | <code>Movies_and_TV</code> | 17.3M |
+| 14 | <code>Pet_Supplies</code> | 16.8M |
+| 15 | <code>Patio_Lawn_and_Garden</code> | 16.5M |
+| 16 | <code>Toys_and_Games</code> | 16.3M |
+| 17 | <code>Grocery_and_Gourmet_Food</code> | 14.3M |
+| 18 | <code>Office_Products</code> | 12.8M |
+| 19 | <code>Arts_Crafts_and_Sewing</code> | 9.0M |
+| 20 | <code>Baby_Products</code> | 6.0M |
+| 21 | <code>Industrial_and_Scientific</code> | 5.2M |
+| 22 | <code>Software</code> | 4.9M |
+| 23 | <code>CDs_and_Vinyl</code> | 4.8M |
+| 24 | <code>Video_Games</code> | 4.6M |
+| 25 | <code>Musical_Instruments</code> | 3.0M |
+| 26 | <code>Amazon_Fashion</code> | 2.5M |
+| 27 | <code>Appliances</code> | 2.1M |
+| 28 | <code>All_Beauty</code> | 701.5K |
+| 29 | <code>Handmade_Products</code> | 664.2K |
+| 30 | <code>Health_and_Personal_Care</code> | 494.1K |
+| 31 | <code>Gift_Cards</code> | 152.4K |
+| 32 | <code>Digital_Music</code> | 130.4K |
+| 33 | <code>Magazine_Subscriptions</code> | 71.5K |
+| 34 | <code>Subscription_Boxes</code> | 16.2K |</p>
+
+<h2 id="pool-summary">Pool Summary</h2>
+
+<p>The user pools below are computed from the following categories only:
+<code>Books</code>, <code>Kindle_Store</code>, <code>Movies_and_TV</code>, <code>Electronics</code>, <code>Office_Products</code>,
+<code>Home_and_Kitchen</code>, and <code>Clothing_Shoes_and_Jewelry</code>.</p>
+
+<p>The pool construction uses reviews in the 2018-2023 window only. Reviews outside
+this window are excluded from review counts, category counts, history span,
+review text character counts, and verified-purchase share. Average rating is
+reported in candidate records but is not used for pool selection.</p>
+
+<p>| Pool | Definition | Users |
+| --- | --- | ---: |
+| Standard pool | >=30 reviews; >=2 categories; >=365 days history; >=5000 review text characters; verified_purchase_share >=0.7 | 247,891 |
+| Stricter pool | >=50 reviews; >=2 categories; >=365 days history; >=10000 review text characters; verified_purchase_share >=0.7 | 64,855 |
+| Stricter pool, 2-year verified>=0.8 | >=50 reviews; >=2 categories; >=730 days history; >=10000 review text characters; verified_purchase_share >=0.8 | 57,765 |
+| Stricter pool, cat>=3 reference | >=50 reviews; >=3 categories; >=730 days history; >=10000 review text characters; verified_purchase_share >=0.8 | 55,032 |</p>
+
+<h2 id="generated-output-files">Generated Output Files</h2>
+
+<p>These generated artifacts are intentionally kept under ignored <code>raw/</code> paths and
+are not committed to the repository.</p>
+
+<ul class="article-list">
+  <li>Standard pool: <code>raw/amazon_reviews_2023/exploration/application_large_2018_2023_min30_1y_5k_verified70/candidate_users.jsonl</code></li>
+  <li>Stricter pool: <code>raw/amazon_reviews_2023/exploration/application_large_2018_2023_min30_1y_5k_verified70/candidate_users_intermediate_min50_cat2_1y_10k_verified70.jsonl</code></li>
+  <li>Stricter pool, 2-year verified>=0.8: <code>raw/amazon_reviews_2023/exploration/application_large_2018_2023_min30_1y_5k_verified70/candidate_users_strict_min50_cat2_2y_10k_verified80.jsonl</code></li>
+  <li>Stricter cat>=3 reference: <code>raw/amazon_reviews_2023/exploration/application_large_2018_2023_min30_1y_5k_verified70/candidate_users_strict_min50_cat3_2y_10k_verified80.jsonl</code></li>
+  <li>Run summary: <code>raw/amazon_reviews_2023/exploration/application_large_2018_2023_min30_1y_5k_verified70/summary.json</code></li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#2018-2023-volume-ranking">2018-2023 Volume Ranking</a></li>
+<li><a href="#categories">Categories</a></li>
+<li><a href="#review-volume">Review Volume</a></li>
+<li><a href="#published-full-dataset-category-ranking">Published Full-Dataset Category Ranking</a></li>
+<li><a href="#pool-summary">Pool Summary</a></li>
+<li><a href="#generated-output-files">Generated Output Files</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PRODUCT.md — Playground Workbench | Technical Whitepaper</title>
+  <meta name="description" content="PRODUCT.md — Playground Workbench — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/PRODUCT.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">PRODUCT.md — Playground Workbench</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># PRODUCT.md — Playground Workbench</p>
+
+<p>register: product</p>
+
+<h2 id="what-it-is">What it is</h2>
+A developer workbench to <strong>test interactive apps (chatbots, surveys, websites) against simulated "persona" users</strong> and score how well the app does — before real users do. Frontend is a React 18 + Vite + Tailwind 3 + TanStack Query SPA at <code>application/playground/frontend</code>, served by the Playground backend (dev at <code>:8765</code>).
+
+<h2 id="who-uses-it">Who uses it</h2>
+Researchers / engineers iterating on an application under test. They are in a focused task: configure a run, watch a simulated user drive the app, and read the scores. The tool should disappear into that task (product register — earned familiarity, not decoration).
+
+<h2 id="surfaces-primary-flows">Surfaces & primary flows</h2>
+<ul class="article-list">
+  <li><strong>Chat</strong> — manual operator conversation: a human plays the user against the app (3-pane: session rail · conversation · turn inspector).</li>
+  <li><strong>Playground</strong> — the core: pick <strong>Application type</strong> (Chatbot / Survey / Web); for Chatbot pick an <strong>application</strong> (RecAI / OpenBB / Medical); choose a <strong>persona</strong> + run knobs; <strong>Run eval</strong> → watch the live trajectory + pipeline, then read the scorecard. Setup-form → live-run flow.</li>
+  <li><strong>Runs</strong> — history list, per-run debrief (option-aware), side-by-side compare.</li>
+  <li><strong>Catalog</strong> — browse/search 336 personas (sources: Nemotron / OASIS / PRIMEX / PersonaHub) + a persona detail drawer; reachable via ⌘K.</li>
+</ul>
+
+<h2 id="hard-constraints">Hard constraints</h2>
+<ul class="article-list">
+  <li><strong>Pure frontend</strong> when redesigning: keep the data layer (api.ts, hooks, query keys, types) and backend contract. Per-option fidelity matters (chatbot-only runtime panel; RecAI-only Domain; 3/3/4-node pipelines; distinct scoring).</li>
+  <li><strong>Dark default + light</strong> (persisted <code><html>.light</code> toggle). <strong>Friendly, tutorial-first copy</strong> for first-time users; restrained/professional tone — no fake telemetry, no roleplay.</li>
+</ul>
+
+<h2 id="design-system">Design system</h2>
+MatrAIx / Playground — see [DESIGN.md](./DESIGN.md). The design system is implemented in the frontend tokens, Tailwind config, and shared cockpit components.
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#what-it-is">What it is</a></li>
+<li><a href="#who-uses-it">Who uses it</a></li>
+<li><a href="#surfaces-primary-flows">Surfaces & primary flows</a></li>
+<li><a href="#hard-constraints">Hard constraints</a></li>
+<li><a href="#design-system">Design system</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

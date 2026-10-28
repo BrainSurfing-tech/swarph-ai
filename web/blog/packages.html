@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Packages | Technical Whitepaper</title>
+  <meta name="description" content="Packages — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/packages.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Packages</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Packages</p>
+
+<p>MatrAIx is modular. Beyond the core Playground runtime, the packages directory provides optional libraries for extending Matraix Playground jobs and grading agent outputs. This page covers the optional packages and the viewer app paired with <code>harbor view</code>.</p>
+
+<p>---</p>
+
+<h2 id="overview">Overview</h2>
+
+<p>All packages are installed the same way — from the repository root:</p>
+
+<p><code></code>`bash
+uv pip install -e packages/playground
+uv pip install -e packages/rewardkit
+uv pip install -e packages/harbor-langsmith
+<code></code>`</p>
+
+<p>You can install any subset of these; none are required for basic Matraix Playground task execution.</p>
+
+<p>---</p>
+
+<h2 id="playground-core">Playground Core</h2>
+
+<p>The Playground core library (<code>packages/playground/</code>) powers both the Playground UI backend and the in-process Matraix Playground runtime adapters. It is a shared foundation providing:</p>
+
+<ul class="article-list">
+  <li><strong>Persona loading</strong> — instantiating personas from coreset data</li>
+  <li><strong>User simulation</strong> — embedding personas into agents for task execution</li>
+  <li><strong>In-process runners</strong> (<code>playground.inprocess</code>) — running Matraix Playground jobs without needing a separate server</li>
+  <li><strong>Scoring helpers</strong> — utilities for defining and computing task scores</li>
+</ul>
+
+<p>This package is typically installed as a dependency of other packages or the main application backend. It shares some modules with the backend source tree (<code>backend.*</code> modules) in the application layer.</p>
+
+<p>---</p>
+
+<h2 id="rewardkit">Rewardkit</h2>
+
+<p><strong>Matraix Playground Rewardkit</strong> is a lightweight grading toolkit for defining and running verifiers. It discovers and runs folder-based reward criteria against an agent's workspace, producing structured JSON scores. Rewardkit works standalone or with the Matraix Playground task format.</p>
+
+<h3 id="what-it-does">What it does</h3>
+
+<p>Rewardkit scans a <code>tests/</code> directory for reward definitions in two forms:</p>
+
+<p>1. <strong>Programmatic criteria</strong> — Python functions that check outputs directly
+2. <strong>Judge-based evaluation</strong> — LLM or agent CLI judges that assess work against criteria</p>
+
+<p>Both approaches run concurrently and combine into a single score per reward.</p>
+
+<h3 id="installation">Installation</h3>
+
+<p><code></code>`bash
+python -m pip install -e packages/rewardkit
+<code></code>`</p>
+
+<h3 id="programmatic-example">Programmatic example</h3>
+
+<p>Create Python criterion functions in your tests directory:</p>
+
+<p><code></code>`python
+# tests/check.py
+from rewardkit import criteria</p>
+
+<p>criteria.file_exists("output.txt")
+criteria.file_contains("output.txt", "hello")
+<code></code>`</p>
+
+<h3 id="judge-based-example">Judge-based example</h3>
+
+<p>Define LLM or agent evaluation in a TOML file:</p>
+
+<p><code></code>`toml
+# tests/quality.toml
+[judge]
+judge = "anthropic/claude-sonnet-4-6"
+files = ["/app/main.py"]</p>
+
+<p>[[criterion]]
+description = "Is the code correct?"
+type = "binary"
+<code></code>`</p>
+
+<h3 id="running-verifiers">Running verifiers</h3>
+
+<p>Add Rewardkit to your test script:</p>
+
+<p><code></code>`bash
+# tests/test.sh
+uvx harbor-rewardkit@0.1 /tests
+<code></code>`</p>
+
+<p>Rewardkit will write results to <code>/logs/verifier/reward.json</code> with per-reward scores and a detailed breakdown.</p>
+
+<h3 id="learn-more">Learn more</h3>
+
+<p>See the [Rewardkit documentation](https://harborframework.com/docs/rewardkit) and a [full working example](https://github.com/harbor-framework/harbor/tree/main/examples/tasks/reward-kit-example) on GitHub.</p>
+
+<p>---</p>
+
+<h2 id="harbor-langsmith">harbor-langsmith</h2>
+
+<p><strong>harbor-langsmith</strong> integrates LangSmith tracing and dataset management with Matraix Playground jobs. Use it to log job execution traces, compare agent behavior, and manage test datasets.</p>
+
+<h3 id="installation">Installation</h3>
+
+<p><code></code>`bash
+python -m pip install -e packages/harbor-langsmith
+export LANGSMITH_API_KEY=your-api-key
+<code></code>`</p>
+
+<h3 id="basic-usage">Basic usage</h3>
+
+<p>Pass the plugin when running a Matraix Playground job:</p>
+
+<p><code></code>`bash
+harbor run -c config.yaml --plugin langsmith
+<code></code>`</p>
+
+<p>Or use the full import path:</p>
+
+<p><code></code>`bash
+harbor run -c config.yaml --plugin harbor_langsmith:LangSmithPlugin
+<code></code>`</p>
+
+<h3 id="configuration">Configuration</h3>
+
+<p>The plugin accepts configuration through environment variables or CLI arguments. Environment variables:</p>
+
+<ul class="article-list">
+  <li><code>LANGSMITH_API_KEY</code> — LangSmith API key (required)</li>
+  <li><code>HARBOR_LANGSMITH_DATASET</code> — dataset name to log traces into</li>
+  <li><code>HARBOR_LANGSMITH_EXPERIMENT</code> — experiment name for organizing runs</li>
+  <li><code>LANGSMITH_ENDPOINT</code> — custom LangSmith endpoint (optional)</li>
+  <li><code>LANGSMITH_WORKSPACE_ID</code> — workspace identifier (optional)</li>
+  <li><code>HARBOR_LANGSMITH_SYNC_DATASET</code> — auto-sync dataset after job (default: true)</li>
+  <li><code>HARBOR_LANGSMITH_FAIL_FAST</code> — stop on first trace error (default: false)</li>
+</ul>
+
+<p>Alternatively, pass options via CLI:</p>
+
+<p><code></code>`bash
+harbor run -c config.yaml --plugin langsmith \
+  --pk dataset_name=my-dataset \
+  --pk experiment_name=my-run
+<code></code>`</p>
+
+<p>Or in your job config under <code>kwargs:</code>.</p>
+
+<h3 id="what-gets-logged">What gets logged</h3>
+
+<p>Each Matraix Playground job run with the LangSmith plugin logs:
+<ul class="article-list">
+  <li>All agent interactions and tool calls</li>
+  <li>Step-by-step trajectories</li>
+  <li>Environment observations and actions</li>
+  <li>Final scores and outcomes</li>
+</ul></p>
+
+<p>These are available in your LangSmith workspace for analysis and comparison.</p>
+
+<p>---</p>
+
+<h2 id="personabench-viewer">PersonaBench Viewer</h2>
+
+<p>The <strong>PersonaBench Viewer</strong> (<code>apps/viewer/</code>) is a web UI for browsing and inspecting simulation job results, trials, and agent trajectories. It is served by the <code>harbor view</code> command.</p>
+
+<h3 id="starting-the-viewer">Starting the viewer</h3>
+
+<p>View a completed job and its results:</p>
+
+<p><code></code>`bash
+harbor view ./jobs/my-job-name
+<code></code>`</p>
+
+<p>This starts both the backend API server (which reads job outputs) and serves the viewer frontend at <code>http://localhost:5173</code>.</p>
+
+<h3 id="development-mode">Development mode</h3>
+
+<p>For frontend development with hot reloading:</p>
+
+<p><code></code>`bash
+npm ci
+npm run dev
+<code></code>`</p>
+
+<p>The frontend will be available at <code>http://localhost:5173</code>. To connect to a running Matraix Playground backend, use the full command from the repository root:</p>
+
+<p><code></code>`bash
+harbor view ./jobs/my-job-name --dev
+<code></code>`</p>
+
+<h3 id="features">Features</h3>
+
+<p>The viewer supports two modes:</p>
+
+<ul class="article-list">
+  <li><strong>Jobs mode</strong> — browse evaluation results across multiple job runs, filter trials, compare task outcomes</li>
+  <li><strong>Tasks mode</strong> — browse task definitions and interact with them via AI chat</li>
+</ul>
+
+<p>Navigation includes:
+<ul class="article-list">
+  <li>Job listing and comparison across runs</li>
+  <li>Task results within a job with filtering and sorting</li>
+  <li>Trial trajectory viewer for step-by-step agent execution traces</li>
+  <li>Task definition browser with embedded AI chat</li>
+</ul></p>
+
+<h3 id="building-for-deployment">Building for deployment</h3>
+
+<p>Build the production bundle:</p>
+
+<p><code></code>`bash
+npm run build
+<code></code>`</p>
+
+<p>Output is written to <code>build/client/</code>. Type-check before opening a PR:</p>
+
+<p><code></code>`bash
+npm run typecheck
+<code></code>`</p>
+
+<h3 id="deployment">Deployment</h3>
+
+<p><code>harbor view</code> serves static files from <code>environment/runtime/harbor/viewer/static/</code>, <strong>not</strong> directly from <code>apps/viewer/build/client/</code>. So after editing frontend code you must both build and copy the output:</p>
+
+<p><code></code>`bash
+# Option 1: Let harbor handle it (recommended)
+harbor view ./jobs/my-job-name --build</p>
+
+<p># Option 2: Manual build + copy
+cd apps/viewer
+npm run build
+rm -rf ../../environment/runtime/harbor/viewer/static
+cp -r build/client ../../environment/runtime/harbor/viewer/static
+<code></code>`</p>
+
+<p>After either option, restart the <code>harbor view</code> server for changes to take effect.</p>
+
+<h3 id="technology-stack">Technology stack</h3>
+
+<ul class="article-list">
+  <li>React 19 with React Router 7</li>
+  <li>TanStack Query for data fetching</li>
+  <li>TanStack Table for sortable data</li>
+  <li>Tailwind CSS v4 for styling</li>
+  <li>shadcn/ui components</li>
+  <li>Shiki for syntax highlighting</li>
+</ul>
+
+<h3 id="requirements">Requirements</h3>
+
+<p>Use Node.js 20.19.0 or newer. The checked-in <code>.node-version</code> and <code>.nvmrc</code> files specify the tested runtime version.</p>
+
+<p>---</p>
+
+<h2 id="related">Related</h2>
+
+<ul class="article-list">
+  <li>[Handbook](README.md) — docs home</li>
+  <li>[Quickstart](quickstart.md) — first runs</li>
+  <li>[Environment](environment/README.md) — Matraix Playground runtime</li>
+  <li>Integrate Rewardkit into Matraix Playground tasks for automated grading</li>
+  <li>Use harbor-langsmith to trace agent behavior and manage evaluation datasets</li>
+  <li>Explore job results with <code>harbor view</code></li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#what-it-does">What it does</a></li>
+<li style="margin-left: 0.8rem;"><a href="#installation">Installation</a></li>
+<li style="margin-left: 0.8rem;"><a href="#programmatic-example">Programmatic example</a></li>
+<li style="margin-left: 0.8rem;"><a href="#judge-based-example">Judge-based example</a></li>
+<li style="margin-left: 0.8rem;"><a href="#running-verifiers">Running verifiers</a></li>
+<li style="margin-left: 0.8rem;"><a href="#learn-more">Learn more</a></li>
+<li style="margin-left: 0.8rem;"><a href="#installation">Installation</a></li>
+<li style="margin-left: 0.8rem;"><a href="#basic-usage">Basic usage</a></li>
+<li style="margin-left: 0.8rem;"><a href="#configuration">Configuration</a></li>
+<li style="margin-left: 0.8rem;"><a href="#what-gets-logged">What gets logged</a></li>
+<li style="margin-left: 0.8rem;"><a href="#starting-the-viewer">Starting the viewer</a></li>
+<li style="margin-left: 0.8rem;"><a href="#development-mode">Development mode</a></li>
+<li style="margin-left: 0.8rem;"><a href="#features">Features</a></li>
+<li style="margin-left: 0.8rem;"><a href="#building-for-deployment">Building for deployment</a></li>
+<li style="margin-left: 0.8rem;"><a href="#deployment">Deployment</a></li>
+<li style="margin-left: 0.8rem;"><a href="#technology-stack">Technology stack</a></li>
+<li style="margin-left: 0.8rem;"><a href="#requirements">Requirements</a></li>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#playground-core">Playground Core</a></li>
+<li><a href="#rewardkit">Rewardkit</a></li>
+<li><a href="#harbor-langsmith">harbor-langsmith</a></li>
+<li><a href="#personabench-viewer">PersonaBench Viewer</a></li>
+<li><a href="#related">Related</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

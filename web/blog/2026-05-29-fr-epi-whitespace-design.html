@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FR EPI « White Space » — Design Spec | Technical Whitepaper</title>
+  <meta name="description" content="FR EPI « White Space » — Design Spec — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-05-29-fr-epi-whitespace-design.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">FR EPI « White Space » — Design Spec</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 5 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># FR EPI « White Space » — Design Spec</p>
+
+<p><strong>Date:</strong> 2026-05-29
+<strong>Branch:</strong> <code>feat/basket-bundle-rules</code>
+<strong>Author:</strong> Pierre Samson (+ Claude)
+<strong>Status:</strong> Approved params, design blind (Docker DBs offline at authoring time — numbers wired later)</p>
+
+<h2 id="1-objectif">1. Objectif</h2>
+
+<p>Répondre à trois questions sur la base <strong>clients FR</strong> de Lyréco, KPI centrés <strong>workwear = EPI</strong> :</p>
+
+<p>1. <strong>KPIs EPI par secteur</strong> — <em>time-to-purchase</em> + <em>taux de conversion (CR)</em> sur l'EPI, plus fréquence × panier moyen (incl. #SKU).
+2. <strong>White space</strong> — quels secteurs <em>devraient</em> acheter de l'EPI mais n'achètent pas, et quels comptes FR concrets ciblér.
+3. <strong>Comportement digital</strong> — profiler le comportement web des comptes identifiés.</p>
+
+<h2 id="2-d-cisions-verrouill-es">2. Décisions verrouillées</h2>
+
+<p>| Paramètre | Choix | Note |
+|---|---|---|
+| Dimension secteur | <strong>A1 — US SIC 1987, niveau communauté</strong> | Pas de NAF FR en base ; pas de SIC par compte. Secteur hérité via la communauté firmographique. |
+| Définition workwear | <strong>W1 — Section <code>003</code> "Santé, Sécurité, EPI"</strong> | Filtre catalogue actif appliqué. |
+| Fenêtre | <strong>YTD 2026 : 2026-01-01 → 2026-05-29</strong> | Toutes les agrégations bornées à cette fenêtre. |
+| « Compte actif » | <strong>≥ 3 commandes OU ≥ 500 € CA</strong> sur la fenêtre | |
+| « White-space » | <strong>0 € EPI</strong> sur la fenêtre | Option future : < 1 % du CA. |
+| Secteur « should buy » | <strong>secteurs attendus-EPI</strong> (Construction, Manufacturing & Industry, Healthcare & Social Care) — par nature du métier, quelle que soit la pénétration | Révisé 2026-06-01 (avant : lift ≥ 1.0). Le lift reste affiché pour montrer la sous-pénétration. |
+| Tri de la cible | <strong>score opportunité</strong> (cf. §6) | |
+| Livrable | <strong>Excel</strong> dans <code>exports/</code> | Pas de panel dashboard. |</p>
+
+<h3 id="limites-assum-es-crire-dans-le-readme-de-la-sortie">Limites assumées (à écrire dans le README de la sortie)</h3>
+<ul class="article-list">
+  <li>Le secteur est de l'<strong>US SIC 1987</strong> (libellés métier US, ex. 80=Hôpitaux, 73=Services aux entreprises), <strong>pas du NAF français</strong>.</li>
+  <li>Le secteur est <strong>au niveau du cluster</strong> (communauté), pas le code exact de chaque entreprise : un compte reçoit le SIC dominant de sa communauté.</li>
+  <li>Fenêtre <strong>YTD courte</strong> (~5 mois) : les KPIs de volume (CR, fréquence, panier, #SKU) sont bornés YTD. Le <em>time-to-purchase EPI</em> est l'<strong>exception</strong> — il est calculé en latence réelle <strong>all-time</strong> (hors fenêtre, cf. §5) pour ne pas être tronqué.</li>
+</ul>
+
+<h2 id="3-architecture-donn-es">3. Architecture & données</h2>
+
+<p>Script unique : <code>scripts/analyze_fr_epi_whitespace.py</code> (pattern dual-DB des scripts existants — <code>export_prospect_sector_rollup.py</code>, <code>export_first_purchase_top_sku.py</code>).</p>
+
+<p><strong>Règle cross-DB :</strong> jamais de jointure inter-DB. Toujours 2 étapes (pull IDs dans une DB → <code>ANY(%s)</code> dans l'autre).</p>
+
+<p>| Donnée | Table | DB |
+|---|---|---|
+| Comptes FR | <code>ecom_accounts</code> (<code>source_country='FR'</code>) | PG :5433 |
+| Compte → communauté | <code>account_firmographic_community</code> (FR) | PG :5433 |
+| Communauté → SIC | <code>firmographic_communities.dominant_sic_group</code> | PG :5433 |
+| SIC → méta-secteur | <code>sic_meta_sectors</code> (volet <code>us_sic_1987</code>) | PG :5433 |
+| Produits / section | <code>ecom_products.section_code</code> | PG :5433 |
+| Lignes de commande FR | <code>ecom_order_lines</code> (<code>source_country='FR'</code>) | TS :5434 |
+| Lignes de facture FR | <code>ecom_invoice_lines</code> (<code>source_country='FR'</code>) | TS :5434 |
+| Time-to-purchase online | <code>visitor_journey.days_first_session_to_order</code> | PG :5433 |
+| Comportement web | <code>ga4_sessions</code>, <code>ga4_product_events</code>, <code>ga4_search_events</code>, <code>customer_timeline</code> | TS :5434 |</p>
+
+<p><strong>Source de vérité transactionnelle :</strong> <code>ecom_invoice_lines</code> (facturé = réel). On utilise <code>order_date</code>/<code>invoice_date</code> selon la table ; choix par défaut = <strong>invoice_lines</strong> pour le CA réalisé, cohérent avec la session passée.</p>
+
+<h2 id="4-d-finition-de-l-ensemble-sku-epi-w1">4. Définition de l'ensemble SKU EPI (W1)</h2>
+
+<p><code></code>`
+SELECT product_reference FROM ecom_products
+WHERE section_code = '003'
+  AND item_category_code = 'NORM'
+  AND status_code NOT IN ('98','99')
+  AND not_salable_flag = false
+  AND not_visible_flag = false
+<code></code>`
+→ <code>EPI_SKUS</code> (liste Python), bridge vers TS via <code>product_reference = ANY(%s)</code>.</p>
+
+<h2 id="5-kpis-d-finitions-pr-cises">5. KPIs — définitions précises</h2>
+
+<p>Fenêtre = YTD (<code>invoice_date BETWEEN '2026-01-01' AND '2026-05-29'</code>), <code>source_country='FR'</code>.</p>
+
+<ul class="article-list">
+  <li><strong>CR EPI (secteur)</strong> = (# comptes du secteur avec ≥1 ligne EPI) / (# comptes actifs du secteur). Actif = ≥1 commande toutes catégories dans la fenêtre.</li>
+  <li><strong>Time-to-purchase EPI</strong> (médiane par secteur, sur les acheteurs EPI) = <code>première facture EPI (all-time) − première facture toutes cat. (all-time)</code> du compte. <strong>Calculé hors fenêtre YTD</strong> (latence réelle, option (b)) : on requête <code>MIN(invoice_date)</code> global et <code>MIN(invoice_date WHERE product_reference = ANY(EPI_SKUS))</code> global, sans borne basse. Seul ce KPI ignore la fenêtre YTD ; tous les autres restent bornés. Colonne secondaire : <code>visitor_journey.days_first_session_to_order</code> (lens online) quand le bridge visiteur existe.</li>
+  <li><strong>Fréquence</strong> (par compte) = # commandes distinctes (<code>invoice_number</code> distincts) sur la fenêtre.</li>
+  <li><strong>Panier moyen</strong> (par compte) = <code>SUM(sales_amount) / # commandes</code>.</li>
+  <li><strong>#SKU moyen / commande</strong> = moyenne, par commande, du <code>COUNT(DISTINCT product_reference)</code>.</li>
+  <li>Ces 3 dernières metrics sont calculées <strong>global</strong> (toutes cat.) <strong>et EPI seul</strong>.</li>
+</ul>
+
+<h2 id="6-bloc-should-buy-but-don-t">6. Bloc « should buy but don't »</h2>
+
+<p>1. <strong>Secteurs attendus-EPI</strong> (révisé 2026-06-01) = <code>EPI_EXPECTED_SECTORS</code> = {Construction, Manufacturing & Industry, Healthcare & Social Care} : secteurs où l'EPI est requis par nature du métier, <strong>indépendamment de la pénétration</strong>. Le <strong>lift</strong> (<code>CR_EPI(secteur) / CR_EPI(base FR connue)</code>) reste calculé et affiché pour montrer où ces secteurs sous-achètent (ex. Construction lift 0.86 = sous-pénétré, donc gisement). <em>(Définition initiale, abandonnée : lift ≥ 1.0 — excluait la Construction, contre-intuitif.)</em>
+2. <strong>Comptes white-space</strong> = comptes <strong>actifs</strong> (≥3 cmd OU ≥500 €) dans un secteur attendu-EPI, avec <strong>0 € EPI</strong> sur la fenêtre.
+3. <strong>Score opportunité</strong> par compte :
+   <code></code>`
+   score = pénétration_EPI_secteur × CA_YTD_compte × (1 + intention_digitale)
+   <code></code>`
+<ul class="article-list">
+  <li><code>pénétration_EPI_secteur</code> = CR EPI du secteur (0–1).</li>
+  <li><code>CA_YTD_compte</code> = CA total toutes catégories sur la fenêtre.</li>
+  <li><code>intention_digitale</code> = boost ∈ {0, 0.5, 1.0} selon signal web EPI (cf. §7) : 0 = aucun signal, 0.5 = recherche EPI, 1.0 = vue page produit EPI.</li>
+</ul></p>
+
+<h2 id="7-bloc-comportement-digital">7. Bloc comportement digital</h2>
+
+<p>Pour chaque compte white-space, bridge <code>account_number</code> → web (TS). Métriques sur la fenêtre :
+<ul class="article-list">
+  <li><strong>Vue page produit EPI</strong> : présence dans <code>ga4_product_events</code> sur un SKU de <code>EPI_SKUS</code> → flag <code>viewed_epi</code>.</li>
+  <li><strong>Recherche EPI</strong> : termes EPI dans <code>ga4_search_events</code> (mots-clés : EPI, sécurité, gant, casque, chaussure, masque, haute visibilité, lunette, protection…) → flag <code>searched_epi</code>.</li>
+  <li><strong>Engagement</strong> : <code>n_sessions</code>, <code>n_engaged_sessions</code>, <code>n_checkout_sessions</code> (depuis <code>ga4_sessions</code>), add-to-cart EPI (depuis <code>customer_timeline</code> event_type ADD_TO_CART sur SKU EPI).</li>
+  <li><strong>Tier</strong> : <strong>A</strong> = <code>viewed_epi</code> (regarde mais n'achète pas — très actionnable) ; <strong>B</strong> = signal digital nul (besoin outbound/notoriété).</li>
+</ul></p>
+
+<h2 id="8-livrable-excel-exports-fr-epi-whitespace-fr-2026-05-29-xlsx">8. Livrable Excel — <code>exports/fr_epi_whitespace_FR_2026-05-29.xlsx</code></h2>
+
+<p>| Feuille | Contenu |
+|---|---|
+| <strong>README</strong> | Méthodo, fenêtre YTD, définitions KPI, limites A1/W1. |
+| <strong>Sector EPI KPIs</strong> | Benchmark par méta-secteur : CR EPI, lift, time-to-purchase (médiane), fréq, panier, #SKU (global + EPI). |
+| <strong>White-space accounts</strong> | Liste cible (compte, secteur, CA YTD, fréq, panier, score opportunité, tier), triée par score décroissant. |
+| <strong>Digital behavior</strong> | Par compte cible : viewed_epi, searched_epi, n_sessions, engaged, checkout, add-to-cart EPI. |
+| <strong>Action list</strong> | Top comptes = score opportunité, Tier A en tête (highlight). |</p>
+
+<p>Conventions : noms de feuilles sans <code>/</code> (utiliser <code>—</code> / <code>·</code>) ; strip <code>tzinfo</code> avant écriture openpyxl ; <code>PYTHONIOENCODING=utf-8</code>.</p>
+
+<h2 id="9-hors-scope-yagni">9. Hors scope (YAGNI)</h2>
+<ul class="article-list">
+  <li>Pas d'import NAF externe (INSEE/Sirene) — repoussé.</li>
+  <li>Pas de panel dashboard.</li>
+  <li>Pas de variante W2/W3/W4/W5.</li>
+  <li>Pas de A/B split (≠ session précédente).</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#limites-assum-es-crire-dans-le-readme-de-la-sortie">Limites assumées (à écrire dans le README de la sortie)</a></li>
+<li><a href="#1-objectif">1. Objectif</a></li>
+<li><a href="#2-d-cisions-verrouill-es">2. Décisions verrouillées</a></li>
+<li><a href="#3-architecture-donn-es">3. Architecture & données</a></li>
+<li><a href="#4-d-finition-de-l-ensemble-sku-epi-w1">4. Définition de l'ensemble SKU EPI (W1)</a></li>
+<li><a href="#5-kpis-d-finitions-pr-cises">5. KPIs — définitions précises</a></li>
+<li><a href="#6-bloc-should-buy-but-don-t">6. Bloc « should buy but don't »</a></li>
+<li><a href="#7-bloc-comportement-digital">7. Bloc comportement digital</a></li>
+<li><a href="#8-livrable-excel-exports-fr-epi-whitespace-fr-2026-05-29-xlsx">8. Livrable Excel — `exports/fr_epi_whitespace_FR_2026-05-29.xlsx`</a></li>
+<li><a href="#9-hors-scope-yagni">9. Hors scope (YAGNI)</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

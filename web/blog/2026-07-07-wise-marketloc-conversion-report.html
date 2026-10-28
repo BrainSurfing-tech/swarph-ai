@@ -1,0 +1,802 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WISE Market-Location Prospect-Conversion Report — Implementation Plan | Technical Whitepaper</title>
+  <meta name="description" content="WISE Market-Location Prospect-Conversion Report — Implementation Plan — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-07-07-wise-marketloc-conversion-report.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Quant Telemetry</div>
+        <h1 class="article-title">WISE Market-Location Prospect-Conversion Report — Implementation Plan</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 18 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># WISE Market-Location Prospect-Conversion Report — Implementation Plan</p>
+
+<p>> <strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+
+<p><strong>Goal:</strong> Build the v1 "spine" of a WISE-only report that tracks each market-location cold-email company from send → dual-journey activation → 1st/2nd purchase (timing, amounts, product mix) with its pre-conversion prospect model level, delivered as a refreshable HTML report.</p>
+
+<p><strong>Architecture:</strong> Four scripts run in sequence — SFTP-fetch+ingest the daily xlsx into <code>eloqua_campaign_responders</code>; refresh the CH/BvD/community match; compute the cross-DB per-company spine + cohort rollups; render a self-contained HTML report (per-company table + cohort rollups + data-driven journey-map). Pure logic (parse/map/timeline/rollup/SVG) is unit-tested; DB steps are integration-verified against the live Docker DBs.</p>
+
+<p><strong>Tech Stack:</strong> Python 3.12 venv, <code>openpyxl</code> (xlsx), <code>paramiko</code> (SFTP), <code>psycopg2</code> via <code>database/crm_db.py::CRMDatabase</code> (Postgres <code>leadcontagion</code>) and <code>database/timeseries_db.py::TimeseriesDatabase</code> (TimescaleDB <code>lc_timeseries</code>), <code>pytest</code>.</p>
+
+<p><strong>Spec:</strong> <code>docs/superpowers/specs/2026-07-07-wise-marketloc-conversion-report-design.md</code></p>
+
+<h2 id="global-constraints">Global Constraints</h2>
+
+<ul class="article-list">
+  <li><strong>WISE-only:</strong> every account/order query filters <code>source_country = 'GB'</code>.</li>
+  <li><strong>Grain:</strong> one report row per company = <code>lyreco_118_id</code>.</li>
+  <li><strong>Cross-DB, never joined in one query:</strong> responders/bridge/accounts/hubspot/prospect-model in Postgres; <code>ecom_order_lines</code> in TimescaleDB. Pull <code>account_number</code>s from PG, then query TS with <code>WHERE soldto_number = ANY(%s)</code>.</li>
+  <li><strong>Account key:</strong> <code>soldto_number</code> = <code>account_number</code>, LPAD-10 (<code>LPAD(x,10,'0')</code>) on both sides of any join.</li>
+  <li><strong>Order hygiene:</strong> <code>order_channel_code = 'W'</code> and <code>sales_amount BETWEEN 0 AND 1e7</code> (excludes the corrupt channel-C mega-lines).</li>
+  <li><strong>Idempotent:</strong> ingest and match refresh are safe to re-run daily (dedupe / upsert, no duplicate rows).</li>
+  <li><strong>Match honesty:</strong> every matched company records <code>match_source ∈ {bvd, companies_house, community}</code> + confidence; unmatched companies are kept and reported as "reached, unlinked," never dropped.</li>
+  <li><strong>Encoding:</strong> scripts read/write UTF-8; run with <code>PYTHONIOENCODING=utf-8</code> when invoked as a report subprocess.</li>
+  <li><strong>Repo-root bootstrap</strong> at top of every <code>scripts/*.py</code>: <code>import sys, pathlib; sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))</code>.</li>
+</ul>
+
+<p>---</p>
+
+<h2 id="file-structure">File Structure</h2>
+
+<ul class="article-list">
+  <li><code>scripts/marketloc_parse.py</code> — pure parse/normalize of a market-location xlsx → responder-column dicts (+ <code>derive_campaign_label</code>, <code>derive_email_version</code>, <code>derive_program</code>). No I/O beyond reading the given path. (Task 1)</li>
+  <li><code>integrations/market_location_sftp.py</code> — <code>fetch_new_files(local_dir)</code>: pull <code>*.xlsx</code> from <code>MARKET_LOCATION_{HOST,USER,PASSWORD}</code> into <code>local_dir</code>, skipping already-present names. (Task 2)</li>
+  <li><code>scripts/ingest_market_location.py</code> — orchestrate fetch → parse each file → upsert into <code>eloqua_campaign_responders</code>. (Task 3)</li>
+  <li><code>scripts/refresh_marketloc_match.py</code> — for the ingested <code>lyreco_118_id</code>s, populate <code>eloqua_responder_bridge</code> (BvD) and fall back to CH/community, stamping <code>match_source</code>. (Task 4)</li>
+  <li><code>scripts/marketloc_spine.py</code> — pure per-company assembly helpers: <code>extract_purchases</code>, <code>compute_timeline</code>, <code>classify_activation</code>. (Task 5)</li>
+  <li><code>scripts/compute_marketloc_conversion.py</code> — cross-DB orchestration using Task-5 helpers → per-company rows + <code>rollup_cohorts</code>. (Task 5)</li>
+  <li><code>scripts/marketloc_report.py</code> — <code>render_journey_map</code> (SVG) + <code>build_report_html</code> + write to <code>exports/</code> + register report. (Task 6)</li>
+  <li>Tests: <code>tests/test_marketloc_parse.py</code>, <code>tests/test_market_location_sftp.py</code>, <code>tests/test_marketloc_spine.py</code>, <code>tests/test_marketloc_report.py</code>.</li>
+</ul>
+
+<p>---</p>
+
+<h2 id="task-1-parse-normalize-the-xlsx-pure-logic">Task 1: Parse & normalize the xlsx (pure logic)</h2>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>scripts/marketloc_parse.py</code></li>
+  <li>Test: <code>tests/test_marketloc_parse.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Produces: <code>parse_market_location_file(path: str) -> list[dict]</code> (each dict keyed by <code>eloqua_campaign_responders</code> column names); <code>derive_campaign_label(campaign_name: str) -> str</code>; <code>derive_program(campaign_name: str) -> str | None</code>; <code>derive_email_version(campaign_name: str, subject: str) -> str | None</code>.</li>
+</ul></p>
+
+<p>Column mapping (xlsx header → table column): <code>Sent Date→sent_date</code>, <code>Campaign Name→campaign_name</code>, <code>Subject→subject</code>, <code>TemplateSubject→template_subject</code>, <code>Contact Urn→lead_tracker_id</code>, <code>Town→town</code>, <code>Employees Band Desc→employees_band</code>, <code>National Emp Band Desc→national_emp_band</code>, <code>Sic 07 2 Digit→sic_07_2digit</code>, <code>Sic 07 2 Digit Desc→sic_07_2digit_desc</code>, <code>Sic 07→sic_07</code>, <code>Sic 07 Desc→sic_07_desc</code>, <code>Reference→reference</code>, <code>Title→title</code>, <code>First Name→first_name</code>, <code>Last Name→last_name</code>, <code>Job Title→job_title</code>, <code>Company→company</code>, <code>Telephone→telephone</code>, <code>Address Line 1/2/3→address_line_1/2/3</code>, <code>City→city</code>, <code>Post Code→post_code</code>, <code>Market Sector→market_sector</code>, <code>Employees→employees</code>, <code>Web Address→web_address</code>, <code>Open Count→open_count</code>, <code>Open Last→open_last</code>, <code>TPS→tps_flag</code>, <code>CTPS→ctps_flag</code>, <code>OptOut Date→optout_date</code>, <code>Click Count→click_count</code>, <code>Click Last→click_last</code>, <code>Easy Desc→easy_desc</code>, <code>118 ID→lyreco_118_id</code>. Derived: <code>campaign_label</code>, <code>program</code>, <code>email_version</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing tests</strong></li>
+</ul>
+
+<p>Create a tiny fixture xlsx in the test (via openpyxl) with the 38 headers + one row mirroring the real data, then:</p>
+
+<p><code></code>`python
+# tests/test_marketloc_parse.py
+import openpyxl, pathlib
+from scripts.marketloc_parse import (
+    parse_market_location_file, derive_campaign_label, derive_program, derive_email_version)</p>
+
+<p>HEADERS = ['Sent Date','Campaign Name','Subject','Template Desc','TemplateSubject','Email Domain',
+    'Contact Urn','Town','Employees Band Desc','National Emp Band Desc','Sic 07 2 Digit',
+    'Sic 07 2 Digit Desc','Sic 07','Sic 07 Desc','Reference','Title','First Name','Last Name',
+    'Job Title','Company','Telephone','Address Line 1','Address Line 2','Address Line 3','City',
+    'Post Code','Market Sector','Employees','Web Address','Open Count','Open Last','TPS','CTPS',
+    'OptOut Date','Click Count','Click Last','Easy Desc','118 ID']
+ROW = ['2026-06-05 11:16:30','[supplies4work-email] AD_B_2026_06_05_10','Welcome','[supplies4work-email] AD_B',
+    'Welcome','carnegiesteel.co.uk','6690618','Westerham','C: 10 to 19 employees','A: 1 to 20 nat. emps.',
+    '25','Manufacture','25110','Metal structures','3887154|6690618','Mr','David','Mindham','MD',
+    'Carnegie Steel','01959572501','The Beeches','Old Lane','Tatsfield','Kent','TN16 2LH','Manufacturing',
+    '12','www.carnegie.co.uk','6','2026-07-02 09:19:08','False','False',None,'6','2026-07-02 09:19:08',
+    'Steel Buildings','3887154']</p>
+
+<p>def _fixture(tmp_path):
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = 'Data'
+    ws.append(HEADERS); ws.append(ROW)
+    p = tmp_path / 'ml.xlsx'; wb.save(p); return str(p)</p>
+
+<p>def test_parse_maps_columns_and_types(tmp_path):
+    rows = parse_market_location_file(_fixture(tmp_path))
+    assert len(rows) == 1
+    r = rows[0]
+    assert r['lyreco_118_id'] == 3887154          # int, from '118 ID'
+    assert r['lead_tracker_id'] == 6690618        # int, from 'Contact Urn'
+    assert r['company'] == 'Carnegie Steel'
+    assert r['post_code'] == 'TN16 2LH'
+    assert r['open_count'] == 6 and r['click_count'] == 6
+    assert r['tps_flag'] is False and r['ctps_flag'] is False
+    assert r['sent_date'].year == 2026 and r['sent_date'].month == 6
+    assert r['optout_date'] is None
+    assert r['market_sector'] == 'Manufacturing'</p>
+
+<p>def test_derivations():
+    cn = '[supplies4work-email] AD_B_2026_06_05_10'
+    assert derive_program(cn) == 'supplies4work-email'
+    assert derive_campaign_label(cn) == cn.strip()
+    assert derive_email_version('x','V1_EMAIL_F_ML_OFFICE_FINANCE promo') == 'V1_EMAIL_F_ML_OFFICE_FINANCE'
+    assert derive_email_version('no version here','plain subject') is None</p>
+
+<p>def test_blank_118id_row_skipped(tmp_path):
+    wb = openpyxl.load_workbook(_fixture(tmp_path)); ws = wb.active
+    bad = list(ROW); bad[-1] = None; ws.append(bad); wb.save(tmp_path / 'ml.xlsx')
+    rows = parse_market_location_file(str(tmp_path / 'ml.xlsx'))
+    assert len(rows) == 1   # the no-118-ID row is dropped
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run to verify they fail</strong> — <code>venv/Scripts/python.exe -m pytest tests/test_marketloc_parse.py -v</code> → FAIL (module not found).</li>
+</ul>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Implement <code>scripts/marketloc_parse.py</code></strong></li>
+</ul>
+
+<p><code></code>`python
+# -<em>- coding: utf-8 -</em>-
+"""Pure parse/normalize of a market-location responder xlsx -> eloqua_campaign_responders dicts."""
+from __future__ import annotations
+import re, datetime, pathlib, sys
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+import openpyxl</p>
+
+<p>_HDR_TO_COL = {
+    'Sent Date':'sent_date','Campaign Name':'campaign_name','Subject':'subject',
+    'TemplateSubject':'template_subject','Contact Urn':'lead_tracker_id','Town':'town',
+    'Employees Band Desc':'employees_band','National Emp Band Desc':'national_emp_band',
+    'Sic 07 2 Digit':'sic_07_2digit','Sic 07 2 Digit Desc':'sic_07_2digit_desc','Sic 07':'sic_07',
+    'Sic 07 Desc':'sic_07_desc','Reference':'reference','Title':'title','First Name':'first_name',
+    'Last Name':'last_name','Job Title':'job_title','Company':'company','Telephone':'telephone',
+    'Address Line 1':'address_line_1','Address Line 2':'address_line_2','Address Line 3':'address_line_3',
+    'City':'city','Post Code':'post_code','Market Sector':'market_sector','Employees':'employees',
+    'Web Address':'web_address','Open Count':'open_count','Open Last':'open_last','TPS':'tps_flag',
+    'CTPS':'ctps_flag','OptOut Date':'optout_date','Click Count':'click_count','Click Last':'click_last',
+    'Easy Desc':'easy_desc','118 ID':'lyreco_118_id',
+}
+_INT_COLS = {'lyreco_118_id','lead_tracker_id','employees','open_count','click_count'}
+_DT_COLS = {'sent_date','open_last','click_last','optout_date'}
+_BOOL_COLS = {'tps_flag','ctps_flag'}
+_VERSION_RE = re.compile(r'V\d+_EMAIL_[A-Z]_ML_[A-Z_]+')
+_PROGRAM_RE = re.compile(r'^\[([^\]]+)\]')</p>
+
+<p>def derive_program(campaign_name: str | None) -> str | None:
+    if not campaign_name: return None
+    m = _PROGRAM_RE.match(campaign_name.strip())
+    return m.group(1) if m else None</p>
+
+<p>def derive_campaign_label(campaign_name: str | None) -> str:
+    return (campaign_name or '').strip()</p>
+
+<p>def derive_email_version(campaign_name: str | None, subject: str | None) -> str | None:
+    for s in (campaign_name, subject):
+        if s:
+            m = _VERSION_RE.search(s)
+            if m: return m.group(0)
+    return None</p>
+
+<p>def _to_int(v):
+    if v in (None, ''): return None
+    try: return int(str(v).strip())
+    except (TypeError, ValueError): return None</p>
+
+<p>def _to_dt(v):
+    if v in (None, ''): return None
+    if isinstance(v, datetime.datetime): return v
+    for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
+        try: return datetime.datetime.strptime(str(v).strip(), fmt)
+        except ValueError: continue
+    return None</p>
+
+<p>def _to_bool(v):
+    if v in (None, ''): return None
+    return str(v).strip().lower() in ('true','1','yes')</p>
+
+<p>def parse_market_location_file(path: str) -> list[dict]:
+    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    ws = wb.active
+    it = ws.iter_rows(values_only=True)
+    headers = [str(h).strip() if h is not None else '' for h in next(it)]
+    rows: list[dict] = []
+    for raw in it:
+        rec = {}
+        for h, val in zip(headers, raw):
+            col = _HDR_TO_COL.get(h)
+            if not col: continue
+            if col in _INT_COLS: rec[col] = _to_int(val)
+            elif col in _DT_COLS: rec[col] = _to_dt(val)
+            elif col in _BOOL_COLS: rec[col] = _to_bool(val)
+            else: rec[col] = (str(val).strip() if val is not None else None)
+        if rec.get('lyreco_118_id') is None:
+            continue
+        rec['campaign_label'] = derive_campaign_label(rec.get('campaign_name'))
+        rec['program'] = derive_program(rec.get('campaign_name'))
+        rec['email_version'] = derive_email_version(rec.get('campaign_name'), rec.get('subject'))
+        rows.append(rec)
+    wb.close()
+    return rows
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run tests</strong> — <code>venv/Scripts/python.exe -m pytest tests/test_marketloc_parse.py -v</code> → PASS (3 tests).</li>
+  <li>[ ] <strong>Step 5: Commit</strong> — <code>git add scripts/marketloc_parse.py tests/test_marketloc_parse.py && git commit -m "feat(marketloc): parse+normalize market-location xlsx"</code></li>
+</ul>
+
+<p>---</p>
+
+<h2 id="task-2-sftp-fetch-of-daily-files">Task 2: SFTP fetch of daily files</h2>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>integrations/market_location_sftp.py</code></li>
+  <li>Test: <code>tests/test_market_location_sftp.py</code></li>
+  <li>Modify: <code>requirements.txt</code> (add <code>paramiko</code>)</li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Produces: <code>fetch_new_files(local_dir: str, creds: dict | None = None) -> list[str]</code> — connects to <code>MARKET_LOCATION_{HOST,USER,PASSWORD}</code> (or <code>creds</code>), lists remote <code>*.xlsx</code>, downloads any whose basename is not already in <code>local_dir</code>, returns the list of newly-downloaded local paths. Missing creds → returns <code>[]</code> and logs (so the ingest still runs on already-local files).</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong> (mock paramiko — no real network):</li>
+</ul>
+
+<p><code></code>`python
+# tests/test_market_location_sftp.py
+import types, pathlib
+from integrations import market_location_sftp as m</p>
+
+<p>class _FakeSFTP:
+    def __init__(self, remote): self._remote = remote
+    def listdir(self): return list(self._remote)
+    def get(self, r, l): pathlib.Path(l).write_text('x')
+    def close(self): pass</p>
+
+<p>def test_downloads_only_new(monkeypatch, tmp_path):
+    (tmp_path / 'already.xlsx').write_text('old')
+    fake = _FakeSFTP(['already.xlsx', 'new1.xlsx', 'skip.txt'])
+    monkeypatch.setattr(m, '_open_sftp', lambda creds: (fake, lambda: None))
+    got = m.fetch_new_files(str(tmp_path), creds={'host':'h','user':'u','password':'p'})
+    assert [pathlib.Path(g).name for g in got] == ['new1.xlsx']   # .txt skipped, existing skipped</p>
+
+<p>def test_missing_creds_returns_empty(monkeypatch, tmp_path):
+    monkeypatch.delenv('MARKET_LOCATION_HOST', raising=False)
+    assert m.fetch_new_files(str(tmp_path), creds=None) == []
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run to verify fail</strong> — <code>venv/Scripts/python.exe -m pytest tests/test_market_location_sftp.py -v</code> → FAIL.</li>
+</ul>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Install paramiko + implement</strong></li>
+</ul>
+
+<p>Run: <code>venv/Scripts/python.exe -m pip install paramiko</code> and add <code>paramiko</code> to <code>requirements.txt</code>.</p>
+
+<p><code></code>`python
+# -<em>- coding: utf-8 -</em>-
+"""Pull market-location responder xlsx from the MARKET_LOCATION_* SFTP into a local dir."""
+from __future__ import annotations
+import os, pathlib</p>
+
+<p>def _creds_from_env() -> dict | None:
+    h, u, p = (os.environ.get('MARKET_LOCATION_HOST'), os.environ.get('MARKET_LOCATION_USER'),
+               os.environ.get('MARKET_LOCATION_PASSWORD'))
+    if not (h and u and p): return None
+    return {'host': h, 'user': u, 'password': p, 'port': int(os.environ.get('MARKET_LOCATION_PORT', '22')),
+            'remote_dir': os.environ.get('MARKET_LOCATION_DIR', '.')}</p>
+
+<p>def _open_sftp(creds: dict):
+    import paramiko
+    t = paramiko.Transport((creds['host'], creds.get('port', 22)))
+    t.connect(username=creds['user'], password=creds['password'])
+    sftp = paramiko.SFTPClient.from_transport(t)
+    if creds.get('remote_dir'): sftp.chdir(creds['remote_dir'])
+    return sftp, t.close</p>
+
+<p>def fetch_new_files(local_dir: str, creds: dict | None = None) -> list[str]:
+    creds = creds or _creds_from_env()
+    if not creds:
+        print('  MARKET_LOCATION_* creds unset — skipping SFTP fetch (using local files)', flush=True)
+        return []
+    pathlib.Path(local_dir).mkdir(parents=True, exist_ok=True)
+    have = {p.name for p in pathlib.Path(local_dir).glob('*.xlsx')}
+    sftp, close = _open_sftp(creds)
+    got = []
+    try:
+        for name in sftp.listdir():
+            if not name.lower().endswith('.xlsx') or name in have: continue
+            dest = str(pathlib.Path(local_dir) / name)
+            sftp.get(name, dest); got.append(dest)
+            print(f'  fetched {name}', flush=True)
+    finally:
+        sftp.close(); close()
+    return got
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run tests</strong> → PASS (2 tests).</li>
+  <li>[ ] <strong>Step 5: Commit</strong> — <code>git add integrations/market_location_sftp.py tests/test_market_location_sftp.py requirements.txt && git commit -m "feat(marketloc): SFTP fetch of daily files"</code></li>
+</ul>
+
+<p>---</p>
+
+<h2 id="task-3-ingest-upsert-into-eloqua-campaign-responders">Task 3: Ingest/upsert into <code>eloqua_campaign_responders</code></h2>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>scripts/ingest_market_location.py</code></li>
+  <li>Test: <code>tests/test_marketloc_parse.py</code> (add an integration test guarded by DB availability)</li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: <code>parse_market_location_file</code> (Task 1), <code>fetch_new_files</code> (Task 2), <code>CRMDatabase</code> (<code>database/crm_db.py</code>).</li>
+  <li>Produces: <code>upsert_responders(db, rows: list[dict]) -> int</code> (returns rows affected); <code>main(local_dir, do_fetch=True) -> int</code>.</li>
+</ul></p>
+
+<p>Dedupe key = <code>(lyreco_118_id, campaign_label, sent_date)</code>. Use <code>INSERT ... ON CONFLICT DO UPDATE</code> on a unique index; add the index if absent.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong> (integration; skip if DB down):</li>
+</ul>
+
+<p><code></code>`python
+# add to tests/test_marketloc_parse.py
+import os, pytest
+from database.crm_db import CRMDatabase
+from scripts.ingest_market_location import upsert_responders</p>
+
+<p>def _db_or_skip():
+    try:
+        db = CRMDatabase(); db.query('SELECT 1'); return db
+    except Exception as e:
+        pytest.skip(f'postgres unavailable: {e}')</p>
+
+<p>def test_upsert_is_idempotent():
+    db = _db_or_skip()
+    row = {'lyreco_118_id': 999000001, 'campaign_label': '[test_ml] unit', 'campaign_name': '[test_ml] unit',
+           'sent_date': '2026-06-01 00:00:00', 'company': 'UnitCo', 'open_count': 1, 'click_count': 0,
+           'program': 'test_ml', 'email_version': None}
+    try:
+        upsert_responders(db, [row]); upsert_responders(db, [row])   # twice
+        n = db.query("SELECT count(*) AS c FROM eloqua_campaign_responders WHERE lyreco_118_id=999000001")[0]['c']
+        assert n == 1
+    finally:
+        db.query("DELETE FROM eloqua_campaign_responders WHERE lyreco_118_id=999000001")
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run to verify fail</strong> → FAIL (import error).</li>
+</ul>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Implement <code>scripts/ingest_market_location.py</code></strong></li>
+</ul>
+
+<p><code></code>`python
+# -<em>- coding: utf-8 -</em>-
+"""Fetch (SFTP) + ingest market-location xlsx into eloqua_campaign_responders. Idempotent."""
+from __future__ import annotations
+import argparse, pathlib, sys
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+from database.crm_db import CRMDatabase
+from scripts.marketloc_parse import parse_market_location_file
+from integrations.market_location_sftp import fetch_new_files</p>
+
+<p>_REPO = pathlib.Path(__file__).resolve().parent.parent
+_DEFAULT_DIR = str(_REPO / 'imports' / 'marketlocation')
+# Columns we write (subset of the table that the parser produces + program/email_version are NOT
+# table columns, so drop them before insert).
+_NON_TABLE = {'program', 'email_version'}
+_UNIQUE_DDL = ("CREATE UNIQUE INDEX IF NOT EXISTS ux_ecr_118_campaign_sent "
+               "ON eloqua_campaign_responders (lyreco_118_id, campaign_label, sent_date)")</p>
+
+<p>def upsert_responders(db: CRMDatabase, rows: list[dict]) -> int:
+    if not rows: return 0
+    db.query(_UNIQUE_DDL)
+    cols = sorted({k for r in rows for k in r.keys()} - _NON_TABLE)
+    collist = ', '.join(cols)
+    ph = ', '.join(['%s'] * len(cols))
+    updates = ', '.join(f"{c}=EXCLUDED.{c}" for c in cols if c not in ('lyreco_118_id','campaign_label','sent_date'))
+    sql = (f"INSERT INTO eloqua_campaign_responders ({collist}) VALUES ({ph}) "
+           f"ON CONFLICT (lyreco_118_id, campaign_label, sent_date) DO UPDATE SET {updates}")
+    n = 0
+    for r in rows:
+        db.query(sql, tuple(r.get(c) for c in cols)); n += 1
+    return n</p>
+
+<p>def main(local_dir: str = _DEFAULT_DIR, do_fetch: bool = True) -> int:
+    if do_fetch: fetch_new_files(local_dir)
+    total = 0
+    db = CRMDatabase()
+    for f in sorted(pathlib.Path(local_dir).glob('*.xlsx')):
+        rows = parse_market_location_file(str(f))
+        total += upsert_responders(db, rows)
+        print(f'  {f.name}: {len(rows)} rows upserted', flush=True)
+    print(f'DONE ingested {total} responder rows', flush=True)
+    return total</p>
+
+<p>if __name__ == '__main__':
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--dir', default=_DEFAULT_DIR); ap.add_argument('--no-fetch', action='store_true')
+    a = ap.parse_args(); main(a.dir, do_fetch=not a.no_fetch)
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run tests</strong> → PASS (or skip if DB down). Then smoke-run: <code>venv/Scripts/python.exe -m scripts.ingest_market_location --no-fetch</code> → expect "DONE ingested N responder rows" with N≈54k+ from the three local files; verify <code>SELECT count(*) FROM eloqua_campaign_responders WHERE campaign_label ILIKE '%supplies4work%'</code> > 0.</li>
+  <li>[ ] <strong>Step 5: Commit</strong> — <code>git add scripts/ingest_market_location.py tests/test_marketloc_parse.py && git commit -m "feat(marketloc): idempotent ingest into eloqua_campaign_responders"</code></li>
+</ul>
+
+<p>---</p>
+
+<h2 id="task-4-refresh-the-ch-bvd-community-match">Task 4: Refresh the CH/BvD/community match</h2>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>scripts/refresh_marketloc_match.py</code></li>
+  <li>Test: <code>tests/test_marketloc_spine.py</code> (integration test of match coverage)</li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: <code>CRMDatabase</code>; existing tables <code>eloqua_responder_bridge</code>, <code>companies_house_profiles</code>, <code>prospect_community_match</code>, <code>ecom_accounts</code>.</li>
+  <li>Produces: <code>refresh_match(db, campaign_labels: list[str]) -> dict</code> returning <code>{'bvd':n1,'companies_house':n2,'community':n3,'unmatched':n4}</code>; writes/updates <code>eloqua_responder_bridge</code> rows for the given campaigns' <code>lyreco_118_id</code>s, each with a <code>match_source</code> column (add column if missing).</li>
+</ul></p>
+
+<p>Match precedence per <code>lyreco_118_id</code>: (1) existing <code>eloqua_responder_bridge.payer_number</code> (source <code>bvd</code>); else (2) <code>companies_house_profiles</code> join on <code>cro_number</code> → <code>ecom_accounts</code> (source <code>companies_house</code>); else (3) <code>prospect_community_match</code> (source <code>community</code>); else unmatched.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write failing test</strong> — assert that after refresh, every responder for a campaign has a bridge row (matched or explicitly <code>match_source='unmatched'</code> / null payer), and matched count ≥ BvD-only count:</li>
+</ul>
+
+<p><code></code>`python
+# tests/test_marketloc_spine.py (part 1)
+import pytest
+from database.crm_db import CRMDatabase
+from scripts.refresh_marketloc_match import refresh_match</p>
+
+<p>def _db():
+    try:
+        db = CRMDatabase(); db.query('SELECT 1'); return db
+    except Exception as e: pytest.skip(f'pg down: {e}')</p>
+
+<p>def test_match_covers_all_and_records_source():
+    db = _db()
+    labels = [r['campaign_label'] for r in db.query(
+        "SELECT DISTINCT campaign_label FROM eloqua_campaign_responders WHERE campaign_label ILIKE '%supplies4work%' LIMIT 3")]
+    if not labels: pytest.skip('no market-loc data ingested yet')
+    res = refresh_match(db, labels)
+    assert set(res) == {'bvd','companies_house','community','unmatched'}
+    # every responder id has a bridge row with a source
+    orphan = db.query("""SELECT count(*) c FROM eloqua_campaign_responders r
+        WHERE r.campaign_label = ANY(%s)
+        AND NOT EXISTS (SELECT 1 FROM eloqua_responder_bridge b WHERE b.lyreco_118_id=r.lyreco_118_id)""",
+        (labels,))[0]['c']
+    assert orphan == 0
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run to verify fail</strong> → FAIL.</li>
+  <li>[ ] <strong>Step 3: Implement <code>scripts/refresh_marketloc_match.py</code></strong> — add <code>match_source TEXT</code> to <code>eloqua_responder_bridge</code> if missing; run the three-tier match as <code>INSERT ... ON CONFLICT (lyreco_118_id) DO UPDATE</code> filling <code>payer_number</code> + <code>match_source</code>; insert <code>unmatched</code> rows (null payer) for the remainder so no responder is orphaned. (Full SQL: BvD rows already exist; CH tier joins <code>eloqua_campaign_responders.cro_number = companies_house_profiles.company_number</code> then to <code>ecom_accounts</code> on the CH-linked account; community tier from <code>prospect_community_match</code>. Each tier <code>WHERE NOT EXISTS</code> a higher-precedence match.)</li>
+  <li>[ ] <strong>Step 4: Run tests</strong> → PASS/skip. Smoke: print the returned counts; expect <code>bvd</code>+<code>companies_house</code>+<code>community</code> > BvD-only baseline.</li>
+  <li>[ ] <strong>Step 5: Commit</strong> — <code>git add scripts/refresh_marketloc_match.py tests/test_marketloc_spine.py && git commit -m "feat(marketloc): CH/BvD/community match refresh with match_source"</code></li>
+</ul>
+
+<p>---</p>
+
+<h2 id="task-5-per-company-spine-cohort-rollups-cross-db">Task 5: Per-company spine + cohort rollups (cross-DB)</h2>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>scripts/marketloc_spine.py</code> (pure helpers), <code>scripts/compute_marketloc_conversion.py</code> (orchestration)</li>
+  <li>Test: <code>tests/test_marketloc_spine.py</code> (part 2 — pure-logic unit tests)</li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Produces (pure, in <code>marketloc_spine.py</code>):</li>
+  <li><code>extract_purchases(orders: list[dict]) -> dict</code> — <code>orders</code> are <code>{order_number, order_date, sales_amount, product_family}</code> rows for one account; returns <code>{first_order_date, first_order_amount, first_order_top_families, second_order_date, second_order_amount, second_order_top_families, total_orders}</code>.</li>
+  <li><code>compute_timeline(sent_date, activation_date, first_order_date, second_order_date) -> dict</code> — returns day-gaps <code>sent_to_activation, activation_to_first, first_to_second, sent_to_first, sent_to_second</code> (None where an endpoint is missing).</li>
+  <li><code>classify_activation(ecom_creation_date, hubspot_created, first_sent_date) -> dict</code> — returns <code>{activation_journey, activation_date, activated, net_new}</code>.</li>
+  <li><code>rollup_cohorts(company_rows: list[dict]) -> list[dict]</code> — group by <code>(dimension, value)</code> for dims <code>program, market_sector, engagement_tier, fit_tier, activation_journey, match_source</code>; each rollup: <code>reached, activated, converted, conversion_rate, median_days_to_first, avg_first_amount, avg_second_amount, top_families</code>.</li>
+  <li>Produces (orchestration, in <code>compute_marketloc_conversion.py</code>): <code>compute_company_rows(campaign_labels) -> list[dict]</code>.</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write failing unit tests for the pure helpers</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_marketloc_spine.py (part 2)
+import datetime as dt
+from scripts.marketloc_spine import extract_purchases, compute_timeline, classify_activation</p>
+
+<p>def D(s): return dt.date.fromisoformat(s)</p>
+
+<p>def test_extract_first_and_second_order():
+    orders = [
+        {'order_number':'A','order_date':D('2026-06-10'),'sales_amount':100.0,'product_family':'Paper'},
+        {'order_number':'A','order_date':D('2026-06-10'),'sales_amount':50.0,'product_family':'Ink'},
+        {'order_number':'B','order_date':D('2026-07-01'),'sales_amount':200.0,'product_family':'Paper'},
+    ]
+    r = extract_purchases(orders)
+    assert r['first_order_date'] == D('2026-06-10')
+    assert r['first_order_amount'] == 150.0
+    assert 'Paper' in r['first_order_top_families']
+    assert r['second_order_date'] == D('2026-07-01')
+    assert r['second_order_amount'] == 200.0
+    assert r['total_orders'] == 2</p>
+
+<p>def test_extract_single_order_has_no_second():
+    r = extract_purchases([{'order_number':'A','order_date':D('2026-06-10'),'sales_amount':10.0,'product_family':'X'}])
+    assert r['second_order_date'] is None and r['second_order_amount'] is None</p>
+
+<p>def test_timeline_legs():
+    t = compute_timeline(D('2026-06-01'), D('2026-06-05'), D('2026-06-10'), D('2026-07-01'))
+    assert t['sent_to_activation'] == 4 and t['activation_to_first'] == 5
+    assert t['first_to_second'] == 21 and t['sent_to_first'] == 9</p>
+
+<p>def test_timeline_missing_endpoints():
+    t = compute_timeline(D('2026-06-01'), None, None, None)
+    assert t['sent_to_activation'] is None and t['sent_to_first'] is None</p>
+
+<p>def test_classify_activation_journeys():
+    a = classify_activation(D('2026-06-05'), None, D('2026-06-01'))
+    assert a['activation_journey'] == 'webshop' and a['net_new'] is True
+    b = classify_activation(None, D('2026-06-03'), D('2026-06-01'))
+    assert b['activation_journey'] == 'hubspot'
+    c = classify_activation(D('2026-06-05'), D('2026-06-03'), D('2026-06-01'))
+    assert c['activation_journey'] == 'both'
+    d = classify_activation(None, None, D('2026-06-01'))
+    assert d['activation_journey'] == 'none' and d['activated'] is False
+    e = classify_activation(D('2026-05-01'), None, D('2026-06-01'))  # account predates send
+    assert e['net_new'] is False
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run to verify fail</strong> → FAIL.</li>
+</ul>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Implement <code>scripts/marketloc_spine.py</code></strong> (pure functions):</li>
+</ul>
+
+<p><code></code>`python
+# -<em>- coding: utf-8 -</em>-
+"""Pure per-company assembly + cohort rollup helpers for the market-location report."""
+from __future__ import annotations
+import statistics
+from collections import Counter, defaultdict</p>
+
+<p>def _days(a, b):
+    return (b - a).days if (a is not None and b is not None) else None</p>
+
+<p>def extract_purchases(orders: list[dict]) -> dict:
+    by_order = defaultdict(lambda: {'date': None, 'amount': 0.0, 'fams': Counter()})
+    for o in orders:
+        g = by_order[o['order_number']]
+        g['date'] = o['order_date']; g['amount'] += float(o['sales_amount'] or 0)
+        if o.get('product_family'): g['fams'][o['product_family']] += 1
+    ordered = sorted(by_order.values(), key=lambda g: g['date'])
+    out = {'total_orders': len(ordered), 'first_order_date': None, 'first_order_amount': None,
+           'first_order_top_families': [], 'second_order_date': None, 'second_order_amount': None,
+           'second_order_top_families': []}
+    if ordered:
+        f = ordered[0]
+        out.update(first_order_date=f['date'], first_order_amount=round(f['amount'], 2),
+                   first_order_top_families=[k for k, _ in f['fams'].most_common(3)])
+    if len(ordered) > 1:
+        s = ordered[1]
+        out.update(second_order_date=s['date'], second_order_amount=round(s['amount'], 2),
+                   second_order_top_families=[k for k, _ in s['fams'].most_common(3)])
+    return out</p>
+
+<p>def compute_timeline(sent_date, activation_date, first_order_date, second_order_date) -> dict:
+    return {'sent_to_activation': _days(sent_date, activation_date),
+            'activation_to_first': _days(activation_date, first_order_date),
+            'first_to_second': _days(first_order_date, second_order_date),
+            'sent_to_first': _days(sent_date, first_order_date),
+            'sent_to_second': _days(sent_date, second_order_date)}</p>
+
+<p>def classify_activation(ecom_creation_date, hubspot_created, first_sent_date) -> dict:
+    has_web, has_hs = ecom_creation_date is not None, hubspot_created is not None
+    journey = ('both' if has_web and has_hs else 'webshop' if has_web
+               else 'hubspot' if has_hs else 'none')
+    dates = [d for d in (ecom_creation_date, hubspot_created) if d is not None]
+    activation_date = min(dates) if dates else None
+    net_new = (activation_date is not None and first_sent_date is not None
+               and activation_date >= first_sent_date)
+    return {'activation_journey': journey, 'activation_date': activation_date,
+            'activated': bool(dates), 'net_new': net_new}</p>
+
+<p>def rollup_cohorts(company_rows: list[dict]) -> list[dict]:
+    dims = ('program', 'market_sector', 'engagement_tier', 'fit_tier', 'activation_journey', 'match_source')
+    buckets = defaultdict(list)
+    for r in company_rows:
+        for d in dims:
+            buckets[(d, r.get(d) or 'unknown')].append(r)
+    out = []
+    for (dim, val), rows in buckets.items():
+        reached = len(rows)
+        converted = [r for r in rows if r.get('first_order_date')]
+        d2f = [r['timeline']['sent_to_first'] for r in converted if r['timeline'].get('sent_to_first') is not None]
+        a1 = [r['first_order_amount'] for r in converted if r.get('first_order_amount')]
+        a2 = [r['second_order_amount'] for r in rows if r.get('second_order_amount')]
+        fams = Counter()
+        for r in converted: fams.update(r.get('first_order_top_families') or [])
+        out.append({'dimension': dim, 'value': val, 'reached': reached,
+            'activated': sum(1 for r in rows if r.get('activated')),
+            'converted': len(converted),
+            'conversion_rate': round(len(converted) / reached, 4) if reached else 0.0,
+            'median_days_to_first': statistics.median(d2f) if d2f else None,
+            'avg_first_amount': round(statistics.mean(a1), 2) if a1 else None,
+            'avg_second_amount': round(statistics.mean(a2), 2) if a2 else None,
+            'top_families': [k for k, _ in fams.most_common(3)]})
+    return out
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run unit tests</strong> → PASS (6 tests).</li>
+</ul>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Implement <code>scripts/compute_marketloc_conversion.py</code></strong> — the cross-DB orchestration. Pseudocode-precise (real SQL, uses the pure helpers):</li>
+</ul>
+  1. <code>pg = CRMDatabase()</code>, pull responders rolled to company: <code>SELECT lyreco_118_id, min(sent_date) first_sent_date, program, market_sector, max(open_count) open_count, max(click_count) click_count, engagement_tier(...) ... GROUP BY lyreco_118_id</code> (engagement_tier via the CASE from <code>export_eloqua_responder_priority.py:82</code>) filtered to the market-loc campaign_labels.
+  2. Join <code>eloqua_responder_bridge</code> (payer/account + match_source), <code>prospect_profile</code>/<code>prospect_world_propensity</code> (fit_tier, warmth_score, world, predicted_pct) on <code>lyreco_118_id</code>, <code>ecom_accounts</code> (creation_date, creation_channel, ecom_creation_source_campaign) on <code>account_number</code> LPAD-10, <code>hubspot_downstream_funnel</code> (funnel_stage, hubspot_created, first_order_date, days_to_first_order, monetary_12mo) on <code>account_number</code>. Filter <code>source_country='GB'</code>.
+  3. Collect matched <code>account_number</code>s → <code>ts = TimeseriesDatabase()</code>; one query: <code>SELECT LPAD(soldto_number,10,'0') acct, order_number, order_date, sales_amount, product_group_code FROM ecom_order_lines WHERE source_country='GB' AND order_channel_code='W' AND sales_amount BETWEEN 0 AND 1e7 AND LPAD(soldto_number,10,'0') = ANY(%s)</code>; map <code>product_group_code</code>→family via <code>SHARED.T_PRODUCT_HIERARCHY</code> labels cached from PG (or use the code as family v1).
+  4. Per company: <code>extract_purchases</code>, <code>classify_activation</code>, <code>compute_timeline</code>; assemble the row dict (all §5 spec fields + <code>timeline</code>).
+  5. <code>rollup_cohorts(company_rows)</code>.
+  6. Return <code>(company_rows, cohorts)</code>.
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 6: Smoke-run</strong> — <code>venv/Scripts/python.exe -m scripts.compute_marketloc_conversion --dry</code> prints counts: companies, matched, activated, converted, and a sample company row; verify converted>0 and timeline legs populate.</li>
+  <li>[ ] <strong>Step 7: Commit</strong> — <code>git add scripts/marketloc_spine.py scripts/compute_marketloc_conversion.py tests/test_marketloc_spine.py && git commit -m "feat(marketloc): cross-DB per-company spine + cohort rollups"</code></li>
+</ul>
+
+<p>---</p>
+
+<h2 id="task-6-journey-map-viz-html-report-registration">Task 6: Journey-map viz + HTML report + registration</h2>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>scripts/marketloc_report.py</code></li>
+  <li>Modify: <code>scripts/compute_marketloc_conversion.py</code> (call the report builder at the end of <code>main</code>)</li>
+  <li>Test: <code>tests/test_marketloc_report.py</code></li>
+</ul></p>
+
+<p><strong>Interfaces:</strong>
+<ul class="article-list">
+  <li>Consumes: <code>company_rows</code>, <code>cohorts</code> (Task 5).</li>
+  <li>Produces: <code>render_journey_map(stage_stats: list[dict]) -> str</code> (inline SVG, CSP-safe); <code>build_report_html(company_rows, cohorts, generated_at: str) -> str</code>; <code>write_and_register(html: str, out_dir, report_id='wisemlconv01') -> str</code>.</li>
+</ul></p>
+
+<p>Journey stages (from spine aggregates): <code>Reached, Engaged (open/click≥1), Activated, 1st purchase, 2nd purchase</code>, each carrying count + step conversion %.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write failing tests</strong> (pure render — no DB):</li>
+</ul>
+
+<p><code></code>`python
+# tests/test_marketloc_report.py
+from scripts.marketloc_report import render_journey_map, build_report_html</p>
+
+<p>def test_journey_map_svg_has_all_stages():
+    stages = [{'label':'Reached','count':1000},{'label':'Engaged','count':300},
+              {'label':'Activated','count':120},{'label':'1st purchase','count':80},{'label':'2nd purchase','count':40}]
+    svg = render_journey_map(stages)
+    assert svg.startswith('<svg') and svg.rstrip().endswith('</svg>')
+    for s in stages: assert s['label'] in svg
+    assert '8.0%' in svg or '8%' in svg   # 80/1000 cumulative label rendered</p>
+
+<p>def test_report_html_self_contained():
+    rows = [{'lyreco_118_id':1,'company':'C','program':'supplies4work','market_sector':'Manufacturing',
+             'engagement_tier':'T2_clicked','fit_tier':'A','match_source':'bvd','activation_journey':'webshop',
+             'activated':True,'net_new':True,'first_order_date':'2026-06-10','first_order_amount':150.0,
+             'second_order_date':None,'second_order_amount':None,'first_order_top_families':['Paper'],
+             'timeline':{'sent_to_first':9,'sent_to_activation':4,'activation_to_first':5,'first_to_second':None}}]
+    cohorts = [{'dimension':'program','value':'supplies4work','reached':1,'activated':1,'converted':1,
+                'conversion_rate':1.0,'median_days_to_first':9,'avg_first_amount':150.0,'avg_second_amount':None,
+                'top_families':['Paper']}]
+    html = build_report_html(rows, cohorts, '2026-07-07')
+    assert '<html' in html and 'Carnegie' not in html   # uses provided rows only
+    assert 'supplies4work' in html and 'Manufacturing' in html
+    assert 'http' not in html.split('</svg>')[0] or 'xmlns' in html  # no external refs in the svg
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run to verify fail</strong> → FAIL.</li>
+  <li>[ ] <strong>Step 3: Implement <code>scripts/marketloc_report.py</code></strong> — <code>render_journey_map</code> builds an SVG wave with one node per stage (x = stage index, y alternating above/mid), the stage label, count, and cumulative conversion % vs <code>Reached</code>; <code>build_report_html</code> emits a self-contained page (inline <code><style></code>, the SVG, a cohort-rollup table, and a sortable per-company table) with <strong>no external URLs</strong>; <code>write_and_register</code> writes <code>exports/marketloc_conversion_report_<date>.html</code> and writes/updates <code>logs/reports/<report_id>.json</code> (mirror the shape used by <code>scripts/gen_onboarding_funnel_report.py</code>).</li>
+  <li>[ ] <strong>Step 4: Run tests</strong> → PASS. Then full run: <code>PYTHONIOENCODING=utf-8 venv/Scripts/python.exe -m scripts.compute_marketloc_conversion</code> → writes the HTML; open it and confirm the journey-map + tables render and the numbers match the smoke-run counts.</li>
+  <li>[ ] <strong>Step 5: Commit</strong> — <code>git add scripts/marketloc_report.py scripts/compute_marketloc_conversion.py tests/test_marketloc_report.py && git commit -m "feat(marketloc): journey-map viz + refreshable WISE HTML report"</code></li>
+</ul>
+
+<p>---</p>
+
+<h2 id="final-verification-whole-pipeline">Final verification (whole pipeline)</h2>
+
+<ul class="article-list">
+  <li>[ ] Run end-to-end on the local files: <code>ingest_market_location --no-fetch</code> → <code>refresh_marketloc_match</code> (all market-loc labels) → <code>compute_marketloc_conversion</code>. Confirm: responders ingested, every company has a bridge row, converted companies show 1st/2nd purchase + timeline, cohort rollups populate, HTML report renders with the journey-map. Record the headline numbers (reached / activated / converted / median days-to-first) in the final review notes.</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#global-constraints">Global Constraints</a></li>
+<li><a href="#file-structure">File Structure</a></li>
+<li><a href="#task-1-parse-normalize-the-xlsx-pure-logic">Task 1: Parse & normalize the xlsx (pure logic)</a></li>
+<li><a href="#task-2-sftp-fetch-of-daily-files">Task 2: SFTP fetch of daily files</a></li>
+<li><a href="#task-3-ingest-upsert-into-eloqua-campaign-responders">Task 3: Ingest/upsert into `eloqua_campaign_responders`</a></li>
+<li><a href="#task-4-refresh-the-ch-bvd-community-match">Task 4: Refresh the CH/BvD/community match</a></li>
+<li><a href="#task-5-per-company-spine-cohort-rollups-cross-db">Task 5: Per-company spine + cohort rollups (cross-DB)</a></li>
+<li><a href="#task-6-journey-map-viz-html-report-registration">Task 6: Journey-map viz + HTML report + registration</a></li>
+<li><a href="#final-verification-whole-pipeline">Final verification (whole pipeline)</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

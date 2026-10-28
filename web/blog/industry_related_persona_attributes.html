@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Industry-Related Persona Attributes | Technical Whitepaper</title>
+  <meta name="description" content="Industry-Related Persona Attributes — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/industry_related_persona_attributes.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Industry-Related Persona Attributes</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Industry-Related Persona Attributes</p>
+
+<p>This note maps common MatrAIx application domains to persona schema attributes
+that are useful for cohort selection, scenario design, and coverage checks.</p>
+
+<p>Source: migrated from MatrAIx PR <code>#74</code>,
+<code>personas/Relevant Persona Attributes by Industry.md</code>.</p>
+
+<h2 id="english">English</h2>
+
+<h3 id="movie-and-entertainment">Movie And Entertainment</h3>
+
+<p>Domain: commerce and retail.</p>
+
+<p>Attributes:</p>
+
+<ul class="article-list">
+  <li><code>fam_film_studies</code>, <code>fam_cinematography</code>, <code>topic_film</code>,</li>
+</ul>
+  <code>topic_tv_series</code>, <code>lstyle_streaming_hours</code>, <code>ind_entertainment</code>
+<ul class="article-list">
+  <li><code>filmg_action</code>, <code>filmg_adventure</code>, <code>filmg_comedy</code>, <code>filmg_drama</code>,</li>
+</ul>
+  <code>filmg_horror</code>, <code>filmg_thriller</code>, <code>filmg_sci_fi</code>, <code>filmg_fantasy</code>,
+  <code>filmg_romance</code>, <code>filmg_documentary</code>, <code>filmg_animation</code>, <code>filmg_crime</code>,
+  <code>filmg_mystery</code>, <code>filmg_historical</code>, <code>filmg_war</code>, <code>filmg_western</code>,
+  <code>filmg_musical</code>, <code>filmg_noir</code>, <code>filmg_superhero</code>, <code>filmg_indie_film</code>,
+  <code>filmg_art_house</code>, <code>filmg_biopic</code>, <code>filmg_comedy_drama</code>,
+  <code>filmg_disaster</code>
+
+<p>Use for movie and TV interest, streaming habits, entertainment industry
+experience, film/cinematography familiarity, and genre preferences.</p>
+
+<h3 id="beauty">Beauty</h3>
+
+<p>Domain: commerce and retail.</p>
+
+<p>Attributes:</p>
+
+<ul class="article-list">
+  <li><code>ind_beauty_cosmetics</code>, <code>val_beauty_aesthetics</code>,</li>
+</ul>
+  <code>trait_appreciation_of_beauty</code>, <code>bfi2_facet_aesthetic_sensitivity</code>,
+  <code>fam_fashion_design</code>, <code>topic_fashion</code>, <code>lstyle_fashion_sense</code>,
+  <code>att_fast_fashion</code>
+
+<p>Use for beauty/cosmetics industry experience, aesthetic values, appreciation of
+beauty, fashion interest, fashion sense, and attitude toward fast fashion.</p>
+
+<h3 id="games">Games</h3>
+
+<p>Domain: commerce and retail.</p>
+
+<p>Attributes:</p>
+
+<ul class="article-list">
+  <li><code>fam_game_development</code>, <code>ind_gaming</code>, <code>topic_gaming</code>,</li>
+</ul>
+  <code>topic_board_games</code>, <code>lstyle_gaming_freq</code>, <code>sport_esports</code>
+
+<p>Use for game development familiarity, gaming industry experience, gaming and
+board-game interest, gaming frequency, and esports participation or following.</p>
+
+<h3 id="finance">Finance</h3>
+
+<p>Attributes:</p>
+
+<ul class="article-list">
+  <li><code>fam_corporate_finance</code>, <code>skill_financial_modeling</code>, <code>skill_budgeting</code>,</li>
+</ul>
+  <code>skill_investing</code>, <code>topic_personal_finance</code>, <code>topic_investing</code>,
+  <code>habit_budget_tracking</code>
+<ul class="article-list">
+  <li><code>ind_finance</code>, <code>ind_banking</code>, <code>ind_insurance</code>, <code>lstyle_payment_pref</code>,</li>
+</ul>
+  <code>lstyle_banking_style</code>, <code>lstyle_investment_style</code>,
+  <code>lifex_financial_trajectory</code>, <code>dospert_financial_risk_tolerance</code>
+
+<p>Use for finance knowledge and skills, personal finance/investing interests,
+budgeting habits, finance/banking/insurance industry experience, payment,
+banking, investment style, financial trajectory, and financial risk tolerance.</p>
+
+<h3 id="health">Health</h3>
+
+<p>Attributes:</p>
+
+<ul class="article-list">
+  <li><code>fam_public_health</code>, <code>acad_health_science</code>, <code>ind_healthcare</code>,</li>
+</ul>
+  <code>ind_fitness_wellness</code>, <code>topic_fitness</code>, <code>habit_stretching_mobility</code>,
+  <code>val_health</code>, <code>lifex_health_journey</code>,
+  <code>dospert_health_safety_risk_tolerance</code>
+<ul class="article-list">
+  <li><code>health_general_health</code>, <code>health_chronic_condition</code>, <code>health_mobility</code>,</li>
+</ul>
+  <code>health_vision</code>, <code>health_hearing</code>, <code>health_color_vision</code>,
+  <code>health_dexterity</code>, <code>health_mental_health</code>, <code>health_stress_level</code>,
+  <code>health_energy_level</code>, <code>health_sleep_quality</code>, <code>health_pain_level</code>,
+  <code>health_medication_use</code>, <code>health_dietary_restriction</code>,
+  <code>health_neurodivergence</code>, <code>health_caregiver_status</code>,
+  <code>health_health_literacy</code>, <code>health_insurance_status</code>,
+  <code>health_fitness_level</code>, <code>health_cognitive_load_capacity</code>,
+  <code>health_contrast_need</code>, <code>health_text_size_need</code>, <code>health_assistive_tech</code>,
+  <code>health_motion_sensitivity</code>, <code>health_attention_condition</code>
+
+<p>Use for public health familiarity, health science interest, healthcare/fitness
+industry experience, fitness habits, health values, health journey, health and
+safety risk tolerance, and physical, mental, accessibility, medication, sleep,
+stress, pain, insurance, and health-literacy attributes.</p>
+
+<h3 id="coding">Coding</h3>
+
+<p>Attributes:</p>
+
+<ul class="article-list">
+  <li><code>skill_coding</code>, <code>skill_code_review</code>, <code>code_comment_style</code>,</li>
+</ul>
+  <code>code_summary_documentation</code>, <code>code_naming_verbosity</code>,
+  <code>code_indentation_style</code>, <code>code_structure_preference</code>,
+  <code>code_function_length</code>, <code>code_error_handling</code>, <code>code_abstraction_level</code>,
+  <code>code_dependencies_approach</code>, <code>code_performance_priority</code>,
+  <code>code_testing_approach</code>, <code>code_refactoring_frequency</code>
+<ul class="article-list">
+  <li><code>prog_python</code>, <code>prog_javascript</code>, <code>prog_typescript</code>, <code>prog_java</code>,</li>
+</ul>
+  <code>prog_c</code>, <code>prog_go</code>, <code>prog_rust</code>, <code>prog_ruby</code>, <code>prog_php</code>, <code>prog_swift</code>,
+  <code>prog_kotlin</code>, <code>prog_objective_c</code>, <code>prog_scala</code>, <code>prog_haskell</code>,
+  <code>prog_elixir</code>, <code>prog_erlang</code>, <code>prog_clojure</code>, <code>prog_lua</code>, <code>prog_perl</code>,
+  <code>prog_r</code>, <code>prog_julia</code>, <code>prog_matlab</code>, <code>prog_sql</code>, <code>prog_bash</code>,
+  <code>prog_powershell</code>, <code>prog_dart</code>, <code>prog_f</code>, <code>prog_ocaml</code>, <code>prog_assembly</code>,
+  <code>prog_cobol</code>, <code>prog_fortran</code>, <code>prog_solidity</code>, <code>prog_graphql</code>
+
+<p>Use for coding and code-review skills, programming style preferences,
+testing/refactoring/error-handling preferences, and programming-language
+proficiency.</p>
+
+<h2 id="chinese">Chinese</h2>
+
+<p>中文部分翻译每个行业的用途说明；属性 ID 与上方 English 部分相同。</p>
+
+<h3 id="">电影与娱乐</h3>
+
+<p>领域：商业与零售。</p>
+
+<p>用途：电影/电视剧兴趣、流媒体观看习惯、娱乐行业经验、电影研究/摄影熟悉度，以及电影类型偏好。</p>
+
+<h3 id="">美妆</h3>
+
+<p>领域：商业与零售。</p>
+
+<p>用途：美妆/化妆品行业经验、审美价值观、对美的欣赏程度、时尚兴趣、时尚风格，以及对快时尚的态度。</p>
+
+<h3 id="">游戏</h3>
+
+<p>领域：商业与零售。</p>
+
+<p>用途：游戏开发熟悉度、游戏行业经验、电子游戏/桌游兴趣、游戏频率，以及电竞参与或关注程度。</p>
+
+<h3 id="">金融</h3>
+
+<p>用途：金融知识与技能、个人理财/投资兴趣、预算记录习惯、金融/银行/保险行业经验、支付/银行/投资方式、财务轨迹，以及金融风险承受度。</p>
+
+<h3 id="">健康</h3>
+
+<p>用途：公共健康熟悉度、健康科学兴趣、医疗/健身行业经验、健身习惯、健康价值观、个人健康经历、健康/安全风险承受度，以及身体、心理、无障碍、用药、睡眠、压力、疼痛、保险和健康素养等属性。</p>
+
+<h3 id="">编程</h3>
+
+<p>用途：编码和代码审查能力、编程风格偏好、测试/重构/错误处理偏好，以及多种编程语言熟练度。</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#movie-and-entertainment">Movie And Entertainment</a></li>
+<li style="margin-left: 0.8rem;"><a href="#beauty">Beauty</a></li>
+<li style="margin-left: 0.8rem;"><a href="#games">Games</a></li>
+<li style="margin-left: 0.8rem;"><a href="#finance">Finance</a></li>
+<li style="margin-left: 0.8rem;"><a href="#health">Health</a></li>
+<li style="margin-left: 0.8rem;"><a href="#coding">Coding</a></li>
+<li style="margin-left: 0.8rem;"><a href="#">电影与娱乐</a></li>
+<li style="margin-left: 0.8rem;"><a href="#">美妆</a></li>
+<li style="margin-left: 0.8rem;"><a href="#">游戏</a></li>
+<li style="margin-left: 0.8rem;"><a href="#">金融</a></li>
+<li style="margin-left: 0.8rem;"><a href="#">健康</a></li>
+<li style="margin-left: 0.8rem;"><a href="#">编程</a></li>
+<li><a href="#english">English</a></li>
+<li><a href="#chinese">Chinese</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

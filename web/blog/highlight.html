@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Highlight | Technical Whitepaper</title>
+  <meta name="description" content="Highlight — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/highlight.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Highlight</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p>---
+description: Capture a highlight into the shared swarph timeline + decide the memory it links to.
+---
+You are capturing a HIGHLIGHT into the <strong>swarph collaborative timeline</strong> — the mesh's shared continuous-learning memory. This writes to a commons every cell reads, so be deliberate but low-friction.</p>
+
+<p>Highlight to capture: $ARGUMENTS
+(If empty: identify the single most salient, DURABLE learning / decision / event from the recent conversation — the one thing genuinely worth not forgetting. If nothing qualifies, say so and stop — don't manufacture a highlight.)</p>
+
+<p>Steps:
+1. <strong>Distill</strong> to ONE clear line: what was learned/decided/happened + why it matters.
+2. <strong>Decide the memory</strong> (the judgment step):
+<ul class="article-list">
+  <li>Does it EXTEND an existing memory? → append the detail to that file; pointer = its name.</li>
+  <li>Genuinely new + durable? → create a lean new memory file (frontmatter + fact + why); pointer = its name.</li>
+  <li>Ephemeral (no lasting value)? → no memory file; pointer empty (the timeline line still logs the moment).</li>
+</ul>
+3. <strong>Log it</strong> by running the shared script (deterministic append+commit+push to the shared TIMELINE.md — every cell sees it):
+   <code>SWARPH_CELL="<this cell's name>" ~/swarph-timeline/bin/swarph-highlight "<the one-line highlight>" "[[<memory-name>]]"</code>
+   (drop the 2nd arg if no memory.)
+4. <strong>Confirm</strong> in one line: what you logged + the memory (new / extended / none).</p>
+
+<p>Discipline: one highlight, one timeline line, one memory decision. Don't over-produce.</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#">Overview</a></li>
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

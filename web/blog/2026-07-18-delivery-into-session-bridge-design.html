@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Delivery-into-session bridge — `swarph daemon` (design) | Technical Whitepaper</title>
+  <meta name="description" content="Delivery-into-session bridge — `swarph daemon` (design) — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-07-18-delivery-into-session-bridge-design.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Delivery-into-session bridge — `swarph daemon` (design)</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 7 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Delivery-into-session bridge — <code>swarph daemon</code> (design)</p>
+
+<p><strong>Goal:</strong> Stop drain-only cells from being silently DM-blind. When the <code>swarph daemon</code> drains a mesh DM, deliver it INTO the cell's live agent session (the resident model's context) — not just to a log no in-session model reads — so the model actually acts on it per CLAUDE.md DM SEMANTICS.</p>
+
+<p><strong>Origin:</strong> workstation-lc's find — its daemon drains + JSONL-logs DMs, but the running agent session never sees them, so nothing acts. lab-ovh papers over this with a Claude Code Monitor tail (harness-specific); every other daemon-class cell (workstation-lc, droplet, razorpeter, gpu-wsl, gemini-researcher) has no such bridge. This is the next pipeline item after the whatweknow read-side trial.</p>
+
+<p><strong>Architecture:</strong> <code>swarph daemon</code> (swarph-cli) already drains DMs from the mesh gateway to a transactional cursor + <code>inbox.log</code>, surface-only — <code>_route_to_handler</code> (<code>commands/daemon.py</code>) is a v0.5.0 stub that just prints "surfacing only." This feature wires that stub into the unbuilt <strong>REPL-drain path</strong>: after a DM is drained, the daemon <strong>injects it into its own cell's agent pane</strong> via the tmux/psmux multiplexer (<code>swarph_cli/multiplexer.py</code>), gated by a <em>positive</em>-idle probe ported from lab-orchestrator's proven <code>workers/cell_wake.py</code>. Push, not pull — harness-agnostic (claude/codex/grok) and cross-platform (Linux tmux + Windows psmux), which is why it covers workstation-lc.</p>
+
+<p><strong>Tech Stack:</strong> Python 3 (swarph-cli's floor), stdlib + the existing multiplexer/<code>tmux</code>-binary shell-out. No new runtime deps. Lives in <code>swarph_cli/</code> behind the existing <code>swarph daemon --auto-act</code> opt-in.</p>
+
+<h2 id="global-constraints">Global Constraints</h2>
+
+<ul class="article-list">
+  <li><strong>Never crash the daemon.</strong> The daemon's loud-on-down liveness (<code>ps aux | grep '[s]warph daemon'</code>) is load-bearing; the bridge's failures are caught + logged, the daemon keeps draining. A bridge exception must never take the drain loop down.</li>
+  <li><strong>Idle-probe is fail-safe toward "busy."</strong> Never inject into an ambiguous/busy/modal pane — defer. This is the modal-stall safety property (never send-keys into a numbered menu; text could read as a selection). Positive-idle confirmation only (footer sentinel present AND no busy-markers), exactly as <code>cell_wake._probe_idle</code>.</li>
+  <li><strong>Never lose a DM.</strong> A drained-but-undelivered DM stays queued (persisted beside the cursor) and is retried; the gateway cursor still advances (drain ≠ delivery — the two states are tracked separately) so a re-drain doesn't double-fetch, but an undelivered DM is never dropped.</li>
+  <li><strong>Quiet unless actionable.</strong> Actionable (wake on next idle) = <code>question</code>, <code>unblock</code>, and any <code>answer</code> carrying a <strong>non-null <code>thread_id</code></strong> (a targeted reply — probably to this cell's own question). Ride-along (delivered in the next batch, never triggers its own wake) = <code>fyi</code>, <code>status</code>, and <code>answer</code> with <code>thread_id=null</code> (the ~80/day broadcast chatter, e.g. EOD fan-outs). The wake flag is computable from the message alone — no cell-side thread tracking in v1.</li>
+  <li><strong>Opt-in.</strong> Active delivery ships behind the existing <code>--auto-act</code> flag; surface-only stays the default for un-opted cells (no behavior change unless a cell is provisioned for delivery).</li>
+  <li><strong>Cross-platform.</strong> All pane I/O goes through the multiplexer's <code>tmux</code> binary (tmux on POSIX, psmux on Windows) — no OS-specific pane code.</li>
+</ul>
+
+<h2 id="components">Components</h2>
+
+<p>Each is a small, independently testable unit.</p>
+
+<h3 id="1-session-target-resolve-the-cell-s-agent-pane">1. <code>session_target</code> — resolve the cell's agent pane</h3>
+<code>resolve_session_pane(self_name) -> str | None</code>. Finds the tmux/psmux session/pane hosting THIS cell's resident agent (the session <code>swarph spawn</code> launched). Uses the multiplexer's detection + a naming convention (the cell's own session name). Returns the pane target string, or <code>None</code> when there is no resident session (a truly headless drain-only cell) → the daemon stays surface-only for that cell and logs <code>no resident pane</code> once. No resident pane is a valid state, not an error.
+
+<h3 id="2-idle-probe-the-safety-gate">2. <code>idle_probe</code> — the safety gate</h3>
+<code>probe_pane(pane) -> "idle" | "busy" | "modal"</code>. Ports <code>cell_wake</code>'s positive-idle detection: <code>capture-pane -p</code> the target, require the idle footer sentinel (<code>"? for shortcuts"</code>) AND none of the busy-markers; a numbered menu / dialog → <code>modal</code>; anything else → <code>busy</code>. Fail-safe: any capture error or ambiguity → <code>busy</code> (defer, never inject).
+
+<h3 id="3-pane-inject-deliver-into-the-pane">3. <code>pane_inject</code> — deliver into the pane</h3>
+<code>inject(pane, text) -> bool</code>. <code>send-keys</code> the rendered delivery block into the pane, then submit (Enter). Cross-platform via the multiplexer <code>tmux</code> binary. Returns success; any failure → <code>False</code> (caught by the caller, DM stays queued). Uses literal/<code>-l</code> send-keys semantics so DM content can't be misread as tmux key names.
+
+<h3 id="4-delivery-queue-pending-dm-state">4. <code>delivery_queue</code> — pending-DM state</h3>
+Per-cell queue of drained-but-not-yet-delivered DMs, persisted as a single-row JSON file beside the daemon cursor (write-and-rename atomic, same discipline as the cursor) so it survives a daemon restart. Each entry: <code>{id, from, kind, thread_id, content, wake: bool, deferred_ticks: int}</code>. <code>wake</code> is computed at enqueue by the actionable rule (see Global Constraints). Dedups by message id (a re-drain never re-queues a delivered id).
+
+<h3 id="5-stall-alert-surface-a-stuck-cell">5. <code>stall_alert</code> — surface a stuck cell</h3>
+When a cell never goes idle, DMs defer. After <code>deferred_ticks</code> crosses a threshold, send ONE commander DM via the mesh gateway, with <strong>exponential backoff</strong> (alert at 6, 12, 24, 48… — doubling, ~log2 total not linear), resetting the counter on successful delivery. Reuses the exact pattern from the science-claude 63h-stall / 145-DM-flood fix (<code>feedback_modal_stalls_cell_wake</code>) so a stall surfaces itself instead of rotting — and never floods.
+
+<h3 id="6-drain-loop-wiring">6. Drain-loop wiring</h3>
+Replace the <code>_route_to_handler</code> stub in <code>commands/daemon.py</code>. On each drained DM: <code>queue.enqueue(dm)</code>. Each tick, after draining: attempt delivery of the queue (below). Guarded so no bridge exception escapes into the drain loop.
+
+<h2 id="data-flow">Data Flow</h2>
+
+<p><code></code>`
+gateway DM → daemon drain (cursor advances) → queue.enqueue(dm, wake = kind ∈ {question, unblock} OR (kind==answer AND thread_id != null))
+   → each tick, attempt_delivery():
+       resolve pane
+         none  → surface-only (log once), leave queued as informational (no wake ever) — headless cell
+         pane  → probe_pane
+             idle  → render batch → pane_inject(send-keys + submit)
+                        ok   → dequeue delivered ids, reset stall counter
+                        fail → leave queued, log, retry next tick
+             busy  → defer (stay queued), deferred_ticks++ → stall_alert at 6,12,24…
+             modal → dismiss-safe-modal (cell_wake._try_dismiss_safe_modal), re-probe once; else defer
+<code></code>`</p>
+
+<p>Batch semantics: on an idle wake, deliver ALL currently-queued DMs in one injected block (actionable + any fyi/status riding along), so low-priority chatter never triggers its own wake but is never lost.</p>
+
+<p><strong>Injected block</strong> the resident model reads:
+<code></code>`
+📨 mesh delivery (2 new):
+  · from=droplet kind=question: <content>
+  · from=drop     kind=unblock:  <content>
+(act per DM SEMANTICS — reply AI-to-AI via mesh-gateway; loop human only across a privilege boundary)
+<code></code>`</p>
+
+<h2 id="error-handling">Error Handling</h2>
+
+<ul class="article-list">
+  <li><strong>Pane capture / send-keys failure</strong> → caught, logged, DM stays queued, retry next tick. Daemon unaffected.</li>
+  <li><strong>No resident pane</strong> → surface-only for that cell, logged once (not per-tick spam). Not an error.</li>
+  <li><strong>Modal on the pane</strong> → attempt the scoped safe-modal dismiss + one re-probe; still not idle → defer (never force).</li>
+  <li><strong>Queue-file corruption / unreadable</strong> → treat as empty, log, continue draining (fail-safe; a lost queue file means at worst a re-surface, and the gateway still holds unread state).</li>
+  <li><strong>Stall-alert gateway POST failure</strong> → logged, counter unchanged (retries at the next threshold); never blocks delivery attempts.</li>
+  <li><strong>Any uncaught bridge exception</strong> → caught at the drain-loop boundary, logged loudly to stderr; the daemon keeps running (liveness intact).</li>
+</ul>
+
+<h2 id="testing">Testing</h2>
+
+<ul class="article-list">
+  <li><strong><code>idle_probe</code>:</strong> modal-menu fixture → <code>busy</code>/<code>modal</code> (never idle); clean footer fixture → <code>idle</code>; capture error → <code>busy</code> (fail-safe).</li>
+  <li><strong><code>pane_inject</code>:</strong> builds the correct <code>send-keys -l … Enter</code> argv (mock the <code>tmux</code> binary); returns <code>False</code> on a non-zero binary exit.</li>
+  <li><strong><code>delivery_queue</code>:</strong> enqueue/dequeue, persists across reload (write-and-rename), dedups by id, <code>wake</code> flag set from kind.</li>
+  <li><strong><code>stall_alert</code>:</strong> fires at 6/12/24 (backoff sequence, not linear), resets on delivery, single alert per threshold (no flood).</li>
+  <li><strong>kind policy:</strong> <code>question</code>/<code>unblock</code> → <code>wake=true</code>; <code>answer</code> with non-null <code>thread_id</code> → <code>wake=true</code>; <code>answer</code> with <code>thread_id=null</code>, <code>fyi</code>, <code>status</code> → <code>wake=false</code> but still delivered in the next batch (ride-along, never dropped).</li>
+  <li><strong>Integration:</strong> spin a real throwaway tmux session, enqueue a DM, run one delivery tick → assert the injected block lands in the pane (<code>capture-pane</code>); a "busy" fixture pane → asserts defer + stall counter increments + backoff alert.</li>
+  <li><strong>No-pane path:</strong> <code>resolve_session_pane</code> → <code>None</code> → surface-only, no inject attempted, one log line.</li>
+</ul>
+
+<h2 id="build-order">Build Order</h2>
+
+<p>1. <code>idle_probe</code> (port + adapt <code>cell_wake._probe_idle</code> / safe-modal-dismiss into swarph-cli) + tests.
+2. <code>pane_inject</code> (multiplexer send-keys) + tests.
+3. <code>session_target</code> resolver + tests.
+4. <code>delivery_queue</code> (persisted, dedup, wake-flag) + tests.
+5. <code>stall_alert</code> (backoff + reset) + tests.
+6. Wire the drain loop (<code>_route_to_handler</code> → enqueue + <code>attempt_delivery</code>), guarded; integration test end-to-end on a real tmux session; version bump.</p>
+
+<p>Plan ends at green tests + the bridge wired behind <code>--auto-act</code> + an end-to-end delivery proven on a real pane. <strong>Validation rollout (post-merge, not part of the build): workstation-lc (the finder) + lab-ovh first, then droplet / razorpeter / gpu-wsl / gemini-researcher.</strong></p>
+
+<h2 id="open-risks">Open / Risks</h2>
+
+<ul class="article-list">
+  <li><strong>Pane-resolution convention</strong> — the one real correctness risk (mirrors whatweknow's path-format risk): the daemon must reliably find ITS cell's agent pane across cells that may name sessions differently. A build step verifies resolution against a real live session before wiring. If a cell's session naming is non-standard, it falls back to surface-only (safe) rather than injecting into the wrong pane.</li>
+  <li><strong>Busy-cell latency</strong> — a genuinely hot cell delivers late (on next idle); accepted, and the backoff-alert bounds how long a stall stays silent. Force-deliver-at-turn-end (Stop hook) was considered and rejected for v1 (Claude-Code-specific; nudges the next turn).</li>
+  <li><strong>Injection nudges a turn</strong> — waking an idle cell submits a turn; that's the intended behavior for actionable kinds. fyi/status never wake on their own (ride-along only), bounding the churn.</li>
+  <li><strong>Cross-agent panes</strong> — codex/grok panes have different idle sentinels than claude; v1 targets the claude membrane (the daemon-class cells above are claude); the probe's sentinel set is a per-agent config point for later.</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#1-session-target-resolve-the-cell-s-agent-pane">1. `session_target` — resolve the cell's agent pane</a></li>
+<li style="margin-left: 0.8rem;"><a href="#2-idle-probe-the-safety-gate">2. `idle_probe` — the safety gate</a></li>
+<li style="margin-left: 0.8rem;"><a href="#3-pane-inject-deliver-into-the-pane">3. `pane_inject` — deliver into the pane</a></li>
+<li style="margin-left: 0.8rem;"><a href="#4-delivery-queue-pending-dm-state">4. `delivery_queue` — pending-DM state</a></li>
+<li style="margin-left: 0.8rem;"><a href="#5-stall-alert-surface-a-stuck-cell">5. `stall_alert` — surface a stuck cell</a></li>
+<li style="margin-left: 0.8rem;"><a href="#6-drain-loop-wiring">6. Drain-loop wiring</a></li>
+<li><a href="#global-constraints">Global Constraints</a></li>
+<li><a href="#components">Components</a></li>
+<li><a href="#data-flow">Data Flow</a></li>
+<li><a href="#error-handling">Error Handling</a></li>
+<li><a href="#testing">Testing</a></li>
+<li><a href="#build-order">Build Order</a></li>
+<li><a href="#open-risks">Open / Risks</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

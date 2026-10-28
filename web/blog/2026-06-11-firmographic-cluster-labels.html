@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Firmographic Cluster Semantic Labels — Implementation Plan | Technical Whitepaper</title>
+  <meta name="description" content="Firmographic Cluster Semantic Labels — Implementation Plan — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-06-11-firmographic-cluster-labels.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Firmographic Cluster Semantic Labels — Implementation Plan</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 11 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Firmographic Cluster Semantic Labels — Implementation Plan</p>
+
+<p>> <strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+
+<p><strong>Goal:</strong> Give each firmographic cluster a marketer-friendly name + one-line "what it's made of" description, generated hybrid (deterministic stat profile → batched <code>claude -p</code> phrasing), stored in <code>firmographic_community_labels</code>, and surfaced in the cluster report + Buying Profile panel.</p>
+
+<p><strong>Architecture:</strong> A pure stat profiler (<code>core/cluster_labels.py</code>) turns a cluster's member firmographic features into a factual profile (dominant sector + share, spend tier, size band, region, churn). A worker fetches members per cluster (Postgres-only), profiles them, sends all profiles in ONE batched <code>claude -p</code> call (reusing <code>core/ai_typing.get_llm_backend</code> — subscription billing + JSON parse), falls back to a rule-based name on failure, and writes labels. Two consumers join the labels table.</p>
+
+<p><strong>Tech Stack:</strong> Python 3.12, psycopg2, PostgreSQL, <code>claude -p</code> via the existing <code>core/ai_typing</code> CLI backend, pytest.</p>
+
+<p><strong>Spec:</strong> <code>docs/superpowers/specs/2026-06-11-firmographic-cluster-labels-design.md</code></p>
+
+<p>---</p>
+
+<h2 id="file-structure">File structure</h2>
+
+<p>| File | Responsibility | New/Modify |
+|---|---|---|
+| <code>core/cluster_labels.py</code> | Pure profiler + spend/size banding + rule-based fallback label. No DB/LLM. | Create |
+| <code>tests/test_cluster_labels.py</code> | Hermetic tests for the profiler + fallback. | Create |
+| <code>database/init_postgres_cluster_labels.sql</code> | <code>firmographic_community_labels</code> DDL. | Create |
+| <code>workers/label_firmographic_communities.py</code> | Orchestrator: fetch → profile → batched LLM → write. | Create |
+| <code>scripts/export_buying_profiles.py</code> | Cluster report: join labels into the heading. | Modify |
+| <code>dashboard/app.py</code> | Buying Profile panel: add account's cluster name to context. | Modify |
+| <code>dashboard/templates/_buying_profile.html</code> | Render the cluster name in the header. | Modify |</p>
+
+<p>---</p>
+
+<h3 id="task-1-pure-profiler-bands-rule-fallback">Task 1: Pure profiler + bands + rule fallback</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>core/cluster_labels.py</code></li>
+  <li>Test: <code>tests/test_cluster_labels.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p>Create <code>tests/test_cluster_labels.py</code>:</p>
+
+<p><code></code>`python
+from core.cluster_labels import profile_cluster, rule_fallback_label</p>
+
+<p>def _m(sector="prof services", spend=5000, users=3, region="South-East", churn=False):
+    return {"sector": sector, "annual_spend": spend, "n_users": users,
+            "region": region, "is_churn": churn}</p>
+
+<p>def test_profile_basic_shares_and_bands():
+    rows = [_m(spend=5000, users=3) for _ in range(6)] + [_m(sector="retail", spend=5000) for _ in range(4)]
+    p = profile_cluster(rows)
+    assert p["member_count"] == 10
+    assert p["top_sector"] == "prof services"
+    assert p["top_sector_share"] == 0.6
+    assert p["spend_tier"] == "small"     # median 5000 -> [1k,10k)
+    assert p["size_band"] == "small"      # median 3 -> [2,5]
+    assert p["dominant_region"] == "South-East"
+    assert p["churn_share"] == 0.0</p>
+
+<p>def test_spend_tiers_and_size_bands():
+    assert profile_cluster([_m(spend=500, users=1)])["spend_tier"] == "micro"
+    assert profile_cluster([_m(spend=20000, users=10)])["spend_tier"] == "mid"
+    assert profile_cluster([_m(spend=80000, users=40)])["spend_tier"] == "large"
+    assert profile_cluster([_m(users=1)])["size_band"] == "solo"
+    assert profile_cluster([_m(users=40)])["size_band"] == "large"</p>
+
+<p>def test_churn_share_and_nulls():
+    rows = [_m(churn=True), _m(churn=False), _m(churn=True), _m(churn=False)]
+    assert profile_cluster(rows)["churn_share"] == 50.0
+    # tolerate missing numeric fields
+    p = profile_cluster([{"sector": "x"}])
+    assert p["spend_tier"] == "unknown" and p["size_band"] == "unknown"</p>
+
+<p>def test_rule_fallback_label_uses_only_facts():
+    p = profile_cluster([_m(spend=5000, users=3) for _ in range(8)])
+    lab = rule_fallback_label(p)
+    assert lab["name"] and lab["description"]
+    assert "prof services" in lab["description"].lower()
+    assert "small" in lab["description"].lower()
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_cluster_labels.py -v</code>
+Expected: FAIL — <code>ModuleNotFoundError: No module named 'core.cluster_labels'</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Implement</strong></li>
+</ul>
+
+<p>Create <code>core/cluster_labels.py</code>:</p>
+
+<p><code></code>`python
+"""Pure firmographic-cluster profiling — no DB, no LLM. Turns a cluster's member
+feature rows into a factual profile (the deterministic 'what it's made of'), plus
+a rule-based fallback label used when the LLM phrasing step fails."""
+from __future__ import annotations</p>
+
+<p>from collections import Counter
+from statistics import median</p>
+
+<p># (band_name, exclusive_upper_bound); None upper = catch-all top band.
+SPEND_TIERS = [("micro", 1_000), ("small", 10_000), ("mid", 50_000), ("large", None)]
+SIZE_BANDS = [("solo", 2), ("small", 6), ("mid", 21), ("large", None)]</p>
+
+<p>def _band(value: float, bands: list[tuple[str, float | None]]) -> str:
+    for name, hi in bands:
+        if hi is None or value < hi:
+            return name
+    return bands[-1][0]</p>
+
+<p>def profile_cluster(rows: list[dict]) -> dict:
+    """<code>rows</code>: member dicts with sector, annual_spend, n_users, region, is_churn
+    (any numeric may be missing). Returns the deterministic profile."""
+    n = len(rows)
+    if n == 0:
+        return {"member_count": 0, "top_sector": "unknown", "top_sector_share": 0.0,
+                "spend_tier": "unknown", "size_band": "unknown",
+                "dominant_region": "unknown", "dominant_region_share": 0.0,
+                "churn_share": 0.0}
+    sectors = Counter((r.get("sector") or "unknown") for r in rows)
+    top_sector, top_n = sectors.most_common(1)[0]
+    regions = Counter((r.get("region") or "unknown") for r in rows)
+    top_region, region_n = regions.most_common(1)[0]
+    spends = [float(r["annual_spend"]) for r in rows if r.get("annual_spend") is not None]
+    users = [float(r["n_users"]) for r in rows if r.get("n_users") is not None]
+    churn = sum(1 for r in rows if r.get("is_churn"))
+    return {
+        "member_count": n,
+        "top_sector": top_sector,
+        "top_sector_share": round(top_n / n, 3),
+        "spend_tier": _band(median(spends), SPEND_TIERS) if spends else "unknown",
+        "size_band": _band(median(users), SIZE_BANDS) if users else "unknown",
+        "dominant_region": top_region,
+        "dominant_region_share": round(region_n / n, 3),
+        "churn_share": round(100.0 * churn / n, 2),
+    }</p>
+
+<p>def rule_fallback_label(p: dict) -> dict:
+    """Deterministic name + description from a profile (LLM-free fallback)."""
+    name = f"{p['spend_tier'].title()}-spend {p['top_sector']}"[:60]
+    desc = (f"{p['member_count']} accounts, {int(round(p['top_sector_share'] * 100))}% "
+            f"{p['top_sector']}, {p['spend_tier']} spend, {p['size_band']} size, "
+            f"mostly {p['dominant_region']}.")
+    return {"name": name, "description": desc}
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_cluster_labels.py -v</code>
+Expected: 4 passed.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/cluster_labels.py tests/test_cluster_labels.py
+git commit -m "feat(cluster-labels): pure profiler + bands + rule fallback"
+<code></code>`</p>
+
+<h3 id="task-2-labels-table-ddl">Task 2: Labels table DDL</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>database/init_postgres_cluster_labels.sql</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the DDL</strong></li>
+</ul>
+
+<p>Create <code>database/init_postgres_cluster_labels.sql</code>:</p>
+
+<p><code></code>`sql
+-- Human-readable labels for firmographic clusters (account_firmographic_community).
+CREATE TABLE IF NOT EXISTS firmographic_community_labels (
+    source_country   TEXT NOT NULL,
+    community_id     INTEGER NOT NULL,
+    name             TEXT NOT NULL,
+    description      TEXT NOT NULL,
+    member_count     INTEGER NOT NULL,
+    top_sector       TEXT,
+    spend_tier       TEXT,
+    size_band        TEXT,
+    dominant_region  TEXT,
+    churn_share      NUMERIC(5,2),
+    generated_by     TEXT NOT NULL DEFAULT 'llm',   -- 'llm' | 'rule_fallback'
+    last_computed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (source_country, community_id)
+);
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Apply to the live DB</strong> (controller/Pierre — docker exec is gated)</li>
+</ul>
+
+<p>Run:
+<code></code>`
+docker exec -i lc-postgres psql -U leadcontagion -d leadcontagion < database/init_postgres_cluster_labels.sql
+<code></code>`
+Expected: <code>CREATE TABLE</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add database/init_postgres_cluster_labels.sql
+git commit -m "feat(cluster-labels): firmographic_community_labels DDL"
+<code></code>`</p>
+
+<h3 id="task-3-the-labeling-worker">Task 3: The labeling worker</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>workers/label_firmographic_communities.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the worker</strong></li>
+</ul>
+
+<p>Create <code>workers/label_firmographic_communities.py</code>:</p>
+
+<p><code></code>`python
+"""Label firmographic clusters: profile each community's members, then a single
+batched <code>claude -p</code> call writes a marketer name + 1-line description. Rule-based
+fallback on LLM failure. Idempotent per source_country. Postgres-only.</p>
+
+<p>Reproducibility: KMeans community_id is not stable across rebuilds — re-run this
+after workers.community_match_soft."""
+from __future__ import annotations</p>
+
+<p>import argparse
+import json
+import logging
+import sys
+from pathlib import Path</p>
+
+<p>import psycopg2.extras</p>
+
+<p>_REPO = Path(__file__).resolve().parent.parent
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))</p>
+
+<p>from core.ai_typing import get_llm_backend, _parse_json_obj_list
+from core.cluster_labels import profile_cluster, rule_fallback_label
+from database.crm_db import CRMDatabase</p>
+
+<p>logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+log = logging.getLogger("cluster_labels")</p>
+
+<p>LABEL_PROMPT = """You name firmographic customer clusters for B2B marketers at Lyreco.
+Each cluster has a FACTUAL profile (dominant sector + share, spend tier, size band,
+region, churn). Give each cluster a short NAME (<=4 words, Title Case) and a
+one-sentence DESCRIPTION in plain marketer language. Use ONLY the facts provided —
+never invent attributes.</p>
+
+<p>Clusters (JSON):
+{clusters}</p>
+
+<p>Respond ONLY with a JSON array
+[{{"community_id": <int>, "name": "<name>", "description": "<sentence>"}}]
+covering EVERY community_id, with no text around it."""</p>
+
+<p>def _fetch_members(crm: CRMDatabase, country: str) -> dict[int, list[dict]]:
+    rows = crm.query(
+        """
+        SELECT a.community_id,
+               COALESCE(NULLIF(f.accounts_category, ''), sec.meta_sector, f.sic_group) AS sector,
+               f.annual_spend, f.n_users,
+               COALESCE(NULLIF(f.postcode_area, ''), f.region_key) AS region,
+               f.is_churn
+        FROM account_firmographic_community a
+        JOIN customer_firmographic_features f
+          ON f.account_number = a.account_number AND f.source_country = a.source_country
+        LEFT JOIN LATERAL (
+            SELECT meta_sector FROM sic_meta_sectors s WHERE s.sic_2digit = f.sic_2digit LIMIT 1
+        ) sec ON TRUE
+        WHERE a.source_country = %s
+        """,
+        (country,),
+    )
+    by_cluster: dict[int, list[dict]] = {}
+    for r in rows:
+        by_cluster.setdefault(r["community_id"], []).append(dict(r))
+    return by_cluster</p>
+
+<p>def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--country", default="GB")
+    ap.add_argument("--model", default="sonnet")
+    args = ap.parse_args()
+    crm = CRMDatabase()</p>
+
+<p>by_cluster = _fetch_members(crm, args.country)
+    if not by_cluster:
+        log.warning("no clusters for %s — run community_match_soft first", args.country)
+        return 0
+    profiles = {cid: profile_cluster(rows) for cid, rows in by_cluster.items()}
+    log.info("%s: %d clusters profiled", args.country, len(profiles))</p>
+
+<p># one batched LLM call; rule-based fallback per missing/failed cluster
+    llm_input = [{"community_id": cid, <em></em>p} for cid, p in profiles.items()]
+    named: dict[int, dict] = {}
+    try:
+        llm_call = get_llm_backend(prefer="cli", model=args.model)
+        out = _parse_json_obj_list(llm_call(
+            LABEL_PROMPT.format(clusters=json.dumps(llm_input, ensure_ascii=False))))
+        for item in out:
+            cid = item.get("community_id")
+            if cid in profiles and item.get("name") and item.get("description"):
+                named[cid] = {"name": str(item["name"])[:80],
+                              "description": str(item["description"])[:300],
+                              "generated_by": "llm"}
+    except Exception as exc:
+        log.warning("LLM labeling failed (%s) — using rule fallback for all", exc)</p>
+
+<p>rows_out = []
+    for cid, p in profiles.items():
+        lab = named.get(cid)
+        if lab is None:
+            fb = rule_fallback_label(p)
+            lab = {"name": fb["name"], "description": fb["description"],
+                   "generated_by": "rule_fallback"}
+        rows_out.append({
+            "source_country": args.country, "community_id": cid,
+            "name": lab["name"], "description": lab["description"],
+            "member_count": p["member_count"], "top_sector": p["top_sector"],
+            "spend_tier": p["spend_tier"], "size_band": p["size_band"],
+            "dominant_region": p["dominant_region"], "churn_share": p["churn_share"],
+            "generated_by": lab["generated_by"],
+        })</p>
+
+<p>with crm.connect() as conn, conn.cursor() as cur:
+        cur.execute("DELETE FROM firmographic_community_labels WHERE source_country=%s",
+                    (args.country,))
+        psycopg2.extras.execute_batch(cur, """
+            INSERT INTO firmographic_community_labels
+              (source_country, community_id, name, description, member_count,
+               top_sector, spend_tier, size_band, dominant_region, churn_share, generated_by)
+            VALUES (%(source_country)s, %(community_id)s, %(name)s, %(description)s,
+               %(member_count)s, %(top_sector)s, %(spend_tier)s, %(size_band)s,
+               %(dominant_region)s, %(churn_share)s, %(generated_by)s)
+        """, rows_out, page_size=200)
+    n_llm = sum(1 for r in rows_out if r["generated_by"] == "llm")
+    log.info("wrote %d labels (%d llm, %d fallback)", len(rows_out), n_llm,
+             len(rows_out) - n_llm)
+    return 0</p>
+
+<p>if __name__ == "__main__":
+    sys.exit(main())
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Parse + import check (no DB / no LLM)</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -c "import ast; ast.parse(open(r'workers/label_firmographic_communities.py',encoding='utf-8').read()); print('parse OK')"</code>
+Expected: <code>parse OK</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Live run</strong> (controller/Pierre — <code>claude -p</code> is subscription-billed + DB write)</li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m workers.label_firmographic_communities --country GB</code>
+Expected: log <code>GB: 60 clusters profiled</code> then <code>wrote 60 labels (N llm, M fallback)</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Sanity-check the labels</strong></li>
+</ul>
+
+<p>Run:
+<code></code>`
+docker exec lc-postgres psql -U leadcontagion -d leadcontagion -c "SELECT community_id, name, left(description,60), member_count, generated_by FROM firmographic_community_labels WHERE source_country='GB' ORDER BY member_count DESC LIMIT 8;"
+<code></code>`
+Expected: readable names + descriptions, mostly <code>generated_by='llm'</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add workers/label_firmographic_communities.py
+git commit -m "feat(cluster-labels): batched LLM labeling worker (rule fallback)"
+<code></code>`</p>
+
+<h3 id="task-4-surface-labels-in-the-report-panel">Task 4: Surface labels in the report + panel</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>scripts/export_buying_profiles.py</code></li>
+  <li>Modify: <code>dashboard/app.py</code> (buying_profile_panel)</li>
+  <li>Modify: <code>dashboard/templates/_buying_profile.html</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Report — join labels into the cluster heading</strong></li>
+</ul>
+
+<p>In <code>scripts/export_buying_profiles.py</code>, the cluster query selects <code>c.cluster_id ... </code> and the render prints <code>### Firmographic cluster {cur_cluster} (...)</code>. Change the query to also fetch the label and use it. Replace the <code>rows = crm.query("""... """)</code> block's SELECT/JOIN with:</p>
+
+<p><code></code>`python
+    rows = crm.query(
+        """
+        SELECT c.cluster_id, c.product_reference, c.rank_freq, c.orders_count,
+               c.units_qty, c.n_accounts, p.product_description,
+               l.name AS cluster_name, l.description AS cluster_desc
+        FROM cluster_buying_profile_weekly c
+        LEFT JOIN ecom_products p
+               ON p.product_reference = c.product_reference
+              AND p.source_country = c.source_country
+        LEFT JOIN firmographic_community_labels l
+               ON l.community_id = c.cluster_id AND l.source_country = c.source_country
+        WHERE c.cluster_source='firmographic' AND c.snapshot_week=%s
+          AND c.rank_freq <= 10
+        ORDER BY c.cluster_id, c.rank_freq
+        """,
+        (latest,))
+<code></code>`</p>
+
+<p>Then change the cluster heading print from:
+<code></code>`python
+            print(f"\n### Firmographic cluster {cur_cluster} ({r['n_accounts']} accounts)\n")
+<code></code>`
+to:
+<code></code>`python
+            _title = r["cluster_name"] or f"Firmographic cluster {cur_cluster}"
+            _desc = f" — {r['cluster_desc']}" if r["cluster_desc"] else ""
+            print(f"\n### {_title} ({r['n_accounts']} accounts){_desc}\n")
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Verify the report still runs</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe scripts\export_buying_profiles.py</code>
+Expected: a RESULT_MARKDOWN block where cluster headings show names (once labels exist; before that they fall back to "Firmographic cluster N").</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Panel — fetch the account's cluster label</strong></li>
+</ul>
+
+<p>In <code>dashboard/app.py</code>, inside <code>buying_profile_panel</code>, after <code>acc_no = account["account_number"]</code> and before building the context, add:</p>
+
+<p><code></code>`python
+    cluster_label = crm.query(
+        """
+        SELECT l.name, l.description
+        FROM account_firmographic_community a
+        JOIN firmographic_community_labels l
+          ON l.community_id = a.community_id AND l.source_country = a.source_country
+        WHERE a.account_number=%s AND a.source_country=%s
+        LIMIT 1
+        """,
+        (acc_no, country),
+    )
+    cluster_label = cluster_label[0] if cluster_label else None
+<code></code>`
+Then add <code>"cluster_label": cluster_label,</code> to BOTH the success <code>TemplateResponse</code> context dict AND (as <code>"cluster_label": None,</code>) the <code>ctx_empty</code> dict and the <code>no_match</code> return, so the key always exists.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Panel template — show the cluster name</strong></li>
+</ul>
+
+<p>In <code>dashboard/templates/_buying_profile.html</code>, inside the <code><div class="bp-head"></code>, after the <code><div class="bp-meta">...</div></code> line, add:</p>
+
+<p><code></code>`html
+    {% if cluster_label %}<div class="bp-meta">cluster: <strong>{{ cluster_label.name }}</strong> — {{ cluster_label.description }}</div>{% endif %}
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Parse-check + restart + commit</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -c "import ast; ast.parse(open(r'dashboard/app.py',encoding='utf-8').read()); print('app.py parse OK')"</code>
+Then (controller/Pierre) <code>nssm restart LeadContagionDashboard</code> to load the panel change.</p>
+
+<p><code></code>`bash
+git add scripts/export_buying_profiles.py dashboard/app.py dashboard/templates/_buying_profile.html
+git commit -m "feat(cluster-labels): surface labels in cluster report + buying-profile panel"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="self-review">Self-review</h2>
+
+<ul class="article-list">
+  <li><strong>Spec coverage:</strong> stat profiler → Task 1; LLM namer (batched, reuses <code>get_llm_backend</code>, rule fallback) → Task 3; storage table → Task 2; worker + cadence note → Task 3; surfacing (report + panel) → Task 4; testing (hermetic profiler + fallback) → Task 1; reproducibility caveat → worker docstring (Task 3).</li>
+  <li><strong>Single-DB:</strong> every query hits Postgres only (<code>account_firmographic_community</code>, <code>customer_firmographic_features</code>, <code>sic_meta_sectors</code>, <code>firmographic_community_labels</code>, <code>cluster_buying_profile_weekly</code>, <code>ecom_products</code>). No cross-DB join.</li>
+  <li><strong>Reuse:</strong> LLM call + JSON parse reuse <code>core/ai_typing</code> (no reimplemented <code>claude -p</code>). Billing guard (subscription, no silent API billing) inherited.</li>
+  <li><strong>Type consistency:</strong> <code>profile_cluster</code> returns the keys the worker reads (<code>member_count/top_sector/spend_tier/size_band/dominant_region/churn_share</code>); DDL columns match the worker's insert keys; <code>generated_by</code> ∈ {llm, rule_fallback}.</li>
+  <li><strong>Idempotency:</strong> worker DELETEs by <code>source_country</code> then inserts, in one <code>CRMDatabase.connect()</code> transaction.</li>
+</ul>
+
+<h2 id="notes-for-the-implementer">Notes for the implementer</h2>
+
+<ul class="article-list">
+  <li>The <code>claude -p</code> step is subscription-billed (quota). One batched call for ~60 clusters is cheap. If <code>claude</code> isn't on PATH, <code>get_llm_backend</code> raises rather than silently billing the API — the worker catches it and uses the rule-based fallback for every cluster (still produces labels).</li>
+  <li><code>sic_meta_sectors</code> join is via a LATERAL <code>LIMIT 1</code> to avoid row multiplication if a <code>sic_2digit</code> maps to multiple rows.</li>
+  <li>GB only for now (FR clusters not yet built). The worker is <code>--country</code>-parameterized for when they are.</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#task-1-pure-profiler-bands-rule-fallback">Task 1: Pure profiler + bands + rule fallback</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-2-labels-table-ddl">Task 2: Labels table DDL</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-3-the-labeling-worker">Task 3: The labeling worker</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-4-surface-labels-in-the-report-panel">Task 4: Surface labels in the report + panel</a></li>
+<li><a href="#file-structure">File structure</a></li>
+<li><a href="#self-review">Self-review</a></li>
+<li><a href="#notes-for-the-implementer">Notes for the implementer</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

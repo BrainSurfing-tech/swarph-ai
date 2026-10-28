@@ -1,0 +1,1265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Basket Bundle Association Rules — Implementation Plan | Technical Whitepaper</title>
+  <meta name="description" content="Basket Bundle Association Rules — Implementation Plan — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-05-21-basket-bundle-association-rules.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Basket Bundle Association Rules — Implementation Plan</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 22 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Basket Bundle Association Rules — Implementation Plan</p>
+
+<p>> <strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+
+<p><strong>Goal:</strong> Replace the panel section "Top cross-world SKU pairs & their bundle expansion (C/D)" with genuine 4-product basket bundles mined from cleaned baskets, plus association rules ({a,b}→{c,d}, {a,b,c}→d, a→b) showing conditional purchase confidence + lift.</p>
+
+<p><strong>Architecture:</strong> A pure-Python mining module (<code>core/basket_bundles.py</code>) does noise-filtering + staged Apriori (up to 4-itemsets) + association-rule generation. The snapshot refresh script (<code>scripts/refresh_cross_family_baskets.py</code>) calls it and persists results to JSON + XLSX. The live dashboard panel loads the latest matching snapshot JSON and renders three tables (mining is too heavy to run live).</p>
+
+<p><strong>Tech Stack:</strong> Python 3.12, psycopg2 (postgres :5433 / timescale :5434), FastAPI + Jinja2/HTMX dashboard, openpyxl, pytest (new). No new mining dependency — Apriori is hand-rolled.</p>
+
+<p>---</p>
+
+<h2 id="spec">Spec</h2>
+
+<p><code>docs/superpowers/specs/2026-05-20-basket-bundle-association-rules-design.md</code></p>
+
+<h2 id="key-calibrated-facts-90d-fr-already-measured">Key calibrated facts (90d FR, already measured)</h2>
+
+<ul class="article-list">
+  <li>438,007 multi-line baskets; only <strong>31,471 distinct active SKUs</strong> → SKU-grain mining is feasible.</li>
+  <li>Noise filter <code>size > 20 OR worlds >= 5</code> drops 5.4% (the "everything-reorder" baskets).</li>
+  <li>Defaults: <code>min_support=25</code>, <code>min_confidence=0.30</code>, <code>min_lift=1.0</code>, <code>max_basket_size=20</code>, <code>max_worlds=5</code>.</li>
+</ul>
+
+<h2 id="file-structure">File Structure</h2>
+
+<ul class="article-list">
+  <li><strong>Create</strong> <code>core/basket_bundles.py</code> — pure functions: <code>clean_baskets</code>, <code>mine_frequent_itemsets</code>, <code>generate_rules</code>, <code>best_2to2_rule</code>, <code>build_outputs</code>. No DB, no I/O — fully unit-testable.</li>
+  <li><strong>Create</strong> <code>tests/conftest.py</code> — put repo root on <code>sys.path</code> so <code>import core...</code> works.</li>
+  <li><strong>Create</strong> <code>tests/test_basket_bundles.py</code> — unit tests for the module.</li>
+  <li><strong>Modify</strong> <code>requirements.txt</code> — add <code>pytest</code>.</li>
+  <li><strong>Modify</strong> <code>scripts/refresh_cross_family_baskets.py</code> — new CLI args, Phase 5 (mining), new JSON keys, two new XLSX sheets.</li>
+  <li><strong>Modify</strong> <code>dashboard/app.py</code> — snapshot-loader helper; replace live <code>cross_sku_pairs</code> computation (Step 4 + Step 5, lines ~1743-1840) with snapshot bundles in the template context.</li>
+  <li><strong>Modify</strong> <code>dashboard/templates/_cross_family_baskets.html</code> — replace the C/D section with three tables (bundles-4 / rules-3→1 / rules-2→1).</li>
+</ul>
+
+<h2 id="conventions-to-follow-from-claude-md">Conventions to follow (from CLAUDE.md)</h2>
+
+<ul class="article-list">
+  <li>Subprocess stdout that prints non-ASCII (→, ≥, €) needs <code>PYTHONIOENCODING=utf-8</code>; the venv is <code>venv\Scripts\python.exe</code>.</li>
+  <li>Cross-DB joins are impossible in one query: order lines are on timescale, product→world on postgres — bridge in two steps (already done in the refresh script).</li>
+  <li>Run python as a module from repo root: <code>venv\Scripts\python.exe -m scripts.<name></code>.</li>
+</ul>
+
+<p>---</p>
+
+<h2 id="phase-a-core-mining-module-tdd">Phase A — Core mining module (TDD)</h2>
+
+<h3 id="task-1-bootstrap-pytest">Task 1: Bootstrap pytest</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>requirements.txt</code></li>
+  <li>Create: <code>tests/conftest.py</code></li>
+  <li>Create: <code>tests/test_smoke.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Add pytest to requirements</strong></li>
+</ul>
+
+<p>Append to <code>requirements.txt</code>:</p>
+
+<p><code></code>`
+pytest>=8.0
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Install it</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pip install pytest</code>
+Expected: installs, <code>Successfully installed pytest-...</code></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Create the test path shim</strong></li>
+</ul>
+
+<p>Create <code>tests/conftest.py</code>:</p>
+
+<p><code></code>`python
+"""Put the repo root on sys.path so tests can <code>import core...</code> / <code>database...</code>."""
+import sys
+from pathlib import Path</p>
+
+<p>_ROOT = Path(__file__).resolve().parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Add a smoke test</strong></li>
+</ul>
+
+<p>Create <code>tests/test_smoke.py</code>:</p>
+
+<p><code></code>`python
+def test_pytest_runs():
+    assert 1 + 1 == 2
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Run it</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_smoke.py -v</code>
+Expected: PASS (1 passed)</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 6: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add requirements.txt tests/conftest.py tests/test_smoke.py
+git commit -m "test: bootstrap pytest harness"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-2-clean-baskets">Task 2: <code>clean_baskets</code></h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>core/basket_bundles.py</code></li>
+  <li>Test: <code>tests/test_basket_bundles.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p>Create <code>tests/test_basket_bundles.py</code>:</p>
+
+<p><code></code>`python
+from core.basket_bundles import clean_baskets</p>
+
+<p># world map: a..d -> distinct worlds; e..z -> "OFFICE"
+WORLD = {chr(c): "OFFICE" for c in range(ord("a"), ord("z") + 1)}
+WORLD.update({"a": "IT", "b": "BUREAUTIQUE", "c": "HYGIENE",
+              "d": "MOBILIER", "e": "EHS"})</p>
+
+<p>def test_clean_keeps_normal_basket():
+    baskets = [{"skus": ["a", "b", "c"]}]          # 3 SKU, 3 worlds
+    kept, stats = clean_baskets(baskets, WORLD, max_basket_size=20, max_worlds=5)
+    assert kept == [frozenset({"a", "b", "c"})]
+    assert stats["n_kept"] == 1 and stats["n_dropped"] == 0</p>
+
+<p>def test_clean_drops_oversize_basket():
+    big = {"skus": [f"x{i}" for i in range(21)]}    # 21 SKU, unmapped -> 0 worlds
+    kept, stats = clean_baskets([big], WORLD, max_basket_size=20, max_worlds=5)
+    assert kept == []
+    assert stats["dropped_size"] == 1 and stats["dropped_worlds"] == 0</p>
+
+<p>def test_clean_drops_wide_basket():
+    wide = {"skus": ["a", "b", "c", "d", "e", "f"]}  # 6 SKU, 5 distinct worlds
+    kept, stats = clean_baskets([wide], WORLD, max_basket_size=20, max_worlds=5)
+    assert kept == []
+    assert stats["dropped_worlds"] == 1 and stats["dropped_size"] == 0</p>
+
+<p>def test_clean_dedups_skus():
+    dupe = {"skus": ["a", "a", "b"]}
+    kept, _ = clean_baskets([dupe], WORLD, max_basket_size=20, max_worlds=5)
+    assert kept == [frozenset({"a", "b"})]
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_basket_bundles.py -v</code>
+Expected: FAIL — <code>ModuleNotFoundError: No module named 'core.basket_bundles'</code></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Implement <code>clean_baskets</code></strong></li>
+</ul>
+
+<p>Create <code>core/basket_bundles.py</code>:</p>
+
+<p><code></code>`python
+"""Functional basket bundles: noise filter + staged Apriori + association rules.</p>
+
+<p>Pure functions, no DB / no I/O — see scripts/refresh_cross_family_baskets.py
+for the wiring. Method + calibration in
+docs/superpowers/specs/2026-05-20-basket-bundle-association-rules-design.md.
+"""
+from __future__ import annotations</p>
+
+<p>from collections import Counter
+from itertools import combinations</p>
+
+<p>def clean_baskets(
+    baskets,                       # iterable of {"skus": [...]}
+    prod_world: dict,              # {sku: world}
+    max_basket_size: int = 20,
+    max_worlds: int = 5,
+):
+    """Drop "everything-reorder" baskets. A basket is dropped if it has more
+    than <code>max_basket_size</code> distinct SKUs OR spans <code>max_worlds</code> or more distinct
+    worlds. Returns (kept, stats) where kept is list[frozenset[str]]."""
+    kept: list[frozenset] = []
+    n_in = dropped_size = dropped_worlds = 0
+    for b in baskets:
+        n_in += 1
+        skus = set(b["skus"])
+        n_worlds = len({prod_world.get(s) for s in skus} - {None})
+        if len(skus) > max_basket_size:
+            dropped_size += 1
+            continue
+        if n_worlds >= max_worlds:
+            dropped_worlds += 1
+            continue
+        kept.append(frozenset(skus))
+    stats = {
+        "n_in": n_in,
+        "n_kept": len(kept),
+        "n_dropped": n_in - len(kept),
+        "dropped_size": dropped_size,
+        "dropped_worlds": dropped_worlds,
+    }
+    return kept, stats
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_basket_bundles.py -v</code>
+Expected: PASS (4 passed)</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/basket_bundles.py tests/test_basket_bundles.py
+git commit -m "feat: clean_baskets noise filter for bundle mining"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-3-mine-frequent-itemsets">Task 3: <code>mine_frequent_itemsets</code></h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>core/basket_bundles.py</code></li>
+  <li>Test: <code>tests/test_basket_bundles.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Add the failing test</strong></li>
+</ul>
+
+<p>Append to <code>tests/test_basket_bundles.py</code>:</p>
+
+<p><code></code>`python
+from core.basket_bundles import mine_frequent_itemsets</p>
+
+<p># 4 baskets; A,B in all 4; C,D in 2; E in 1
+MINE_BASKETS = [
+    frozenset("ABCD"),
+    frozenset("ABCD"),
+    frozenset("AB"),
+    frozenset("ABE"),
+]</p>
+
+<p>def test_mine_supports_and_min_support():
+    sup = mine_frequent_itemsets(MINE_BASKETS, min_support=2, max_len=4)
+    assert sup[frozenset("A")] == 4
+    assert sup[frozenset("B")] == 4
+    assert sup[frozenset("C")] == 2
+    assert sup[frozenset("D")] == 2
+    assert frozenset("E") not in sup          # support 1 < 2
+    assert sup[frozenset("AB")] == 4
+    assert sup[frozenset("CD")] == 2
+    assert sup[frozenset("ABCD")] == 2</p>
+
+<p>def test_mine_respects_max_len():
+    sup = mine_frequent_itemsets(MINE_BASKETS, min_support=2, max_len=2)
+    assert all(len(k) <= 2 for k in sup)
+    assert frozenset("ABCD") not in sup</p>
+
+<p>def test_mine_min_support_prunes_all_pairs():
+    sup = mine_frequent_itemsets(MINE_BASKETS, min_support=5, max_len=4)
+    assert sup == {}                          # nothing reaches support 5
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_basket_bundles.py -k mine -v</code>
+Expected: FAIL — <code>cannot import name 'mine_frequent_itemsets'</code></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Implement <code>mine_frequent_itemsets</code></strong></li>
+</ul>
+
+<p>Append to <code>core/basket_bundles.py</code>:</p>
+
+<p><code></code>`python
+def mine_frequent_itemsets(
+    baskets: list[frozenset],
+    min_support: int = 25,
+    max_len: int = 4,
+) -> dict:
+    """Staged Apriori. Returns {frozenset: support} for itemsets of size
+    1..max_len whose support (number of baskets containing all members) is
+    >= min_support. Counts every r-combination among frequent singletons —
+    support values are exact; no candidate pruning needed at this scale."""
+    c1: Counter = Counter()
+    for b in baskets:
+        for s in b:
+            c1[s] += 1
+    keep1 = {s for s, n in c1.items() if n >= min_support}
+    support: dict = {frozenset([s]): n for s, n in c1.items() if n >= min_support}</p>
+
+<p>reduced = [sorted(b & keep1) for b in baskets]
+    for r in range(2, max_len + 1):
+        cr: Counter = Counter()
+        for items in reduced:
+            if len(items) >= r:
+                for combo in combinations(items, r):
+                    cr[combo] += 1
+        any_kept = False
+        for combo, n in cr.items():
+            if n >= min_support:
+                support[frozenset(combo)] = n
+                any_kept = True
+        if not any_kept:
+            break
+    return support
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_basket_bundles.py -k mine -v</code>
+Expected: PASS (3 passed)</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/basket_bundles.py tests/test_basket_bundles.py
+git commit -m "feat: staged Apriori frequent-itemset miner (up to 4-itemsets)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-4-generate-rules">Task 4: <code>generate_rules</code></h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>core/basket_bundles.py</code></li>
+  <li>Test: <code>tests/test_basket_bundles.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Add the failing test</strong></li>
+</ul>
+
+<p>Append to <code>tests/test_basket_bundles.py</code>:</p>
+
+<p><code></code>`python
+from core.basket_bundles import generate_rules</p>
+
+<p>def _find(rules, ant, con):
+    ant, con = frozenset(ant), frozenset(con)
+    return next((r for r in rules
+                 if r["antecedent"] == ant and r["consequent"] == con), None)</p>
+
+<p>def test_rules_confidence_and_lift():
+    sup = mine_frequent_itemsets(MINE_BASKETS, min_support=2, max_len=4)
+    rules = generate_rules(sup, n_baskets=4, min_confidence=0.3, min_lift=1.0)
+    # C -> D: support(CD)=2, support(C)=2 -> conf 1.0; support(D)=2 -> lift 1/(2/4)=2.0
+    r = _find(rules, "C", "D")
+    assert r is not None
+    assert abs(r["confidence"] - 1.0) < 1e-9
+    assert abs(r["lift"] - 2.0) < 1e-9</p>
+
+<p>def test_rules_filtered_by_confidence():
+    sup = mine_frequent_itemsets(MINE_BASKETS, min_support=2, max_len=4)
+    # A -> C: support(AC)=2 / support(A)=4 = 0.5 ; raise the floor above it
+    rules = generate_rules(sup, n_baskets=4, min_confidence=0.6, min_lift=1.0)
+    assert _find(rules, "A", "C") is None
+    rules_lo = generate_rules(sup, n_baskets=4, min_confidence=0.3, min_lift=1.0)
+    assert _find(rules_lo, "A", "C") is not None
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_basket_bundles.py -k rules -v</code>
+Expected: FAIL — <code>cannot import name 'generate_rules'</code></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Implement <code>generate_rules</code></strong></li>
+</ul>
+
+<p>Append to <code>core/basket_bundles.py</code>:</p>
+
+<p><code></code>`python
+def generate_rules(
+    support: dict,
+    n_baskets: int,
+    min_confidence: float = 0.30,
+    min_lift: float = 1.0,
+) -> list:
+    """For each frequent itemset S (size >= 2) and each non-empty proper subset
+    A (antecedent), consequent = S - A. confidence = sup(S)/sup(A);
+    lift = confidence / (sup(consequent)/n_baskets). Keeps rules meeting both
+    floors. All subsets of a frequent itemset are themselves frequent (anti-
+    monotonicity), so sup(A) and sup(consequent) are always present."""
+    rules: list = []
+    for S, sup_S in support.items():
+        if len(S) < 2:
+            continue
+        items = sorted(S)
+        for r in range(1, len(S)):
+            for ant_t in combinations(items, r):
+                A = frozenset(ant_t)
+                C = S - A
+                sup_A = support.get(A)
+                sup_C = support.get(C)
+                if not sup_A or not sup_C:
+                    continue
+                conf = sup_S / sup_A
+                lift = conf / (sup_C / n_baskets)
+                if conf >= min_confidence and lift >= min_lift:
+                    rules.append({
+                        "antecedent": A,
+                        "consequent": C,
+                        "support": sup_S,
+                        "confidence": conf,
+                        "lift": lift,
+                    })
+    return rules
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_basket_bundles.py -k rules -v</code>
+Expected: PASS (2 passed)</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/basket_bundles.py tests/test_basket_bundles.py
+git commit -m "feat: association-rule generation with confidence + lift"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-5-best-2to2-rule-build-outputs">Task 5: <code>best_2to2_rule</code> + <code>build_outputs</code></h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>core/basket_bundles.py</code></li>
+  <li>Test: <code>tests/test_basket_bundles.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Add the failing test</strong></li>
+</ul>
+
+<p>Append to <code>tests/test_basket_bundles.py</code>:</p>
+
+<p><code></code>`python
+from core.basket_bundles import best_2to2_rule, build_outputs</p>
+
+<p>META = {
+    "A": {"name": "Cutter blade", "section": "S_CUT", "world": "EHS"},
+    "B": {"name": "Cutter holder", "section": "S_CUT", "world": "EHS"},
+    "C": {"name": "Cardboard box", "section": "S_BOX", "world": "LOGISTIQUE"},
+    "D": {"name": "Tape", "section": "S_TAPE", "world": "LOGISTIQUE"},
+}</p>
+
+<p>def test_best_2to2_picks_max_confidence():
+    sup = mine_frequent_itemsets(MINE_BASKETS, min_support=2, max_len=4)
+    br = best_2to2_rule(frozenset("ABCD"), sup, n_baskets=4)
+    assert br is not None
+    assert len(br["antecedent"]) == 2 and len(br["consequent"]) == 2
+    # max possible 2->2 confidence here is 1.0 (e.g. {A,C}->{B,D})
+    assert abs(br["confidence"] - 1.0) < 1e-9</p>
+
+<p>def test_build_outputs_shapes_and_enrichment():
+    sup = mine_frequent_itemsets(MINE_BASKETS, min_support=2, max_len=4)
+    rules = generate_rules(sup, n_baskets=4, min_confidence=0.3, min_lift=1.0)
+    out = build_outputs(sup, rules, META, n_baskets=4)
+    assert set(out) == {"bundles_4", "rules_3to1", "rules_2to1"}
+    assert len(out["bundles_4"]) == 1
+    bundle = out["bundles_4"][0]
+    assert [it["sku"] for it in bundle["items"]] == ["A", "B", "C", "D"]
+    assert bundle["items"][0]["name"] == "Cutter blade"
+    assert bundle["items"][0]["world"] == "EHS"
+    assert bundle["support"] == 2
+    assert bundle["best_rule"] is not None
+    # secondary table = 3->1 rules; tertiary = 2->1 rules
+    assert all(len(r["antecedent"]) == 3 and len(r["consequent"]) == 1
+               for r in out["rules_3to1"])
+    assert all(len(r["antecedent"]) == 2 and len(r["consequent"]) == 1
+               for r in out["rules_2to1"])
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_basket_bundles.py -k "best_2to2 or build_outputs" -v</code>
+Expected: FAIL — <code>cannot import name 'best_2to2_rule'</code></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Implement both functions</strong></li>
+</ul>
+
+<p>Append to <code>core/basket_bundles.py</code>:</p>
+
+<p><code></code>`python
+def best_2to2_rule(quad: frozenset, support: dict, n_baskets: int):
+    """Among the 2->2 splits of a 4-itemset, return the rule with the highest
+    confidence (dict with antecedent/consequent/support/confidence/lift), or
+    None if <code>quad</code> is not a frequent 4-itemset."""
+    if len(quad) != 4:
+        return None
+    sup_S = support.get(quad)
+    if sup_S is None:
+        return None
+    items = sorted(quad)
+    best = None
+    for ant_t in combinations(items, 2):
+        A = frozenset(ant_t)
+        C = quad - A
+        sup_A = support.get(A)
+        sup_C = support.get(C)
+        if not sup_A or not sup_C:
+            continue
+        conf = sup_S / sup_A
+        lift = conf / (sup_C / n_baskets)
+        if best is None or conf > best["confidence"]:
+            best = {"antecedent": A, "consequent": C,
+                    "support": sup_S, "confidence": conf, "lift": lift}
+    return best</p>
+
+<p>def build_outputs(
+    support: dict,
+    rules: list,
+    prod_meta: dict,
+    n_baskets: int,
+    top_bundles: int = 50,
+    top_rules: int = 50,
+) -> dict:
+    """Assemble the three display sections, each enriched with name/section/
+    world per SKU:
+<ul class="article-list">
+  <li>bundles_4 : 4-itemsets ranked by support, each with its best 2->2 rule</li>
+  <li>rules_3to1: {a,b,c} -> d, filtered rules, ranked by lift</li>
+  <li>rules_2to1: {a,b}   -> c, filtered rules, ranked by lift</li>
+</ul>
+    """
+    def item_obj(sku: str) -> dict:
+        m = prod_meta.get(sku) or {}
+        return {"sku": sku,
+                "name": m.get("name") or "—",
+                "section": m.get("section") or "—",
+                "world": m.get("world") or "(unknown)"}</p>
+
+<p>def rule_obj(rule: dict) -> dict:
+        return {
+            "antecedent": [item_obj(s) for s in sorted(rule["antecedent"])],
+            "consequent": [item_obj(s) for s in sorted(rule["consequent"])],
+            "support": rule["support"],
+            "confidence": round(rule["confidence"], 3),
+            "lift": round(rule["lift"], 2),
+        }</p>
+
+<p>quads = sorted(((S, n) for S, n in support.items() if len(S) == 4),
+                   key=lambda x: -x[1])[:top_bundles]
+    bundles_4 = []
+    for S, sup in quads:
+        br = best_2to2_rule(S, support, n_baskets)
+        bundles_4.append({
+            "items": [item_obj(s) for s in sorted(S)],
+            "support": sup,
+            "support_pct": round(sup / n_baskets * 100, 3) if n_baskets else 0.0,
+            "best_rule": None if br is None else {
+                "antecedent": [item_obj(s) for s in sorted(br["antecedent"])],
+                "consequent": [item_obj(s) for s in sorted(br["consequent"])],
+                "confidence": round(br["confidence"], 3),
+                "lift": round(br["lift"], 2),
+            },
+        })</p>
+
+<p>r3 = sorted((r for r in rules
+                 if len(r["antecedent"]) == 3 and len(r["consequent"]) == 1),
+                key=lambda r: -r["lift"])[:top_rules]
+    r2 = sorted((r for r in rules
+                 if len(r["antecedent"]) == 2 and len(r["consequent"]) == 1),
+                key=lambda r: -r["lift"])[:top_rules]
+    return {
+        "bundles_4": bundles_4,
+        "rules_3to1": [rule_obj(r) for r in r3],
+        "rules_2to1": [rule_obj(r) for r in r2],
+    }
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run the full module test suite</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_basket_bundles.py -v</code>
+Expected: PASS (all tests, ~11 passed)</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/basket_bundles.py tests/test_basket_bundles.py
+git commit -m "feat: bundle output assembly (best 2->2 + 3->1/2->1 rule tables)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="phase-b-snapshot-refresh-integration">Phase B — Snapshot refresh integration</h2>
+
+<h3 id="task-6-wire-mining-into-refresh-cross-family-baskets-py-compute-json">Task 6: Wire mining into <code>refresh_cross_family_baskets.py</code> (compute + JSON)</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>scripts/refresh_cross_family_baskets.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Add CLI args</strong></li>
+</ul>
+
+<p>In <code>main()</code> (after the existing <code>--min-co</code> arg, around line 583), add:</p>
+
+<p><code></code>`python
+    ap.add_argument("--min-support", type=int, default=25, dest="min_support",
+                    help="min baskets for a frequent itemset (default 25)")
+    ap.add_argument("--min-confidence", type=float, default=0.30, dest="min_confidence",
+                    help="min rule confidence (default 0.30)")
+    ap.add_argument("--min-lift", type=float, default=1.0, dest="min_lift",
+                    help="min rule lift (default 1.0)")
+    ap.add_argument("--max-basket-size", type=int, default=20, dest="max_basket_size",
+                    help="drop baskets with more distinct SKUs (default 20)")
+    ap.add_argument("--max-worlds", type=int, default=5, dest="max_worlds",
+                    help="drop baskets spanning >= this many worlds (default 5)")
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Thread the args into <code>compute(...)</code></strong></li>
+</ul>
+
+<p>Change the <code>compute</code> signature (line 57) from:</p>
+
+<p><code></code>`python
+def compute(days: int, channel: str, min_co: int) -> dict:
+<code></code>`</p>
+
+<p>to:</p>
+
+<p><code></code>`python
+def compute(days: int, channel: str, min_co: int,
+            min_support: int = 25, min_confidence: float = 0.30,
+            min_lift: float = 1.0, max_basket_size: int = 20,
+            max_worlds: int = 5) -> dict:
+<code></code>`</p>
+
+<p>And update the call in <code>main()</code> (line 591) from <code>compute(args.days, args.channel, args.min_co)</code> to:</p>
+
+<p><code></code>`python
+    data = compute(args.days, args.channel, args.min_co,
+                   min_support=args.min_support, min_confidence=args.min_confidence,
+                   min_lift=args.min_lift, max_basket_size=args.max_basket_size,
+                   max_worlds=args.max_worlds)
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Add the import</strong></li>
+</ul>
+
+<p>Near the top imports of the file (after the <code>from database...</code> imports, ~line 43), add:</p>
+
+<p><code></code>`python
+from core.basket_bundles import (
+    clean_baskets, mine_frequent_itemsets, generate_rules, build_outputs,
+)
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Add Phase 5 (mining) before the <code>return</code> in <code>compute</code></strong></li>
+</ul>
+
+<p>Immediately before the <code>return {</code> statement (line 388), insert:</p>
+
+<p><code></code>`python
+    step("Phase 5/5 — mining functional bundles + association rules…")
+    kept, clean_stats = clean_baskets(
+        order_baskets, prod_world,
+        max_basket_size=max_basket_size, max_worlds=max_worlds)
+    n_kept = len(kept)
+    support = mine_frequent_itemsets(kept, min_support=min_support, max_len=4)
+    rules = generate_rules(support, n_kept,
+                           min_confidence=min_confidence, min_lift=min_lift)</p>
+
+<p># Enrich SKUs that appear in any frequent itemset with name + section.
+    # prod_world already covers world; we still need description + section_code.
+    bundle_skus = sorted({s for itemset in support for s in itemset})
+    prod_meta: dict[str, dict] = {}
+    for start in range(0, len(bundle_skus), 10000):
+        for r in crm.query("""
+            SELECT p.product_reference, p.product_description, p.section_code, t.world
+            FROM ecom_products p
+            JOIN section_taxonomy t
+              ON p.section_code = t.section_code
+             AND p.source_country = t.source_country
+            WHERE p.source_country = %s
+              AND p.product_reference = ANY(%s)
+        """, (COUNTRY, bundle_skus[start:start + 10000])):
+            prod_meta[r["product_reference"]] = {
+                "name": r["product_description"],
+                "section": r["section_code"],
+                "world": r["world"],
+            }
+    bundle_outputs = build_outputs(support, rules, prod_meta, n_kept)
+    step(f"  → {len(bundle_outputs['bundles_4'])} bundles · "
+         f"{len(bundle_outputs['rules_3to1'])} 3→1 · "
+         f"{len(bundle_outputs['rules_2to1'])} 2→1 "
+         f"(kept {n_kept:,}/{clean_stats['n_in']:,} baskets)")
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Add the new keys to the returned dict</strong></li>
+</ul>
+
+<p>Inside the <code>return {</code> dict, after the existing <code>"cross_sku_pairs": [...]</code> entry (line ~418-421), add:</p>
+
+<p><code></code>`python
+        "bundle_params": {
+            "min_support": min_support, "min_confidence": min_confidence,
+            "min_lift": min_lift, "max_basket_size": max_basket_size,
+            "max_worlds": max_worlds,
+        },
+        "bundle_clean_stats": clean_stats,
+        "bundles_4": bundle_outputs["bundles_4"],
+        "rules_3to1": bundle_outputs["rules_3to1"],
+        "rules_2to1": bundle_outputs["rules_2to1"],
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 6: Smoke-test the import + arg parsing (no DB hit yet)</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -c "import scripts.refresh_cross_family_baskets as m; print('import ok')"</code>
+Expected: <code>import ok</code> (verifies the <code>core.basket_bundles</code> import resolves)</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 7: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add scripts/refresh_cross_family_baskets.py
+git commit -m "feat: mine bundles + rules in cross-family refresh (Phase 5 + JSON)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-7-new-xlsx-sheets-bundles-4-bundle-rules">Task 7: New XLSX sheets (<code>bundles_4</code>, <code>bundle_rules</code>)</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>scripts/refresh_cross_family_baskets.py</code> (the <code>write_xlsx</code> function)</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Add the two sheets</strong></li>
+</ul>
+
+<p>In <code>write_xlsx(...)</code>, just before <code>wb.save(out_path)</code> (line 576), insert:</p>
+
+<p><code></code>`python
+    # 7. functional bundles of 4 (with best 2->2 decomposition rule)
+    def _names(items):
+        return " + ".join((it["name"] or "")[:22] for it in items)</p>
+
+<p>def _rule_str(rule):
+        if not rule:
+            return ""
+        a = " + ".join(it["sku"] for it in rule["antecedent"])
+        c = " + ".join(it["sku"] for it in rule["consequent"])
+        return f"{a} → {c}  (conf {rule['confidence']:.2f}, lift {rule['lift']:.2f})"</p>
+
+<p>add("bundles_4",
+        ["sku_a", "sku_b", "sku_c", "sku_d", "products", "worlds",
+         "support", "support_%", "best_2to2_rule"],
+        [[*[it["sku"] for it in b["items"]],
+          _names(b["items"]),
+          " / ".join(it["world"] for it in b["items"]),
+          b["support"], b["support_pct"], _rule_str(b["best_rule"])]
+         for b in data["bundles_4"]],
+        [14, 14, 14, 14, 50, 30, 10, 10, 52])</p>
+
+<p># 8. association rules (3->1 then 2->1)
+    def _rule_rows(rows, kind):
+        out = []
+        for r in rows:
+            out.append([
+                kind,
+                " + ".join(it["sku"] for it in r["antecedent"]),
+                " + ".join((it["name"] or "")[:22] for it in r["antecedent"]),
+                r["consequent"][0]["sku"],
+                (r["consequent"][0]["name"] or "")[:30],
+                r["support"], round(r["confidence"], 3), round(r["lift"], 2),
+            ])
+        return out</p>
+
+<p>add("bundle_rules",
+        ["type", "antecedent_skus", "antecedent_names",
+         "consequent_sku", "consequent_name", "support", "confidence", "lift"],
+        _rule_rows(data["rules_3to1"], "3→1") + _rule_rows(data["rules_2to1"], "2→1"),
+        [8, 26, 40, 16, 32, 10, 12, 10])
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run the full refresh on real data (90d FR)</strong></li>
+</ul>
+
+<p>Run: <code>set PYTHONIOENCODING=utf-8 && venv\Scripts\python.exe -m scripts.refresh_cross_family_baskets --days 90</code>
+(PowerShell: <code>$env:PYTHONIOENCODING="utf-8"; venv\Scripts\python.exe -m scripts.refresh_cross_family_baskets --days 90</code>)
+Expected: completes; prints the Phase 5 line with non-zero bundles; writes
+<code>exports/cross_family_baskets_FR_<today>_d90_ALL.xlsx</code> + <code>.json</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Sanity-check the JSON output</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -c "import json,glob,os; f=max(glob.glob('exports/cross_family_baskets_FR_*_d90_ALL.json'), key=os.path.getmtime); d=json.load(open(f,encoding='utf-8')); print('bundles', len(d['bundles_4'])); print('3to1', len(d['rules_3to1'])); print('2to1', len(d['rules_2to1'])); print('kept', d['bundle_clean_stats'])"</code>
+Expected: non-zero <code>bundles</code>, and <code>kept</code> showing ~5% dropped. Eyeball the first bundle: <code>venv\Scripts\python.exe -c "import json,glob,os; f=max(glob.glob('exports/cross_family_baskets_FR_*_d90_ALL.json'), key=os.path.getmtime); d=json.load(open(f,encoding='utf-8')); import pprint; pprint.pprint(d['bundles_4'][0])"</code> — confirm 4 items with names/worlds and a best_rule.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Note the Phase 5 runtime</strong></li>
+</ul>
+
+<p>If the refresh's Phase 5 step takes more than ~3 minutes, record it in the spec's
+"risque perf" note and consider adding anti-monotone pruning to
+<code>mine_frequent_itemsets</code> (count an r-combo only when all its (r-1)-subsets are
+frequent). Otherwise leave as-is.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add scripts/refresh_cross_family_baskets.py
+git commit -m "feat: bundles_4 + bundle_rules XLSX sheets"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="phase-c-dashboard-panel">Phase C — Dashboard panel</h2>
+
+<h3 id="task-8-load-latest-snapshot-bundles-in-the-panel-route">Task 8: Load latest snapshot bundles in the panel route</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>dashboard/app.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Add a snapshot-loader helper</strong></li>
+</ul>
+
+<p>Just above the <code>@app.get("/panel/cross-family-baskets"...)</code> decorator (line 1398), add:</p>
+
+<p><code></code>`python
+import glob as _glob
+import json as _json</p>
+
+<p>def _load_latest_cfb_bundles(days: int, channel: str) -> dict:
+    """Load the bundles/rules section from the most recent matching cross-family
+    snapshot. Mining is offline (refresh script); the panel only reads it.
+    Returns {} when no snapshot exists for this (days, channel)."""
+    pattern = str(_AC_EXPORTS_DIR / f"cross_family_baskets_FR_*_d{days}_{channel}.json")
+    matches = _glob.glob(pattern)
+    if not matches:
+        return {}
+    latest = max(matches, key=_os.path.getmtime)
+    try:
+        d = _json.loads(Path(latest).read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return {
+        "bundles_4": d.get("bundles_4", []),
+        "rules_3to1": d.get("rules_3to1", []),
+        "rules_2to1": d.get("rules_2to1", []),
+        "bundle_params": d.get("bundle_params", {}),
+        "bundle_clean_stats": d.get("bundle_clean_stats", {}),
+        "bundle_snapshot_at": (d.get("computed_at") or "")[:19],
+    }
+<code></code>`</p>
+
+<p>Note: <code>_AC_EXPORTS_DIR</code> is defined at line ~4891 — if the helper is placed before
+that definition, instead inline the path: <code>Path(__file__).resolve().parent.parent / "exports"</code>.
+Verify which symbol is in scope; prefer the existing <code>_AC_EXPORTS_DIR</code> if available,
+else use the inline <code>Path(...)</code>. Confirm <code>_os</code> / <code>os</code> import name in the file
+(<code>import os</code> → use <code>os.path.getmtime</code>).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Remove the live <code>cross_sku_pairs</code> computation</strong></li>
+</ul>
+
+<p>Delete Step 4 + Step 5 (lines ~1743-1840): the <code>cross_sku_pairs = crm.query(...)</code>
+block, the <code>sku_baskets</code> companion loop, <code>pair_companions</code>, <code>companion_meta</code>, and
+<code>cross_sku_pairs_enriched</code>. These are replaced by the snapshot bundles.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Swap the template context</strong></li>
+</ul>
+
+<p>In the <code>templates.TemplateResponse(...)</code> context dict (line ~1844), remove the
+<code>"cross_sku_pairs": cross_sku_pairs,</code> entry and add:</p>
+
+<p><code></code>`python
+            <em></em>_load_latest_cfb_bundles(days, channel),
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Restart the dashboard service + verify it boots</strong></li>
+</ul>
+
+<p>Run: <code>nssm restart LeadContagionDashboard</code>
+Then: <code>venv\Scripts\python.exe -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8001/healthz').status)"</code>
+(If there is no <code>/healthz</code>, request <code>/</code> — expect 401 from Basic Auth, which still proves the app booted.)
+Expected: the panel route imports cleanly (no 500 on <code>/panel/cross-family-baskets</code>).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add dashboard/app.py
+git commit -m "feat: panel loads bundles from latest snapshot, drops live pair query"
+<code></code>`</p>
+
+<p>---</p>
+
+<h3 id="task-9-render-the-three-tables-in-the-template">Task 9: Render the three tables in the template</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>dashboard/templates/_cross_family_baskets.html</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Replace the C/D section</strong></li>
+</ul>
+
+<p>Replace the entire <code><div class="cfb-section"></code> block titled "Top cross-world SKU
+pairs &amp; their bundle expansion (C / D)" (lines ~166-220, from that opening
+<code><div class="cfb-section"></code> through its closing <code></div></code> inside the <code>cfb-grid</code>)
+with the markup below. Keep the surrounding <code>cfb-grid</code> / "Top cross-world pairs"
+sibling section intact.</p>
+
+<p><code></code>`html
+    <div class="cfb-section">
+        <h3>Bundles fonctionnels — 4 produits (panier nettoyé)</h3>
+        <p class="note">
+            Vrais itemsets de 4 SKU minés sur les paniers FR nettoyés
+            (réassorts exclus : taille &gt; {{ bundle_params.max_basket_size or 20 }}
+            ou ≥ {{ bundle_params.max_worlds or 5 }} univers).
+            <b>Support</b> = nb de paniers contenant les 4. <b>Règle 2→2</b> =
+            la meilleure décomposition « {a,b} → {c,d} » (confiance = P(c,d | a,b)).
+            {% if bundle_snapshot_at %}<br>Snapshot du {{ bundle_snapshot_at }}
+            · support ≥ {{ bundle_params.min_support or 25 }}.{% endif %}
+        </p>
+        {% if bundles_4 %}
+        <table class="cfb-table">
+            <thead>
+                <tr>
+                    <th>Bundle (4 produits)</th>
+                    <th class="num">Support</th>
+                    <th>Meilleure règle 2→2</th>
+                    <th class="num">Conf.</th>
+                    <th class="num">Lift</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in bundles_4 %}
+                <tr>
+                    <td>
+                        {% for it in b.items %}
+                        <div>
+                            <span class="pill {{ it.world|lower }}">{{ it.world }}</span>
+                            <span style="color:#888; font-size:0.7rem;">{{ it.sku }}</span>
+                            <span style="color:#d8d8de;">{{ (it.name or '—')[:38] }}</span>
+                        </div>
+                        {% endfor %}
+                    </td>
+                    <td class="num">{{ "{:,}".format(b.support).replace(',', ' ') }}
+                        <br><span class="muted" style="font-size:0.68rem;">{{ "%.2f"|format(b.support_pct) }}%</span></td>
+                    <td>
+                        {% if b.best_rule %}
+                        <span style="color:#88a0c0;">{% for it in b.best_rule.antecedent %}{{ it.sku }}{% if not loop.last %} + {% endif %}{% endfor %}</span>
+                        <span style="color:#06d6a0;"> → </span>
+                        <span style="color:#88c098;">{% for it in b.best_rule.consequent %}{{ it.sku }}{% if not loop.last %} + {% endif %}{% endfor %}</span>
+                        {% else %}<span class="muted">—</span>{% endif %}
+                    </td>
+                    <td class="num">{% if b.best_rule %}{{ "%.0f"|format(b.best_rule.confidence * 100) }}%{% else %}—{% endif %}</td>
+                    <td class="num">{% if b.best_rule %}{{ "%.2f"|format(b.best_rule.lift) }}{% else %}—{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="muted">
+            Aucun snapshot de bundles pour cette fenêtre. Lance
+            <code>python -m scripts.refresh_cross_family_baskets --days {{ days }}</code>
+            (channel {{ channel }}) pour le générer.
+        </p>
+        {% endif %}
+    </div>
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Add the secondary (3→1) and tertiary (2→1) tables</strong></li>
+</ul>
+
+<p>Immediately after the closing <code></div></code> of the <code>cfb-grid</code> that contains the two
+sections above (i.e. after the "Top cross-world pairs" + "Bundles fonctionnels"
+grid closes, before the triplets/quadruplets grid at line ~223), insert:</p>
+
+<p><code></code>`html
+{% if bundles_4 %}
+<div class="cfb-grid" style="margin-top: 1.2rem;">
+    <div class="cfb-section">
+        <h3>Règles d'association — {a,b,c} → d</h3>
+        <p class="note">Si le client achète les 3 antécédents, probabilité qu'il prenne aussi le 4ᵉ. Triées par lift, confiance ≥ {{ "%.0f"|format((bundle_params.min_confidence or 0.30) * 100) }}%.</p>
+        {% if rules_3to1 %}
+        <table class="cfb-table">
+            <thead><tr><th>{a, b, c}</th><th>→ d</th><th class="num">Supp.</th><th class="num">Conf.</th><th class="num">Lift</th></tr></thead>
+            <tbody>
+                {% for r in rules_3to1 %}
+                <tr>
+                    <td>{% for it in r.antecedent %}<span style="color:#888;font-size:0.7rem;">{{ it.sku }}</span> <span style="color:#d8d8de;">{{ (it.name or '—')[:20] }}</span>{% if not loop.last %}<br>{% endif %}{% endfor %}</td>
+                    <td><span class="pill {{ r.consequent[0].world|lower }}">{{ r.consequent[0].world }}</span> {{ (r.consequent[0].name or '—')[:24] }}</td>
+                    <td class="num">{{ r.support }}</td>
+                    <td class="num">{{ "%.0f"|format(r.confidence * 100) }}%</td>
+                    <td class="num">{{ "%.2f"|format(r.lift) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}<p class="muted">Aucune règle 3→1 au-dessus des seuils.</p>{% endif %}
+    </div></p>
+
+<div class="cfb-section">
+        <h3>Règles d'association — {a,b} → c</h3>
+        <p class="note">Variante à 2 antécédents (issue des itemsets de 3). Triées par lift, confiance ≥ {{ "%.0f"|format((bundle_params.min_confidence or 0.30) * 100) }}%.</p>
+        {% if rules_2to1 %}
+        <table class="cfb-table">
+            <thead><tr><th>{a, b}</th><th>→ c</th><th class="num">Supp.</th><th class="num">Conf.</th><th class="num">Lift</th></tr></thead>
+            <tbody>
+                {% for r in rules_2to1 %}
+                <tr>
+                    <td>{% for it in r.antecedent %}<span style="color:#888;font-size:0.7rem;">{{ it.sku }}</span> <span style="color:#d8d8de;">{{ (it.name or '—')[:20] }}</span>{% if not loop.last %}<br>{% endif %}{% endfor %}</td>
+                    <td><span class="pill {{ r.consequent[0].world|lower }}">{{ r.consequent[0].world }}</span> {{ (r.consequent[0].name or '—')[:24] }}</td>
+                    <td class="num">{{ r.support }}</td>
+                    <td class="num">{{ "%.0f"|format(r.confidence * 100) }}%</td>
+                    <td class="num">{{ "%.2f"|format(r.lift) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}<p class="muted">Aucune règle 2→1 au-dessus des seuils.</p>{% endif %}
+    </div>
+</div>
+{% endif %}
+<code></code>`
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Update the footer note</strong></li>
+</ul>
+
+<p>In the closing <code><p></code> footer (line ~631-638), replace the sentence beginning
+"Pair grain = <code>product_co_occurrence</code>..." with:</p>
+
+<p><code></code>`html
+    Bundles &amp; règles = itemsets de 1 à 4 SKU minés (Apriori) sur les paniers FR
+    nettoyés de la fenêtre, snapshot via <code>scripts/refresh_cross_family_baskets.py</code>.
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Restart + visual check</strong></li>
+</ul>
+
+<p>Run: <code>nssm restart LeadContagionDashboard</code>
+Open <code>http://127.0.0.1:8001/</code> → Customers/Journey tab containing the
+cross-family-baskets panel → confirm: the "Bundles fonctionnels — 4 produits"
+table renders with pills + support + 2→2 rule, and the 3→1 / 2→1 tables appear
+below. Toggle the 90d window to confirm it matches the snapshot just generated.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add dashboard/templates/_cross_family_baskets.html
+git commit -m "feat: render bundles-4 + 3->1/2->1 rule tables in panel"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="final-verification">Final verification</h2>
+
+<ul class="article-list">
+  <li>[ ] <strong>Full test suite green</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/ -v</code>
+Expected: all pass.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>End-to-end snapshot + panel match</strong></li>
+</ul>
+
+<p>Re-run the refresh for 90d, reload the panel, confirm the displayed bundles match
+the JSON (<code>bundles_4[0]</code>). Confirm the noise-filter caption shows the params.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>No regressions in the rest of the panel</strong></li>
+</ul>
+
+<p>Confirm the world matrix, top world pairs/triples/quads, party-dimension tables,
+and sold-to/ship-to tables all still render (they were untouched).</p>
+
+<p>---</p>
+
+<h2 id="self-review-notes-addressed">Self-review notes (addressed)</h2>
+
+<ul class="article-list">
+  <li><strong>Spec coverage:</strong> grain SKU-exact ✓ (no cross-world constraint applied in mining);</li>
+</ul>
+  section/world shown per item ✓ (<code>item_obj</code>); noise filter ✓ (<code>clean_baskets</code>);
+  min_support/confidence/lift ✓ (args + functions); 2→2 primary / 3→1 secondary /
+  2→1 tertiary ✓ (<code>build_outputs</code> + template). Offline execution ✓ (snapshot loader).
+<ul class="article-list">
+  <li><strong>§5.3 open item resolved:</strong> panel reads latest snapshot JSON (no live mining);</li>
+</ul>
+  support/confidence are baked into the snapshot and shown as a caption (tuning =
+  re-run refresh with CLI args), since live mining is out of scope per the spec.
+<ul class="article-list">
+  <li><strong>Type consistency:</strong> rule dicts always carry <code>antecedent</code>/<code>consequent</code> as</li>
+</ul>
+  <code>frozenset</code> inside the engine and as enriched item-lists after <code>build_outputs</code>;
+  <code>support</code>/<code>confidence</code>/<code>lift</code> keys are stable across <code>generate_rules</code>,
+  <code>best_2to2_rule</code>, and <code>build_outputs</code>.
+<code></code>`
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#task-1-bootstrap-pytest">Task 1: Bootstrap pytest</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-2-clean-baskets">Task 2: `clean_baskets`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-3-mine-frequent-itemsets">Task 3: `mine_frequent_itemsets`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-4-generate-rules">Task 4: `generate_rules`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-5-best-2to2-rule-build-outputs">Task 5: `best_2to2_rule` + `build_outputs`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-6-wire-mining-into-refresh-cross-family-baskets-py-compute-json">Task 6: Wire mining into `refresh_cross_family_baskets.py` (compute + JSON)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-7-new-xlsx-sheets-bundles-4-bundle-rules">Task 7: New XLSX sheets (`bundles_4`, `bundle_rules`)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-8-load-latest-snapshot-bundles-in-the-panel-route">Task 8: Load latest snapshot bundles in the panel route</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-9-render-the-three-tables-in-the-template">Task 9: Render the three tables in the template</a></li>
+<li><a href="#spec">Spec</a></li>
+<li><a href="#key-calibrated-facts-90d-fr-already-measured">Key calibrated facts (90d FR, already measured)</a></li>
+<li><a href="#file-structure">File Structure</a></li>
+<li><a href="#conventions-to-follow-from-claude-md">Conventions to follow (from CLAUDE.md)</a></li>
+<li><a href="#phase-a-core-mining-module-tdd">Phase A — Core mining module (TDD)</a></li>
+<li><a href="#phase-b-snapshot-refresh-integration">Phase B — Snapshot refresh integration</a></li>
+<li><a href="#phase-c-dashboard-panel">Phase C — Dashboard panel</a></li>
+<li><a href="#final-verification">Final verification</a></li>
+<li><a href="#self-review-notes-addressed">Self-review notes (addressed)</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

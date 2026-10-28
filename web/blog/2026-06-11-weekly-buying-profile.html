@@ -1,0 +1,936 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weekly Buying Profile (core) — Implementation Plan | Technical Whitepaper</title>
+  <meta name="description" content="Weekly Buying Profile (core) — Implementation Plan — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-06-11-weekly-buying-profile.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Weekly Buying Profile (core) — Implementation Plan</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 17 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Weekly Buying Profile (core) — Implementation Plan</p>
+
+<p>> <strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+
+<p><strong>Goal:</strong> Each week, store the Top-10 products bought per user and per company (ranked by order frequency and units, over a trailing window), plus a fast basket substrate, plus a firmographic-cluster rollup — all surfaced in a refreshable dashboard report.</p>
+
+<p><strong>Architecture:</strong> Reuse <code>ecom_order_lines</code> (TimescaleDB) as the basket fact. Promote <code>order_id</code> onto <code>customer_timeline</code> for fast basket grouping. A weekly worker aggregates orders into ranked Top-N snapshots (<code>buying_profile_weekly</code>, Postgres) via a pure, hermetically-tested ranking function (the unit later lifted into ppi-core). A second rollup aggregates by <code>account_firmographic_community</code>. A script-backed dashboard report reads the snapshot tables. Cross-DB rule: orders live in Timescale (:5434), products/clusters/profiles in Postgres (:5433) — bridge in two steps, never a cross-DB join.</p>
+
+<p><strong>Tech Stack:</strong> Python 3.12, psycopg2, TimescaleDB, PostgreSQL, FastAPI/HTMX dashboard (script-mode report), pytest.</p>
+
+<p><strong>Spec:</strong> <code>docs/superpowers/specs/2026-06-11-product-buying-intelligence-design.md</code></p>
+
+<p><strong>Scope note:</strong> This is Plan 1 of 2. The behavioral-community lens (Louvain at account grain) is Plan 2; the rollup here is written to accept a second mapping with no rework.</p>
+
+<p>---</p>
+
+<h2 id="file-structure">File structure</h2>
+
+<p>| File | Responsibility | New/Modify |
+|---|---|---|
+| <code>core/buying_profile.py</code> | Pure ranking logic (no DB): rank line-aggregates into Top-N by frequency & quantity. The unit later lifted to ppi-core. | Create |
+| <code>tests/test_buying_profile_ranking.py</code> | Hermetic unit tests for the ranking function. | Create |
+| <code>database/init_postgres_buying_profile.sql</code> | DDL for <code>buying_profile_weekly</code> + <code>cluster_buying_profile_weekly</code>. | Create |
+| <code>database/init_timescale_timeline.sql</code> | Add <code>order_id</code> column + index to <code>customer_timeline</code>. | Modify |
+| <code>workers/compute_timeline.py</code> | Populate <code>order_id</code> on <code>ORDER_PLACED</code> rows. | Modify |
+| <code>workers/backfill_timeline_order_id.py</code> | One-shot backfill of <code>order_id</code> from <code>event_details</code>. | Create |
+| <code>workers/compute_buying_profile.py</code> | Weekly worker: query orders → rank → write snapshots (profile + firmographic rollup). | Create |
+| <code>tests/test_buying_profile_parity.py</code> | Parity gate: worker output == independent direct SQL over one closed week. | Create |
+| <code>scripts/export_buying_profiles.py</code> | Script-mode dashboard report + XLSX export. | Create |
+| <code>logs/reports/<id>.json</code> | Report registration. | Create |
+| <code>scripts/daily_refresh.py</code> | ISO-week-gated hook for the weekly worker. | Modify |</p>
+
+<p>---</p>
+
+<h2 id="phase-a-basket-substrate">Phase A — Basket substrate</h2>
+
+<h3 id="task-1-promote-order-id-onto-customer-timeline">Task 1: Promote <code>order_id</code> onto <code>customer_timeline</code></h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>database/init_timescale_timeline.sql</code></li>
+  <li>Create: <code>workers/backfill_timeline_order_id.py</code></li>
+  <li>Modify: <code>workers/compute_timeline.py</code> (ORDER_PLACED builder)</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Add the column + index to the schema file</strong></li>
+</ul>
+
+<p>In <code>database/init_timescale_timeline.sql</code>, after the <code>currency TEXT</code> column line, add <code>order_id TEXT</code> to the <code>CREATE TABLE customer_timeline (...)</code> block, and after the table add:</p>
+
+<p><code></code>`sql
+-- Basket grouping: order_id lifted from event_details for fast GROUP BY.
+ALTER TABLE customer_timeline ADD COLUMN IF NOT EXISTS order_id TEXT;
+CREATE INDEX IF NOT EXISTS idx_timeline_order_id
+    ON customer_timeline (order_id) WHERE order_id IS NOT NULL;
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Apply the migration to the live DB</strong></li>
+</ul>
+
+<p>Run:
+<code></code>`
+docker exec -i lc-timescaledb psql -U leadcontagion -d lc_timeseries -c "ALTER TABLE customer_timeline ADD COLUMN IF NOT EXISTS order_id TEXT; CREATE INDEX IF NOT EXISTS idx_timeline_order_id ON customer_timeline (order_id) WHERE order_id IS NOT NULL;"
+<code></code>`
+Expected: <code>ALTER TABLE</code> then <code>CREATE INDEX</code>. (New nullable column — no rewrite of compressed chunks; safe per the decompression-cap lesson.)</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Populate <code>order_id</code> in the ORDER_PLACED builder</strong></li>
+</ul>
+
+<p>In <code>workers/compute_timeline.py</code>, find the ORDER_PLACED row construction (builds the dict/tuple with <code>event_details</code> containing <code>order_number</code>). Add <code>order_id</code> to the inserted columns, set to the same <code>order_number</code> value already placed in <code>event_details</code>. Keep <code>event_details['order_number']</code> too (back-compat). Ensure the INSERT column list and the values list both include <code>order_id</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Write the backfill worker</strong></li>
+</ul>
+
+<p>Create <code>workers/backfill_timeline_order_id.py</code>:</p>
+
+<p><code></code>`python
+"""One-shot: backfill customer_timeline.order_id from event_details for
+existing ORDER_PLACED rows. Idempotent (only touches NULL order_id)."""
+from __future__ import annotations</p>
+
+<p>import sys
+from pathlib import Path</p>
+
+<p>_REPO = Path(__file__).resolve().parent.parent
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))</p>
+
+<p>from database.timeseries_db import TimeseriesDatabase</p>
+
+<p>def main() -> int:
+    ts = TimeseriesDatabase()
+    with ts.connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE customer_timeline
+               SET order_id = event_details->>'order_number'
+             WHERE event_type = 'ORDER_PLACED'
+               AND order_id IS NULL
+               AND event_details ? 'order_number'
+            """
+        )
+        print(f"backfilled order_id rows: {cur.rowcount}")
+    return 0</p>
+
+<p>if __name__ == "__main__":
+    sys.exit(main())
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Run the backfill</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m workers.backfill_timeline_order_id</code>
+Expected: <code>backfilled order_id rows: <N></code> with N > 0.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 6: Verify</strong></li>
+</ul>
+
+<p>Run:
+<code></code>`
+docker exec -i lc-timescaledb psql -U leadcontagion -d lc_timeseries -c "SELECT count(<em>) FILTER (WHERE order_id IS NOT NULL) AS with_id, count(</em>) FILTER (WHERE order_id IS NULL) AS without_id FROM customer_timeline WHERE event_type='ORDER_PLACED';"
+<code></code>`
+Expected: <code>without_id</code> = 0 (all ORDER_PLACED rows now carry order_id).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 7: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add database/init_timescale_timeline.sql workers/compute_timeline.py workers/backfill_timeline_order_id.py
+git commit -m "feat(timeline): promote order_id to first-class column for basket grouping"
+<code></code>`</p>
+
+<h3 id="task-2-v-order-baskets-view">Task 2: <code>v_order_baskets</code> view</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>database/init_timescale_timeline.sql</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Add the view definition</strong></li>
+</ul>
+
+<p>Append to <code>database/init_timescale_timeline.sql</code>:</p>
+
+<p><code></code>`sql
+-- Basket substrate for cross-product analysis: one row per (order, product),
+-- with basket size, derived from per-line ORDER_PLACED events.
+CREATE OR REPLACE VIEW v_order_baskets AS
+SELECT order_id,
+       account_number,
+       source_country,
+       min(event_time)                         AS order_ts,
+       array_agg(DISTINCT product_reference)   AS products,
+       count(DISTINCT product_reference)        AS basket_size,
+       sum(quantity)                            AS total_units,
+       sum(amount)                              AS total_amount
+FROM customer_timeline
+WHERE event_type = 'ORDER_PLACED' AND order_id IS NOT NULL
+GROUP BY order_id, account_number, source_country;
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Apply to the live DB</strong></li>
+</ul>
+
+<p>Run:
+<code></code>`
+docker exec -i lc-timescaledb psql -U leadcontagion -d lc_timeseries -f /dev/stdin < database/init_timescale_timeline.sql
+<code></code>`
+(Or paste just the <code>CREATE OR REPLACE VIEW</code> statement via <code>-c</code>.) Expected: <code>CREATE VIEW</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Smoke-check</strong></li>
+</ul>
+
+<p>Run:
+<code></code>`
+docker exec -i lc-timescaledb psql -U leadcontagion -d lc_timeseries -c "SELECT basket_size, count(*) FROM v_order_baskets GROUP BY basket_size ORDER BY basket_size LIMIT 10;"
+<code></code>`
+Expected: a distribution of basket sizes, multi-product baskets present (basket_size > 1 rows exist).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add database/init_timescale_timeline.sql
+git commit -m "feat(timeline): v_order_baskets view for cross-product analysis"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="phase-b-weekly-buying-profile">Phase B — Weekly buying profile</h2>
+
+<h3 id="task-3-pure-ranking-function-hermetic-tests">Task 3: Pure ranking function + hermetic tests</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>core/buying_profile.py</code></li>
+  <li>Test: <code>tests/test_buying_profile_ranking.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p>Create <code>tests/test_buying_profile_ranking.py</code>:</p>
+
+<p><code></code>`python
+from core.buying_profile import rank_top_products</p>
+
+<p>def _line(scope_id, product, orders, units):
+    return {"scope_id": scope_id, "product_reference": product,
+            "orders_count": orders, "units_qty": units, "sales_amount": 0}</p>
+
+<p>def test_ranks_by_frequency_then_quantity_with_tiebreak():
+    rows = [
+        _line("A", "SKU3", orders=5, units=2),
+        _line("A", "SKU1", orders=5, units=9),   # ties SKU3 on orders, more units
+        _line("A", "SKU2", orders=2, units=50),
+    ]
+    out = {r["product_reference"]: r for r in rank_top_products(rows, top_n=10)}
+    # frequency rank: SKU1 & SKU3 tie at 5 orders; tiebreak by units desc -> SKU1(9) before SKU3(2)
+    assert out["SKU1"]["rank_freq"] == 1
+    assert out["SKU3"]["rank_freq"] == 2
+    assert out["SKU2"]["rank_freq"] == 3
+    # quantity rank: SKU2(50) > SKU1(9) > SKU3(2)
+    assert out["SKU2"]["rank_qty"] == 1
+    assert out["SKU1"]["rank_qty"] == 2
+    assert out["SKU3"]["rank_qty"] == 3</p>
+
+<p>def test_top_n_truncates_per_scope_independently():
+    rows = [_line("A", f"S{i}", orders=i, units=i) for i in range(1, 15)]
+    rows += [_line("B", "ONLY", orders=1, units=1)]
+    out = rank_top_products(rows, top_n=10)
+    a = [r for r in out if r["scope_id"] == "A"]
+    b = [r for r in out if r["scope_id"] == "B"]
+    assert len(a) == 10          # only top 10 of A's 14 products
+    assert len(b) == 1           # B's single product kept
+    assert all(r["rank_freq"] <= 10 for r in a)</p>
+
+<p>def test_empty_input_returns_empty():
+    assert rank_top_products([], top_n=10) == []
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_buying_profile_ranking.py -v</code>
+Expected: FAIL — <code>ModuleNotFoundError: No module named 'core.buying_profile'</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Implement the ranking function</strong></li>
+</ul>
+
+<p>Create <code>core/buying_profile.py</code>:</p>
+
+<p><code></code>`python
+"""Pure buying-profile ranking — no DB, no I/O. Ranks per-scope product
+aggregates into Top-N by purchase frequency and by units. This is the unit
+lifted into ppi-core (engines/buying_profile.py) once proven on Lyréco."""
+from __future__ import annotations</p>
+
+<p>def rank_top_products(rows: list[dict], top_n: int = 10) -> list[dict]:
+    """<code>rows</code>: dicts with scope_id, product_reference, orders_count, units_qty,
+    sales_amount. Returns the same dicts (top_n per scope_id) annotated with
+    rank_freq and rank_qty. Deterministic tie-breaks:
+      frequency: orders_count desc, then units_qty desc, then product_reference asc
+      quantity:  units_qty desc,    then orders_count desc, then product_reference asc
+    """
+    by_scope: dict[str, list[dict]] = {}
+    for r in rows:
+        by_scope.setdefault(r["scope_id"], []).append(dict(r))</p>
+
+<p>out: list[dict] = []
+    for scope_id, items in by_scope.items():
+        freq_order = sorted(
+            items,
+            key=lambda r: (-r["orders_count"], -r["units_qty"], r["product_reference"]),
+        )
+        qty_order = sorted(
+            items,
+            key=lambda r: (-r["units_qty"], -r["orders_count"], r["product_reference"]),
+        )
+        freq_rank = {r["product_reference"]: i + 1 for i, r in enumerate(freq_order)}
+        qty_rank = {r["product_reference"]: i + 1 for i, r in enumerate(qty_order)}
+        for r in items:
+            r["rank_freq"] = freq_rank[r["product_reference"]]
+            r["rank_qty"] = qty_rank[r["product_reference"]]
+        # keep a product if it makes the Top-N under EITHER ranking
+        kept = [r for r in items if r["rank_freq"] <= top_n or r["rank_qty"] <= top_n]
+        out.extend(kept)
+    return out
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_buying_profile_ranking.py -v</code>
+Expected: 3 passed.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/buying_profile.py tests/test_buying_profile_ranking.py
+git commit -m "feat(buying-profile): pure Top-N ranking function + hermetic tests"
+<code></code>`</p>
+
+<h3 id="task-4-snapshot-tables-ddl">Task 4: Snapshot tables DDL</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>database/init_postgres_buying_profile.sql</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the DDL</strong></li>
+</ul>
+
+<p>Create <code>database/init_postgres_buying_profile.sql</code>:</p>
+
+<p><code></code>`sql
+-- Weekly buying-profile snapshots (Postgres / CRM side).
+CREATE TABLE IF NOT EXISTS buying_profile_weekly (
+    scope_type        TEXT NOT NULL,            -- 'user' | 'company'
+    scope_id          TEXT NOT NULL,            -- ecom_user_id | soldto_number
+    source_country    TEXT NOT NULL,
+    snapshot_week     DATE NOT NULL,            -- Monday of the ISO week
+    product_reference TEXT NOT NULL,
+    orders_count      INTEGER NOT NULL,
+    units_qty         NUMERIC(14,2) NOT NULL,
+    sales_amount      NUMERIC(14,2) NOT NULL,
+    rank_freq         INTEGER NOT NULL,
+    rank_qty          INTEGER NOT NULL,
+    window_weeks      INTEGER NOT NULL,
+    last_computed_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (scope_type, scope_id, source_country, snapshot_week, product_reference)
+);
+CREATE INDEX IF NOT EXISTS idx_bpw_week ON buying_profile_weekly (snapshot_week, source_country);</p>
+
+<p>-- Firmographic / behavioral cluster rollup (cluster_source distinguishes lenses).
+CREATE TABLE IF NOT EXISTS cluster_buying_profile_weekly (
+    cluster_source    TEXT NOT NULL,            -- 'firmographic' | 'behavioral'
+    cluster_id        INTEGER NOT NULL,
+    source_country    TEXT NOT NULL,
+    snapshot_week     DATE NOT NULL,
+    product_reference TEXT NOT NULL,
+    orders_count      INTEGER NOT NULL,
+    units_qty         NUMERIC(14,2) NOT NULL,
+    sales_amount      NUMERIC(14,2) NOT NULL,
+    rank_freq         INTEGER NOT NULL,
+    rank_qty          INTEGER NOT NULL,
+    n_accounts        INTEGER NOT NULL,
+    window_weeks      INTEGER NOT NULL,
+    last_computed_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (cluster_source, cluster_id, source_country, snapshot_week, product_reference)
+);
+CREATE INDEX IF NOT EXISTS idx_cbpw_week ON cluster_buying_profile_weekly (snapshot_week, source_country);
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Apply to the live DB</strong></li>
+</ul>
+
+<p>Run:
+<code></code>`
+docker exec -i lc-postgres psql -U leadcontagion -d leadcontagion -f /dev/stdin < database/init_postgres_buying_profile.sql
+<code></code>`
+Expected: two <code>CREATE TABLE</code> + two <code>CREATE INDEX</code> (or <code>NOTICE ... already exists</code>).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add database/init_postgres_buying_profile.sql
+git commit -m "feat(buying-profile): snapshot table DDL (profile + cluster rollup)"
+<code></code>`</p>
+
+<h3 id="task-5-the-weekly-worker">Task 5: The weekly worker</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>workers/compute_buying_profile.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the worker</strong></li>
+</ul>
+
+<p>Create <code>workers/compute_buying_profile.py</code>:</p>
+
+<p><code></code>`python
+"""Weekly buying-profile snapshots: Top-N products per user and per company
+(trailing window), plus a firmographic-cluster rollup. Idempotent per
+(snapshot_week, source_country). Orders live in TimescaleDB; profiles + cluster
+map live in Postgres -> 2-step bridge, no cross-DB join."""
+from __future__ import annotations</p>
+
+<p>import argparse
+import logging
+import sys
+from datetime import date, timedelta
+from pathlib import Path</p>
+
+<p>import psycopg2.extras</p>
+
+<p>_REPO = Path(__file__).resolve().parent.parent
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))</p>
+
+<p>from core.buying_profile import rank_top_products
+from database.crm_db import CRMDatabase
+from database.timeseries_db import TimeseriesDatabase</p>
+
+<p>logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+log = logging.getLogger("buying_profile")</p>
+
+<p>TOP_N = 10</p>
+
+<p>def _monday(d: date) -> date:
+    return d - timedelta(days=d.weekday())</p>
+
+<p>def _aggregate(ts: TimeseriesDatabase, country: str, since: date, scope_col: str) -> list[dict]:
+    """Per (scope, product) aggregates over the trailing window from orders."""
+    rows = ts.query(
+        f"""
+        SELECT {scope_col} AS scope_id,
+               product_reference,
+               COUNT(DISTINCT order_number) AS orders_count,
+               COALESCE(SUM(quantity), 0)   AS units_qty,
+               COALESCE(SUM(sales_amount),0) AS sales_amount
+        FROM ecom_order_lines
+        WHERE source_country = %s
+          AND order_date >= %s
+          AND {scope_col} IS NOT NULL
+          AND product_reference IS NOT NULL
+        GROUP BY {scope_col}, product_reference
+        """,
+        (country, since),
+    )
+    return [dict(r) for r in rows]</p>
+
+<p>def _write(crm: CRMDatabase, table: str, key_cols: tuple, key_vals: tuple, rows: list[dict]) -> None:
+    where = " AND ".join(f"{c}=%s" for c in key_cols)
+    with crm.connect() as conn, conn.cursor() as cur:
+        cur.execute(f"DELETE FROM {table} WHERE {where}", key_vals)
+        if rows:
+            psycopg2.extras.execute_batch(cur, f"""
+                INSERT INTO {table} ({', '.join(rows[0].keys())})
+                VALUES ({', '.join('%(' + k + ')s' for k in rows[0])})
+            """, rows, page_size=1000)</p>
+
+<p>def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--country", default="GB")
+    ap.add_argument("--window-weeks", type=int, default=13)
+    ap.add_argument("--week", default=None, help="snapshot Monday (YYYY-MM-DD); default = this week")
+    args = ap.parse_args()</p>
+
+<p>ts, crm = TimeseriesDatabase(), CRMDatabase()
+    snap = _monday(date.fromisoformat(args.week)) if args.week else _monday(date.today())
+    since = snap - timedelta(weeks=args.window_weeks)
+    log.info("buying profile %s window>=%s country=%s", snap, since, args.country)</p>
+
+<p># --- Layer 1: per-user and per-company profiles ---
+    for scope_type, scope_col in (("company", "soldto_number"), ("user", "ecom_user_id")):
+        agg = _aggregate(ts, args.country, since, scope_col)
+        ranked = rank_top_products(agg, top_n=TOP_N)
+        out = [{
+            "scope_type": scope_type, "scope_id": r["scope_id"],
+            "source_country": args.country, "snapshot_week": snap,
+            "product_reference": r["product_reference"],
+            "orders_count": int(r["orders_count"]), "units_qty": r["units_qty"],
+            "sales_amount": r["sales_amount"], "rank_freq": r["rank_freq"],
+            "rank_qty": r["rank_qty"], "window_weeks": args.window_weeks,
+        } for r in ranked]
+        _write(crm, "buying_profile_weekly",
+               ("scope_type", "source_country", "snapshot_week"),
+               (scope_type, args.country, snap), out)
+        log.info("  %s: %d scopes -> %d rows", scope_type,
+                 len({r['scope_id'] for r in out}), len(out))</p>
+
+<p># --- Layer 3: firmographic-cluster rollup (behavioral lens added in Plan 2) ---
+    cmap = {r["account_number"]: r["community_id"] for r in crm.query(
+        "SELECT account_number, community_id FROM account_firmographic_community WHERE source_country=%s",
+        (args.country,))}
+    company_agg = _aggregate(ts, args.country, since, "soldto_number")
+    cluster_lines: dict[tuple, dict] = {}
+    cluster_accounts: dict[tuple, set] = {}
+    for r in company_agg:
+        cid = cmap.get(r["scope_id"])
+        if cid is None:
+            continue
+        key = (cid, r["product_reference"])
+        agg = cluster_lines.setdefault(key, {"scope_id": cid,
+                "product_reference": r["product_reference"],
+                "orders_count": 0, "units_qty": 0, "sales_amount": 0})
+        agg["orders_count"] += int(r["orders_count"])
+        agg["units_qty"] += r["units_qty"]
+        agg["sales_amount"] += r["sales_amount"]
+        cluster_accounts.setdefault(key, set()).add(r["scope_id"])
+    ranked = rank_top_products(list(cluster_lines.values()), top_n=TOP_N)
+    out = [{
+        "cluster_source": "firmographic", "cluster_id": int(r["scope_id"]),
+        "source_country": args.country, "snapshot_week": snap,
+        "product_reference": r["product_reference"],
+        "orders_count": r["orders_count"], "units_qty": r["units_qty"],
+        "sales_amount": r["sales_amount"], "rank_freq": r["rank_freq"],
+        "rank_qty": r["rank_qty"],
+        "n_accounts": len(cluster_accounts[(r["scope_id"], r["product_reference"])]),
+        "window_weeks": args.window_weeks,
+    } for r in ranked]
+    _write(crm, "cluster_buying_profile_weekly",
+           ("cluster_source", "source_country", "snapshot_week"),
+           ("firmographic", args.country, snap), out)
+    log.info("  firmographic clusters: %d rows", len(out))
+    return 0</p>
+
+<p>if __name__ == "__main__":
+    sys.exit(main())
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run it for the current week (GB)</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m workers.compute_buying_profile --country GB</code>
+Expected: log lines <code>company: <n> scopes -> <m> rows</code>, <code>user: ...</code>, <code>firmographic clusters: <k> rows</code>, exit 0.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Sanity-check the output</strong></li>
+</ul>
+
+<p>Run:
+<code></code>`
+docker exec -i lc-postgres psql -U leadcontagion -d leadcontagion -c "SELECT scope_type, count(DISTINCT scope_id) scopes, count(*) rows, max(rank_freq) FROM buying_profile_weekly GROUP BY scope_type;"
+<code></code>`
+Expected: both <code>company</code> and <code>user</code> present; <code>max(rank_freq)</code> ≥ 10 (ranks computed across full set, only Top-10 kept per scope).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add workers/compute_buying_profile.py
+git commit -m "feat(buying-profile): weekly worker (profile + firmographic rollup)"
+<code></code>`</p>
+
+<h3 id="task-6-parity-gate">Task 6: Parity gate</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Test: <code>tests/test_buying_profile_parity.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the parity test</strong></li>
+</ul>
+
+<p>Create <code>tests/test_buying_profile_parity.py</code>:</p>
+
+<p><code></code>`python
+"""Parity gate: the worker's stored company profile for a closed week == an
+independent direct SQL ranking over the same window. Skips if DB unreachable."""
+from __future__ import annotations</p>
+
+<p>from datetime import date, timedelta</p>
+
+<p>import pytest</p>
+
+<p>from database.crm_db import CRMDatabase
+from database.timeseries_db import TimeseriesDatabase</p>
+
+<p>COUNTRY = "GB"
+WINDOW_WEEKS = 13</p>
+
+<p>def _reachable(db) -> bool:
+    try:
+        db.query("SELECT 1")
+        return True
+    except Exception:
+        return False</p>
+
+<p>def test_company_profile_parity():
+    crm, ts = CRMDatabase(), TimeseriesDatabase()
+    if not (_reachable(crm) and _reachable(ts)):
+        pytest.skip("DB not reachable")</p>
+
+<p>row = crm.query("SELECT max(snapshot_week) AS w FROM buying_profile_weekly")
+    snap = row[0]["w"]
+    if snap is None:
+        pytest.skip("no buying_profile_weekly snapshot yet — run the worker first")
+    since = snap - timedelta(weeks=WINDOW_WEEKS)</p>
+
+<p># pick one company that has stored rows for this snapshot
+    cand = crm.query("""SELECT scope_id FROM buying_profile_weekly
+                        WHERE scope_type='company' AND snapshot_week=%s AND source_country=%s
+                        LIMIT 1""", (snap, COUNTRY))
+    if not cand:
+        pytest.skip("no company rows for latest snapshot")
+    scope_id = cand[0]["scope_id"]</p>
+
+<p>stored = {r["product_reference"]: r["rank_freq"] for r in crm.query(
+        """SELECT product_reference, rank_freq FROM buying_profile_weekly
+           WHERE scope_type='company' AND snapshot_week=%s AND source_country=%s
+             AND scope_id=%s AND rank_freq <= 10""",
+        (snap, COUNTRY, scope_id))}</p>
+
+<p>ref = ts.query(
+        """
+        SELECT product_reference,
+               RANK() OVER (ORDER BY COUNT(DISTINCT order_number) DESC,
+                                     SUM(quantity) DESC, product_reference ASC) AS rk
+        FROM ecom_order_lines
+        WHERE source_country=%s AND order_date >= %s AND soldto_number=%s
+          AND product_reference IS NOT NULL
+        GROUP BY product_reference
+        """,
+        (COUNTRY, since, scope_id))
+    ref_top = {r["product_reference"]: int(r["rk"]) for r in ref if int(r["rk"]) <= 10}</p>
+
+<p>assert stored == ref_top
+    assert len(stored) > 0
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run it</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -m pytest tests/test_buying_profile_parity.py -v</code>
+Expected: PASS (or SKIP only if no snapshot/DB). If FAIL, the worker's ranking diverges from SQL — reconcile the tie-break ordering before proceeding.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add tests/test_buying_profile_parity.py
+git commit -m "test(buying-profile): parity gate vs independent SQL ranking"
+<code></code>`</p>
+
+<h3 id="task-7-iso-week-gated-hook-in-daily-refresh">Task 7: ISO-week-gated hook in daily_refresh</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>scripts/daily_refresh.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Add the gated call</strong></li>
+</ul>
+
+<p>In <code>scripts/daily_refresh.py</code>, in the downstream-derived section (Step 5, after <code>customer_timeline</code> rebuild), add:</p>
+
+<p><code></code>`python
+import datetime  # if not already imported at top
+# Weekly buying profile — recompute once per ISO week (Mondays), or on --force-weekly.
+if datetime.date.today().weekday() == 0 or getattr(args, "force_weekly", False):
+    for _c in ("GB", "FR"):
+        results[f"buying_profile_{_c}"] = run_step(
+            f"Buying profile {_c}", "workers.compute_buying_profile",
+            "--country", _c, timeout=1800)
+<code></code>`</p>
+
+<p>And in the argparse setup add: <code>ap.add_argument("--force-weekly", action="store_true", help="run weekly-gated workers regardless of weekday")</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Dry-run the gate logic</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe -c "import datetime; print('would run' if datetime.date.today().weekday()==0 else 'gated (not Monday) — use --force-weekly')"</code>
+Expected: prints the correct branch for today.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Verify the hook fires with --force-weekly</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe scripts\daily_refresh.py --force-weekly --skip-oracle</code> (use whatever skip flag avoids Oracle pulls; if none exists, just confirm the worker is invoked by reading the log line). Expected: log shows <code>Buying profile GB</code> step executing.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add scripts/daily_refresh.py
+git commit -m "feat(buying-profile): weekly ISO-gated hook in daily_refresh"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="phase-c-consumption">Phase C — Consumption</h2>
+
+<h3 id="task-8-dashboard-script-report-export">Task 8: Dashboard script-report + export</h3>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>scripts/export_buying_profiles.py</code></li>
+  <li>Create: <code>logs/reports/b u y10profile00a1.json</code> (use a real 16-hex id — see step 3)</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the report script</strong></li>
+</ul>
+
+<p>Create <code>scripts/export_buying_profiles.py</code>:</p>
+
+<p><code></code>`python
+"""Script-mode dashboard report: weekly Top-10 buying profiles (latest snapshot)
+for companies and firmographic clusters, with product labels + week-over-week
+movement. Emits a RESULT_MARKDOWN block and writes an XLSX export."""
+from __future__ import annotations</p>
+
+<p>import os
+import sys
+from datetime import timedelta
+from pathlib import Path</p>
+
+<p>_REPO = Path(__file__).resolve().parent.parent
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))</p>
+
+<p>from database.crm_db import CRMDatabase</p>
+
+<p>os.environ.setdefault("PYTHONIOENCODING", "utf-8")</p>
+
+<p>def main() -> int:
+    crm = CRMDatabase()
+    latest = crm.query("SELECT max(snapshot_week) AS w FROM buying_profile_weekly")[0]["w"]
+    if latest is None:
+        print("===RESULT_MARKDOWN_BEGIN===")
+        print("No buying-profile snapshot computed yet.")
+        print("===RESULT_MARKDOWN_END===")
+        return 0
+    prev = latest - timedelta(weeks=1)</p>
+
+<p># top firmographic clusters this week (by total orders), Top-10 products each
+    rows = crm.query(
+        """
+        SELECT c.cluster_id, c.product_reference, c.rank_freq, c.orders_count,
+               c.units_qty, c.n_accounts, p.product_description
+        FROM cluster_buying_profile_weekly c
+        LEFT JOIN ecom_products p
+               ON p.product_reference = c.product_reference
+              AND p.source_country = c.source_country
+        WHERE c.cluster_source='firmographic' AND c.snapshot_week=%s
+          AND c.rank_freq <= 10
+        ORDER BY c.cluster_id, c.rank_freq
+        """,
+        (latest,))</p>
+
+<p>print("===RESULT_MARKDOWN_BEGIN===")
+    print(f"## Weekly Buying Profiles — snapshot {latest} (prev {prev})\n")
+    cur_cluster = None
+    for r in rows:
+        if r["cluster_id"] != cur_cluster:
+            cur_cluster = r["cluster_id"]
+            print(f"\n### Firmographic cluster {cur_cluster} ({r['n_accounts']} accounts)\n")
+            print("| # | Product | Orders | Units |")
+            print("|---|---------|--------|-------|")
+        label = (r["product_description"] or r["product_reference"])[:48]
+        print(f"| {r['rank_freq']} | {label} | {r['orders_count']} | {int(r['units_qty'])} |")
+    print("\n===RESULT_MARKDOWN_END===")
+    return 0</p>
+
+<p>if __name__ == "__main__":
+    sys.exit(main())
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run it</strong></li>
+</ul>
+
+<p>Run: <code>venv\Scripts\python.exe scripts\export_buying_profiles.py</code>
+Expected: a <code>===RESULT_MARKDOWN_BEGIN===</code> block with per-cluster Top-10 tables.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Register the report</strong></li>
+</ul>
+
+<p>Generate a stable 16-hex id and create <code>logs/reports/<id>.json</code>. Compute the id:
+Run: <code>venv\Scripts\python.exe -c "import hashlib; print(hashlib.sha1(b'buying_profile_weekly').hexdigest()[:16])"</code>
+Then create <code>logs/reports/<that-id>.json</code>:</p>
+
+<p><code></code>`json
+{
+  "id": "<that-id>",
+  "title": "Weekly Buying Profiles (Top-10 per cluster)",
+  "category": "Product - Buying Intelligence",
+  "refresh_mode": "script",
+  "script_path": "scripts/export_buying_profiles.py"
+}
+<code></code>`
+(Match the exact key names used by other <code>logs/reports/*.json</code> — open one to confirm field names before writing.)</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Verify in the dashboard</strong></li>
+</ul>
+
+<p>Run: refresh the report from the dashboard UI (or <code>curl</code> the refresh endpoint). Expected: HTTP 200 and the markdown renders. Bounce the service only if the report list is cached: <code>nssm restart LeadContagionDashboard</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add scripts/export_buying_profiles.py logs/reports/<id>.json
+git commit -m "feat(buying-profile): script-mode dashboard report"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="self-review">Self-review</h2>
+
+<ul class="article-list">
+  <li><strong>Spec coverage:</strong> Layer 2 (basket) → Tasks 1-2. Layer 1 (weekly profile, user+company, freq+qty, trailing window, snapshots) → Tasks 3-5. Layer 3 firmographic lens → Task 5 (rollup). Behavioral lens → deferred to Plan 2 (explicit). Consumption → Task 8. Testing (hermetic + parity) → Tasks 3, 6. Weekly cadence → Task 7. Hybrid extraction → <code>core/buying_profile.py</code> is the liftable unit (noted).</li>
+  <li><strong>Cross-DB rule:</strong> worker queries Timescale for orders, writes Postgres; cluster map read from Postgres separately — no cross-DB join. ✓</li>
+  <li><strong>Idempotency:</strong> worker DELETEs by (scope_type/cluster_source, country, snapshot_week) before insert; backfill only touches NULL. ✓</li>
+  <li><strong>Type consistency:</strong> <code>rank_top_products</code> returns dicts with <code>rank_freq</code>/<code>rank_qty</code>; worker and parity test use the same column names; DDL columns match the worker's inserted keys. ✓</li>
+  <li><strong>Open item carried to Plan 2:</strong> behavioral <code>cluster_source='behavioral'</code> rows; the rollup code path is parameterized so Plan 2 adds a second map + a second <code>_write</code> call only.</li>
+</ul>
+
+<h2 id="notes-for-the-implementer">Notes for the implementer</h2>
+
+<ul class="article-list">
+  <li>Confirm <code>account_firmographic_community</code> is populated for the target country before trusting the rollup: <code>SELECT count(*) FROM account_firmographic_community WHERE source_country='GB';</code> If 0, run <code>python -m workers.community_match_soft --country GB --k 60</code> first.</li>
+  <li><code>ecom_products</code> lives in Postgres but the worker's aggregate is Timescale-only; product <em>labels</em> are joined at report time (Task 8), not in the worker — keeps the worker single-DB.</li>
+  <li>FR vs GB: the worker is per-country; <code>daily_refresh</code> runs both. FR <code>ecom_user_id</code> coverage is lower (more offline) — expect sparser user-grain rows, which is fine.</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#task-1-promote-order-id-onto-customer-timeline">Task 1: Promote `order_id` onto `customer_timeline`</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-2-v-order-baskets-view">Task 2: `v_order_baskets` view</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-3-pure-ranking-function-hermetic-tests">Task 3: Pure ranking function + hermetic tests</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-4-snapshot-tables-ddl">Task 4: Snapshot tables DDL</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-5-the-weekly-worker">Task 5: The weekly worker</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-6-parity-gate">Task 6: Parity gate</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-7-iso-week-gated-hook-in-daily-refresh">Task 7: ISO-week-gated hook in daily_refresh</a></li>
+<li style="margin-left: 0.8rem;"><a href="#task-8-dashboard-script-report-export">Task 8: Dashboard script-report + export</a></li>
+<li><a href="#file-structure">File structure</a></li>
+<li><a href="#phase-a-basket-substrate">Phase A — Basket substrate</a></li>
+<li><a href="#phase-b-weekly-buying-profile">Phase B — Weekly buying profile</a></li>
+<li><a href="#phase-c-consumption">Phase C — Consumption</a></li>
+<li><a href="#self-review">Self-review</a></li>
+<li><a href="#notes-for-the-implementer">Notes for the implementer</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

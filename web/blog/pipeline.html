@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Persona Pipeline | Technical Whitepaper</title>
+  <meta name="description" content="Persona Pipeline — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/pipeline.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Persona Pipeline</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 10 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Persona Pipeline</p>
+
+<p>This page is the technical reference for how the MatrAIx persona corpus is
+built — from the 1,290-dimension schema, through source curation and extraction,
+to synthetic generation, and finally the post-processing chain that produces the
+published 8.4B corpus and the 1M public coreset.</p>
+
+<p>It consolidates the per-stage engineering notes that previously lived in
+directory READMEs. Each stage below links to the actual code directory; run
+commands from the repository root unless stated otherwise. For the user-facing
+overview of the schema, the Treiver extractor, grounding tasks, and the public
+dataset, see [Persona](README.md).</p>
+
+<p>Large generated artifacts (raw dumps, <code>outputs/</code>, <code>results/</code>, <code>generated/</code>,
+SQLite DBs, worker archives, Parquet snapshots) are intentionally git-ignored at
+every stage; only scripts, small fixtures, and manifests are committed.</p>
+
+<h2 id="pipeline-at-a-glance">Pipeline at a glance</h2>
+
+<p><code></code>`text
+schema (1,290 dims)
+  │
+  ├─ curation ──────────────  attribute pool (schema construction)
+  │                           existing-data sources (Wiki, Amazon, surveys)
+  │
+  ├─ human_extraction ──────  1,290-dim personas from real profiles (vLLM)
+  │
+  ├─ synthesis ─────────────  Full-DAG graph → 10B synthetic personas
+  │                           visualization of the graph/schema
+  │
+  └─ post_process
+        quality_filter ─────  contradiction rules → reject bitmaps
+        deduplication ──────  human MinHash + synthetic projection dedup
+        unified_dataset ────  materialize retained rows to Parquet (Persona8B)
+        coreset_1m ─────────  calibrated 1M public coreset
+        dataset_statistics ─  aggregate profiling for paper tables/figures
+<code></code>`</p>
+
+<h2 id="schema">Schema</h2>
+
+<p>The 1,290-dimension categorical taxonomy is the contract every stage reads.
+It lives in [<code>../../persona/schema/</code>](../../persona/schema/):</p>
+
+<ul class="article-list">
+  <li><code>dimensions.json</code> — the 1,290 attributes across 43 categories, each with its</li>
+</ul>
+  allowed categorical values.
+<ul class="article-list">
+  <li><code>dimension_categories.json</code>, <code>persona_taxonomy.json</code>,</li>
+</ul>
+  <code>persona_taxonomy_mapping.csv</code> — category grouping and the official
+  taxonomy-table mapping (9 groups / 35 sub-categories / 1,290 attributes).
+<ul class="article-list">
+  <li><code>render_persona_schema_taxonomy.py</code> — renders the taxonomy figure.</li>
+</ul>
+
+<p>Extraction, synthesis, dedup, and calibration all validate values against this
+schema. See [Persona → schema](README.md#the-1290-dimension-schema) for the
+conceptual overview.</p>
+
+<h2 id="curation">Curation</h2>
+
+<p>Source: [<code>../../persona/curation/</code>](../../persona/curation/).</p>
+
+<h3 id="attribute-pool">Attribute pool</h3>
+
+<p>Directory: [<code>../../persona/curation/attribute_pool/</code>](../../persona/curation/attribute_pool/)</p>
+
+<p>Aggregation, normalization, and LLM-assisted deduplication of candidate persona
+attributes into the schema. <code>scripts/</code> holds the pipeline (aggregate →
+normalize → dedup → graph prep → final merge); <code>docs/</code> holds method notes
+(including <code>industry_related_persona_attributes.md</code>, which maps application
+domains to useful schema attributes); <code>sources/</code> holds small source notes.</p>
+
+<p>Only high-confidence <code>duplicate_of</code> / <code>alias_of</code> merge decisions are collapsed;
+correlated, inverse, broader/narrower, conflict, and review pairs stay as
+separate attributes represented as graph edges. Scripts resolve paths relative
+to the <code>attribute_pool/</code> directory: inputs in <code>sources/</code>, generated outputs in
+the git-ignored <code>outputs/</code> (see <code>OUTPUTS.md</code> for the large-artifact policy).</p>
+
+<h3 id="existing-data-curation">Existing-data curation</h3>
+
+<p>Directory: [<code>../../persona/curation/existing_data/</code>](../../persona/curation/existing_data/)</p>
+
+<p>Repo-local tools that build persona records from external datasets (Wikipedia
+person pages, Amazon Reviews 2023, and survey/reference registries) and package
+work for human collaborators.</p>
+
+<p>Layout: <code>manifests/</code> (source metadata), <code>protocols/</code> (prompt/schema contracts),
+<code>scripts/</code> (curation CLIs), <code>wiki_collab/</code> + <code>worker_kit/</code> (collaboration
+contracts and owner-side runners), <code>samples/</code>/<code>examples/</code> (small git fixtures).</p>
+
+<p>Typical flows:</p>
+
+<p><code></code>`bash
+# Fetch a small source sample into the ignored raw/ tree
+python persona/curation/existing_data/scripts/fetch_sources.py \
+  --source literature_references \
+  --target-dir persona/curation/existing_data/raw</p>
+
+<p># Build a local SQLite profile DB from cleaned Wikipedia person-page JSONL
+python persona/curation/existing_data/scripts/build_wiki_profile_db.py \
+  --clean-dir /path/to/person_pages_clean \
+  --out-db /tmp/wiki-profiles.sqlite \
+  --manifest /tmp/wiki-profiles.manifest.json \
+  --dataset-id personabench_wiki_profiles_v1</p>
+
+<p># Build a worker-facing collaboration package (unified entrypoint; --source wiki|amazon)
+python persona/curation/existing_data/scripts/make_package.py \
+  --source wiki --db /tmp/wiki-profiles.sqlite \
+  --dimensions persona/schema/dimensions.json \
+  --range 0:100 --out-dir /tmp/pkg_A_0_100 \
+  --assignment-id A_0_100 --worker-id alice \
+  --dataset-id personabench_wiki_profiles_v1 --dataset-sha256 DATASET_SHA256 --force
+<code></code>`</p>
+
+<p>A worker returns <code>results.jsonl</code>; validate and merge with
+<code>validate_wiki_results.py</code> / <code>merge_wiki_results.py</code> (archived flow) or
+<code>merge_collab_results.py</code> (plain worker packages). Amazon-specific helpers
+(<code>select_amazon_top_reviewers.py</code>, <code>export_hf_amazon_user_histories.py</code>,
+<code>infer_amazon_review_dimensions.py</code>, and the rating-holdout evaluator) follow
+the same pattern; a smoke-test fixture ships at
+<code>samples/amazon_reviews_2023/user_histories_sample.jsonl</code>. Small Nemotron
+selection fixtures live under <code>samples/</code>, and optional Modal/HuggingFace
+indexing needs the extra <code>pip install -e ".[amazon-modal]"</code> dependencies.</p>
+
+<p>> Do not confuse this directory with <code>persona/existing_data_curation/</code>, a
+> separate importable package exercised by the unit tests.</p>
+
+<h2 id="human-extraction">Human extraction</h2>
+
+<p>Directory: [<code>../../persona/human_extraction/</code>](../../persona/human_extraction/)</p>
+
+<p>Extracts 1,290-dim personas from <strong>real</strong> human data (MatrAIx wiki person
+profiles), in contrast to synthesis. The directory README doubles as a GPU
+runbook; the essentials:</p>
+
+<ul class="article-list">
+  <li><strong>Model</strong>: <code>Qwen/Qwen3.6-35B-A3B</code> (a multimodal hybrid-attention MoE, used</li>
+</ul>
+  text-only). Requires <code>transformers</code> 5.8.0 and <strong>vLLM ≥ 0.24.0</strong>.
+<ul class="article-list">
+  <li><strong>CUDA gotcha</strong>: match the torch CUDA build to the node's driver. The default</li>
+</ul>
+  vLLM 0.24.0 PyPI wheel targets CUDA 13 (<code>torch 2.11.0+cu130</code>); on a
+  driver-12.9 H200 you must force-install the <code>cu129</code> wheel or
+  <code>torch.cuda.is_available()</code> is <code>False</code>. Check <code>nvidia-smi | grep "CUDA Version"</code>
+  first.
+<ul class="article-list">
+  <li><strong>Cache pitfall</strong>: pin every cache to netscratch — including <code>HF_XET_CACHE</code>,</li>
+</ul>
+  which ignores <code>HF_HOME</code> and otherwise fills your home dir.
+<ul class="article-list">
+  <li><strong>Source data</strong>: gated HF SQLite <code>wiki/source/matraix_wiki_profiles_*.sqlite</code></li>
+</ul>
+  (~7.9 GB, ~2.13M <code>profiles</code> rows); downloaded into the git-ignored <code>data/</code>.
+<ul class="article-list">
+  <li><strong>Outputs</strong> land in the HF dataset <code>MatrAIx2026/MatrAIx-1290-extractions</code></li>
+</ul>
+  (this repo keeps scripts + a small sample only).
+
+<p>Run (from the repo root):</p>
+
+<p><code></code>`bash
+# throughput / config sweep (see docs/BENCHMARK.md)
+python persona/human_extraction/scripts/run_bench_extraction.py --random --n-profiles 20</p>
+
+<p># full run: single-card SLURM array, resumable (skips already-done global_idx)
+cd persona/human_extraction/jobs && mkdir -p sbatch_logs
+NUM_SHARDS=200 sbatch -p seas_gpu  --time=2-00:00 --array=0-99%50    extract_shard.job
+NUM_SHARDS=200 sbatch -p gpu_h200  --time=2-12:00 --array=100-199%50 extract_shard.job
+<code></code>`</p>
+
+<p>Each SLURM array task is an independent single-card job; the two arrays must
+cover <strong>disjoint</strong> shard ranges. Re-running the same lines tops up unfinished
+shards. Output is <code>data/wiki/extraction_v1/shard_XXXX.jsonl</code>, one JSON object per
+profile with ~1,290 field objects each carrying <code>value</code>, a 1–2 sentence
+<code>description</code> of the person, verbatim <code>evidence</code>, a <code>[0,1]</code> <code>confidence</code>, and an
+<code>assignment_type</code> (`direct | structured_claim | summary_inference |
+unsupported<code>). Prompts are chunked by schema </code>category` (≤ 50 dims/chunk).
+Selected config and quality caveats are in <code>docs/BENCHMARK.md</code>; inspect/score
+with <code>scripts/score_personas.py</code>.</p>
+
+<h2 id="synthesis">Synthesis</h2>
+
+<p>Source: [<code>../../persona/synthesis/</code>](../../persona/synthesis/). A Full-DAG graph over
+the schema drives synthetic persona sampling; the sampler and renderers live in
+<code>../../persona/synthesis/scripts/</code> (<code>sample_personas.py</code>, <code>render_personas.py</code>).</p>
+
+<h3 id="full-dag-10b-generation">Full-DAG 10B generation</h3>
+
+<p>Directory: [<code>../../persona/synthesis/jobs/graph_10b_generation/</code>](../../persona/synthesis/jobs/graph_10b_generation/)</p>
+
+<p>CPU-only SLURM templates that generate large synthetic shards as compressed
+graph <code>codes.gz</code> (not rendered text — render lazily for samples/analytics).
+Files: <code>generate_graph_shard.job</code> (one array task = one shard),
+<code>submit_graph_10b.sh</code> (submission wrapper), <code>monitor_generation.sh</code> (progress).</p>
+
+<p>Default output root is the git-ignored
+<code>persona/synthesis/generated/<RUN_TAG>/</code> with <code>shards/*.codes.gz</code>,
+matching <code>.schema.json</code>, and per-shard <code>manifests/*.manifest.json</code> (row count,
+seed, bytes, sha256, elapsed, host, SLURM metadata).</p>
+
+<p>Benchmark first (an "aggressive" default of 48 workers × 20 concurrent shards
+assumes real multi-core allocations), then submit:</p>
+
+<p><code></code>`bash
+cd persona/synthesis/jobs/graph_10b_generation</p>
+
+<p># small dry run: 2 shards × 1M rows
+TOTAL_SHARDS=2 ROWS_PER_SHARD=1000000 ARRAY_CONCURRENCY=2 \
+  CPUS_PER_TASK=48 WORKERS=48 TIME=0-01:00 RUN_TAG=full_dag_dryrun_2m \
+  ./submit_graph_10b.sh</p>
+
+<p># full 10B: 100 shards × 100M rows
+TOTAL_SHARDS=100 ROWS_PER_SHARD=100000000 ARRAY_CONCURRENCY=20 \
+  CPUS_PER_TASK=48 WORKERS=48 MEM=128G TIME=0-06:00 RUN_TAG=full_dag_10b_20260703 \
+  ./submit_graph_10b.sh
+<code></code>`</p>
+
+<p>Storage rule of thumb: ~404 compressed bytes/persona ⇒ 10B ≈ 4 TB (allow
+6–8 TB for codes-only, more for a Parquet/analytics copy). A shard job resumes
+by skipping shards whose <code>.codes.gz</code> and <code>.schema.json</code> already exist and are
+non-empty, so resubmitting the same <code>RUN_TAG</code>/counts only runs missing shards.
+Monitor with <code>./monitor_generation.sh <RUN_TAG> <SLURM_JOB_ID></code>.</p>
+
+<h3 id="visualization">Visualization</h3>
+
+<p>Directory: [<code>../../persona/synthesis/visualization/</code>](../../persona/synthesis/visualization/)</p>
+
+<p>Generated static views of the Full-DAG graph and schema (not checked in —
+regenerate). Run from the repo root:</p>
+
+<p><code></code>`bash
+# interactive node-link view (reads persona/synthesis/graph/full_dag.json + schema)
+uv run python persona/synthesis/scripts/render_graph_visualization.py
+# → persona/synthesis/visualization/full_dag_overview.html</p>
+
+<p># publication-quality two-ring chord diagram of the schema
+uv run --extra viz python persona/synthesis/scripts/render_persona_schema_chord.py
+<code></code>`</p>
+
+<p>The overview HTML embeds the graph payload (search/filter/zoom controls, X by
+topological order, Y by category, node size by degree). The chord diagram is
+aligned to the taxonomy table (35 sub-categories coloured by their 9 parent
+groups); latent/helper nodes with no <code>category</code> are excluded so the figure
+covers exactly the 1,290 real attributes. Do not hand-edit generated
+<code>full_dag_overview.html</code> / <code>persona_schema_chord.{png,pdf}</code> — regenerate them.</p>
+
+<h2 id="post-processing">Post-processing</h2>
+
+<p>Source: [<code>../../persona/post_process/</code>](../../persona/post_process/). This chain turns
+the raw synthetic codes plus human-extracted products into the published corpus.
+It is <strong>non-destructive</strong>: each stage emits per-shard rejection bitmaps rather
+than rewriting the ~4 TB of source codes. Reported figures below come from the
+audited production runs recorded in each directory.</p>
+
+<h3 id="quality-filter">Quality filter</h3>
+
+<p>Directory: [<code>../../persona/post_process/quality_filter/</code>](../../persona/post_process/quality_filter/)</p>
+
+<p>Scans all six persona products against conservative categorical contradiction
+rules in <code>contradictions.json</code>. Each source shard produces <code>*.reject.bits</code> (one
+little-endian packed bit per row; <code>1</code> = reject) and a <code>*.report.json</code>
+(provenance, totals, per-rule counts). Synthetic shards are checked directly
+from nibble-packed codes; human JSONL from populated <code>fields</code> (missing/
+unsupported fields never trigger a contradiction).</p>
+
+<p><code></code>`bash
+cd persona/post_process/quality_filter/jobs && ./submit_all.sh
+<code></code>`</p>
+
+<p>After the arrays succeed, a dependent job validates all shard reports and writes
+<code>summary.json</code> with dataset-level and global rejection counts.</p>
+
+<h3 id="deduplication">Deduplication</h3>
+
+<p>Directory: [<code>../../persona/post_process/deduplication/</code>](../../persona/post_process/deduplication/)</p>
+
+<p>Separates two operations. <strong>Deduplication</strong> removes exact/near-identical
+personas; <strong>diversity selection</strong> then trims dense regions deterministically
+until the corpus hits its publication target.</p>
+
+<ul class="article-list">
+  <li><strong>Human products</strong> (~2.29M rows): exact 128-bit canonical hashes always merge;</li>
+</ul>
+  MinHash LSH (64 permutations, 8 bands × 8 rows) generates candidates that must
+  meet a signature-agreement threshold (default 0.95 → ≥ 61 equal components).
+  Signatures are threshold-independent and reusable, so a threshold can be
+  changed by rerunning only the merge.
+<ul class="article-list">
+  <li><strong>Synthetic products</strong> do <strong>not</strong> use MinHash — a dense 1,290-code vector calls</li>
+</ul>
+  for weighted Hamming similarity, <code>S(x,y)=Σ wᵢ·1[xᵢ=yᵢ]/Σ wᵢ</code>. Instead a
+  reproducible <strong>coordinate projection</strong> of ≤ 16 fields (selected by descending
+  graph-prior entropy, round-robin across categories) is encoded exactly into one
+  <code>uint64</code>. A projection-cardinality pilot uses mergeable HyperLogLog sketches
+  (precision 20, ≈ 0.102% relative error) to pick the narrowest projection width
+  safely above the target, then the production pass keeps one deterministic
+  survivor per projection bucket. Projection equality is a diversity bucket, not
+  a full-vector similarity claim.
+
+<p>Run the pilot:</p>
+
+<p><code></code>`bash
+cd persona/post_process/deduplication/jobs && ./submit_projection_pilot.sh
+<code></code>`</p>
+
+<p>The audited production run derived the synthetic target from the human dedup
+result (<code>8,400,000,000 − human_dedup_kept</code>) and enforced the exact total with a
+deterministic 64-bit priority cutoff (a 65,536-bin histogram locates the
+boundary bin without sorting all survivors), verifying <code>target_met: true</code>. The
+directory README records the full stage-by-stage accounting, SLURM job IDs, and
+acceptance criteria.</p>
+
+<h3 id="unified-dataset-persona8b">Unified dataset (Persona8B)</h3>
+
+<p>Directory: [<code>../../persona/post_process/unified_dataset/</code>](../../persona/post_process/unified_dataset/)</p>
+
+<p>Materializes the post-filter, post-dedup corpus as a physical Parquet dataset —
+every retained persona is written out, so downstream reads need neither the raw
+10B codes nor the rejection bitmaps. For a file-by-file map see the directory's
+<code>CODE_INDEX.md</code>.</p>
+
+<p>Unified columns include <code>source</code>, <code>source_row_index</code>, <code>source_record_id</code>, a
+fixed 645-byte <code>attributes</code> vector (two 4-bit codes per byte for the 1,290
+dimensions), an optional 162-byte <code>null_bitmap</code>, sparse <code>attribute_overrides</code>
+for legacy values outside the codebook, <code>has_description</code> + sparse
+<code>descriptions</code>, sparse <code>grounding</code> (evidence/confidence/assignment type), and
+<code>metadata_json</code>. Synthetic personas are skeletons with no descriptions.</p>
+
+<p>Output layout is <code>results/<run>/data/<source>/<em></em>/*.parquet</code> with per-task
+<code>reports/*.json</code>, <code>persona_codes.schema.json</code>, and <code>manifest.json</code>; synthetic
+files hold ≤ 5M rows each. The published snapshot mirrors are on Hugging Face
+(<code>MatrAIx/Persona8B</code>). The accepted 2026-07-20 snapshot is deliberately a
+<strong>partial</strong> release (one Wiki materialization task failed on a numeric-string
+confidence conversion); its <code>manifest.json</code> carries
+<code>release_status: incomplete_accepted_as_is</code>, and every accepted Parquet footer
+was validated against the unified Arrow schema before upload.</p>
+
+<h3 id="1m-coreset">1M coreset</h3>
+
+<p>Directory: [<code>../../persona/post_process/coreset_1m/</code>](../../persona/post_process/coreset_1m/)</p>
+
+<p>Builds the public <strong>MatrAIx Persona 1M</strong> — a deterministic, quality-filtered,
+deduplicated 1,000,000-row coreset (600,000 human-grounded / 400,000 synthetic).
+Build and finalize via the SLURM job:</p>
+
+<p><code></code>`bash
+cd persona/post_process/coreset_1m/jobs
+REPO_ROOT=… PYTHON_BIN=… INPUT_ROOT=… CODEBOOK=… OUTPUT=… sbatch build.job
+<code></code>`</p>
+
+<p><code>build_coreset.py</code> reads <code>targets.json</code>; <code>finalize.py</code> writes the release
+<code>RESULTS.md</code>, <code>audit.json</code>, and the dataset-card README (from
+<code>coreset_dataset_card.md</code>).</p>
+
+<p><strong>Calibration method</strong> — constrained, without-replacement calibration against
+observed marginals rather than a full unobserved joint distribution:</p>
+
+<p>1. Apply the upstream contradiction filter and 0.95 MinHash dedup.
+2. Include every retained row from the five smaller human sources; calibrate
+   Wiki against evidence-supported global marginal targets.
+3. Convert each global target into a <strong>synthetic residual</strong> so synthetic rows
+   compensate for missing human coverage: for value <code>v</code> of dimension <code>d</code>,
+   <code>r_dv = p_dv·(H_d + 400,000) − h_dv</code>; negative residuals are clipped and the
+   clipped mass is reported as infeasibility (never hidden).
+4. Every candidate has one <strong>shared</strong> sampling weight updated multiplicatively
+   (<code>w_i ← w_i·T_dv/E_dv</code>) across age → region → gender identity → urbanicity,
+   iterating (≤ 200 sweeps) because each sweep can perturb earlier margins.
+   Expected counts use fixed-size inclusion probabilities <code>π_i = 1 − e^(−t·w_i)</code>
+   with <code>t</code> solved so <code>Σ π_i = n</code>.
+5. Turn weights into an exact-size sample with a <em></em>deterministic
+   exponential-race<em></em>: priority <code>q_i = −log(U_i)/w_i</code> with <code>U_i</code> derived from the
+   seed and stable row ID; take the <code>n</code> smallest. This is input-order
+   independent and reproducible (seed <code>20260720</code>).</p>
+
+<p>Missing values are never imputed. Calibration is honest about scope: hard
+evidence is 2024 global population for <code>age_bracket</code>, <code>region</code> (with a documented
+crosswalk), <code>gender_identity</code> (UN anchors only Woman/Man; the small tail is a
+schema prior — medium confidence), and <code>urbanicity</code> (World Bank/UN urban share —
+medium confidence). Language is deliberately <em>not</em> hard-calibrated. <code>audit.json</code>
+and <code>RESULTS.md</code> report per-dimension target vs. achieved share, absolute error,
+known/missing counts, clipped residual mass, and synthetic candidate provenance.</p>
+
+<p>The published Parquet uses the same packed representation as the unified dataset
+(645-byte <code>attributes</code>, <code>null_bitmap</code>, sparse overrides/descriptions/grounding);
+ten 100K-row Zstandard shards with a <code>manifest.json</code> of exact counts, byte sizes,
+and SHA-256 hashes. See [Persona → Public Coreset](README.md#public-coreset-matraix-persona-1m)
+for setup, download, and Playground usage.</p>
+
+<h3 id="dataset-statistics">Dataset statistics</h3>
+
+<p>Directory: [<code>../../persona/post_process/dataset_statistics/</code>](../../persona/post_process/dataset_statistics/)</p>
+
+<p>Profiles the six persona products once and caches compact aggregates for fast
+paper analysis and plotting. <code>profile_datasets.py</code> is the streaming profiler
+(writes <code>results/dataset_statistics.json</code> plus <code>dataset_summary.csv</code>,
+<code>category_summary.csv</code>, <code>dimension_summary.csv</code>); <code>dataset_statistics.ipynb</code>
+reads only the cache and renders tables/figures into <code>results/images/</code>. The
+<code>results/</code> cache is generated, not checked in.</p>
+
+<p>Coverage policy avoids re-scanning the ~3.7 TB synthetic data (counts come from
+the 10B manifests); Wiki uses a deterministic stratified sample (sample-derived
+metrics are labeled estimates); Amazon, Stack Overflow, PRISM, and GSS are
+scanned in full.</p>
+
+<p><code></code>`bash
+# expensive stage — only when source data changes
+python persona/post_process/dataset_statistics/profile_datasets.py</p>
+
+<p># refresh selected products, keep the rest cached
+python persona/post_process/dataset_statistics/profile_datasets.py \
+  --products wiki --merge-existing
+<code></code>`</p>
+
+<p>Then rerun the notebook, which finishes in seconds.</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#attribute-pool">Attribute pool</a></li>
+<li style="margin-left: 0.8rem;"><a href="#existing-data-curation">Existing-data curation</a></li>
+<li style="margin-left: 0.8rem;"><a href="#full-dag-10b-generation">Full-DAG 10B generation</a></li>
+<li style="margin-left: 0.8rem;"><a href="#visualization">Visualization</a></li>
+<li style="margin-left: 0.8rem;"><a href="#quality-filter">Quality filter</a></li>
+<li style="margin-left: 0.8rem;"><a href="#deduplication">Deduplication</a></li>
+<li style="margin-left: 0.8rem;"><a href="#unified-dataset-persona8b">Unified dataset (Persona8B)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#1m-coreset">1M coreset</a></li>
+<li style="margin-left: 0.8rem;"><a href="#dataset-statistics">Dataset statistics</a></li>
+<li><a href="#pipeline-at-a-glance">Pipeline at a glance</a></li>
+<li><a href="#schema">Schema</a></li>
+<li><a href="#curation">Curation</a></li>
+<li><a href="#human-extraction">Human extraction</a></li>
+<li><a href="#synthesis">Synthesis</a></li>
+<li><a href="#post-processing">Post-processing</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

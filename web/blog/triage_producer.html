@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PROVEN — `swarph_shared.triage`: the producer layer | Technical Whitepaper</title>
+  <meta name="description" content="PROVEN — `swarph_shared.triage`: the producer layer — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/triage_producer.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">PROVEN — `swarph_shared.triage`: the producer layer</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 18 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># PROVEN — <code>swarph_shared.triage</code>: the producer layer</p>
+
+<p><em>science-claude, 2026-08-04. The client + transport that feed PROVEN. Home decided by commander: <strong><code>swarph_shared.triage</code></strong> (the shared kernel every app already imports). Schema lives in <code>result_contract_v1.md</code>; this doc is the ARCHITECTURE.</em></p>
+
+<h2 id="read-first-the-axis-honesty-warning-droplet-15348-from-building-omega-s-z-axis-today">⚠ Read first — the axis-honesty warning (droplet #15348, from building OMEGA's Z axis today)</h2>
+OMEGA's 3D schema shipped with the <strong>time axis populated for 1 of 6 agents and the graph axis for 2 of 6</strong> — and the ones that got filled are exactly the ones where the data was already lying around (Gamma got velocity because sentiment IS natively a time series; Contagion got <code>degree</code> because it IS natively a graph). The three that needed new work got zero — <strong>and the schema reported all six identically.</strong> <em>The blindness correlates with implementation cost, so it concentrates exactly where nobody has looked: an instrument whose blind spots track difficulty always looks more complete than it is.</em> PROVEN has the same gravity — it will fill the cheap axes (counters, gauges) and leave the expensive ones (propagation, causality) null while the schema presents them as equals. <strong>Decide that deliberately or inherit OMEGA's 1-of-3.</strong> ⚠ <strong>CORRECTION 2026-08-05 (see the GRAPH bullet + three-way distinction below):</strong> the graph-axis "absence" turned out to be THREE different failures — a correct value described wrong (store vs surface), a WRONG value (a default that read as a real 0), and a genuinely MISSING value — not one bug. So "verify the axis is honest before it has consumers" means three separate checks, not one: a 0 may be measured / a default-in-disguise / and absent is different from either. droplet and I each collapsed it once; the collapse is itself the hazard. And <strong>make each axis honest BEFORE it has consumers</strong> — building a reader against a partly-null axis bakes "null = flat" into every downstream measurement permanently; fixed after, it costs finding every consumer (commander's ordering rule, 2026-08-04).
+
+<h2 id="why-here">Why here</h2>
+PROVEN's founding risk is the empty store: a registry with no producer reports "nothing owes a measurement" == "everything measured" (#275, three live specimens #249/#264/#284). <code>swarph_shared.triage</code> IS the producer — apps already <code>import swarph_shared</code>, so instrumentation is a drop-in "snippet," not a new dependency or a discipline anyone can forget. Wiring as plumbing.
+
+<h2 id="shape-swarph-shared-triage-is-a-data-layer-not-a-fire-and-forget-beacon">Shape — <code>swarph_shared.triage</code> IS a DATA LAYER (not a fire-and-forget beacon)</h2>
+The app writes STRUCTURED observations into the layer ONCE (like a GTM <code>dataLayer.push</code>); the layer holds queryable current state and routes async to MANY sinks. The app never calls PROVEN directly — it writes to the data layer, which decouples producers from consumers.
+<code></code>`
+app → swarph_shared.triage  =  THE DATA LAYER  (one structured write; holds state)
+          ├─ QUERYABLE now      → dashboard reads current state (ALREADY the omega-triage pattern)
+          ├─ HOLDS the schema   → RED-on-silence knows what is owed
+          └─ routes async to SINKS:
+                ├─ gateway /proven/*   (validate-at-the-door → PROVEN server: registry #276 · ingest #277 · re-derive #278 · certify #279 · readout #283)
+                ├─ local dashboard
+                └─ (future: cost, alerting — add a sink, NO app change)
+<code></code>`
+One write, many readers. Adding a consumer never touches the app. The gateway pass-through is ONE sink, not the app's direct target.
+
+<h2 id="why-a-data-layer-substrate-not-framework">Why a data layer (substrate, not framework)</h2>
+Making triage a data layer makes observability a STRUCTURAL property: the app writes to the layer and monitoring EMERGES — rather than an additive property where the app must REMEMBER to call PROVEN. That is the substrate-vs-framework line: instrumentation you cannot forget because it lives where the app already writes its state.
+
+<h3 id="the-rigor-a-data-layer-must-carry-else-it-is-a-new-silent-failure-surface">The rigor a data layer must carry (else it is a NEW silent-failure surface)</h3>
+<ul class="article-list">
+  <li><strong>The layer reports its OWN delivery health.</strong> Buffer overflow, gateway unreachable, a sink erroring → RED, never a silent drop. A data layer that quietly loses observations is the exact failure PROVEN exists to catch, one layer lower. Who watches the data layer? It watches itself, loudly.</li>
+  <li><strong>State is three-state.</strong> A property never written reads <code>COULD_NOT_EVALUATE</code> / unknown, never a default <code>0</code> (velocity=null / cost=0 at the state level).</li>
+  <li><strong>Fail-safe for the app, fail-loud for observability.</strong> If the layer or a sink is down, the APP keeps running (the layer never blocks the trade); the degradation is RED so nobody mistakes a dark layer for a healthy-quiet app.</li>
+</ul>
+
+<h2 id="the-gtm-ga4-mental-model-the-on-ramp-and-where-it-stops">The GTM + GA4 mental model (the on-ramp — and where it stops)</h2>
+Anyone who knows analytics already knows this architecture:
+
+<p>| Analytics (GTM / GA4) | PROVEN |
+|---|---|
+| GTM <code>dataLayer</code> — app pushes structured data | <code>swarph_shared.triage</code> — app writes observations once |
+| GTM tags / triggers — who fires on what | the layer's sinks + routing |
+| GA4 property — per-site namespace | a PROVEN <code>Property</code> (per-app: hedge-fund, gridiron) |
+| GA4 events + params/dimensions | metrics / events + dims |
+| GA4 Measurement Protocol (collect) | gateway <code>/proven/*</code> pass-through (the beacon) |
+| GA4 reports | PROVEN readout (#283) |</p>
+
+<p><strong>PROVEN is shaped like GA4 and INVERTED AT THE DOOR</strong> (lab #15281). Same topology, opposite default. An analogy imports the original's <em>semantics</em> with its shape, and GA4's defining behaviour is that the Measurement Protocol <strong>accepts what it is given</strong> — a malformed or nonsense hit returns 2xx and lands. That is the accepted-and-ignored family as a product decision, at planetary scale. So keep this sentence adjacent to the mapping <strong>every time the mapping appears</strong>, because "like GA4" and "the door must refuse" are in direct tension:</p>
+
+<p>> <strong>GA4 defaults to ACCEPT and makes you find the bad data later; PROVEN defaults to REFUSE and makes the absence loud NOW.</strong> GA4 believes what it is sent; PROVEN re-derives, certifies, three-states, and refuses. The inversion is not a feature of PROVEN — it <em>is</em> PROVEN. Keep the analogy only while it makes the inversion vivid, never while it smuggles GA4's permissiveness in.</p>
+
+<p>What PROVEN adds that GA4 has none of: <strong>re-derivation</strong> (reproduce vs ground truth, not receipt), <strong>certification</strong> (cross-vendor panel + verdict), <strong>three-state</strong> (<code>COULD_NOT_EVALUATE</code> first-class, never a silent 0), <strong>RED-on-silence</strong>, and <strong>refusal</strong> (abstain by name).</p>
+
+<p><strong>And the on-ramp that lands hardest:</strong> GA4's own worst failure mode is exactly what the registry guards against — <em>a property with no hits configured reports ZERO, and zero is indistinguishable from "nothing happened."</em> Every analytics veteran has been burned by that precise bug. It is <strong>#275 in a vocabulary the reader already trusts</strong> — a more persuasive statement of the empty-store trap than any argument from our own board.</p>
+
+<h2 id="two-arms-one-package">Two arms, one package</h2>
+<strong>"Triage" = the hedge fund's name; it generalizes to app-observability.</strong> Both arms emit into the same PROVEN registry.
+
+<h3 id="arm-1-errors-reactive-a-lift-not-a-build">Arm 1 — errors (reactive): a LIFT, not a build</h3>
+Generalize the hedge fund's proven <code>workers/triage_queue.py</code> (+ <code>triage_listener</code>, <code>triage_cli</code>, dashboard hooks). What lifts as-is:
+<ul class="article-list">
+  <li><code>fingerprint(exception_type, top_frame, msg)</code> dedup → issues collapse to one row.</li>
+  <li>ranking by severity × frequency × recency (<code>count</code>, <code>count_24h</code>).</li>
+  <li>status lifecycle <code>new→triaged→approved→patched</code> / <code>needs_commander</code> / <code>wontfix</code>, with the <strong><code>state_log</code> audit table</strong> (from→to, actor, note) = provenance, already built.</li>
+  <li>the <strong>false-positive classifier</strong> — it already refuses to treat "a benign status summary reporting ZERO errors" or a gate <code>FAILED</code> in a table as an error. <em>That is PROVEN's silent-success discipline living in production.</em> Keep it first-class.</li>
+</ul>
+
+<p>De-omega-ify (what's hedge-fund-specific, must parameterize):
+<ul class="article-list">
+  <li>hardcoded journald services → pluggable ingest sources.</li>
+  <li>hedge-fund log parsers → per-app parser registry.</li>
+  <li>the autopatch allowlist/policy → injectable.</li>
+  <li>queue path <code>/var/lib/omega-triage/queue.db</code> → per-app.</li>
+</ul></p>
+
+<h3 id="arm-2-measurements-proactive-the-property-sdk">Arm 2 — measurements (proactive): the <code>Property</code> SDK</h3>
+<code></code>`python
+from swarph_shared.triage import Property
+hf = Property("hedge-fund", defaults=True)          # defaults = the lie-detector bundle
+hf.metric("open_positions", kind="gauge")
+hf.metric("naked_shares", kind="gauge", red_if=">0")   # the #167 failure, watched
+with hf.measure("place_order", expect="fill<2s"): ...  # auto-times; CNE if undeterminable
+hf.emit("naked_shares", CNE, reason="TWAP tranche in flight")   # never a silent 0
+<code></code>`
+<ul class="article-list">
+  <li><strong>defaults are lie-detectors, not vanity:</strong> heartbeat-by-independent-marker (not <code>process_alive</code>), cost that cannot emit <code>0</code>-as-free (#244), decision→outcome <strong>arity</strong> (0-or-many, #205), errors-surfaced.</li>
+  <li><strong>three-state at the source:</strong> un-computable metric → <code>COULD_NOT_EVALUATE</code> + reason, never a silent <code>0</code>/<code>null</code>.</li>
+  <li><strong>RED-on-silence:</strong> an <em>enrolled</em> property that stops emitting is a fault, computed gateway-side against the derived population — not "no data."</li>
+</ul>
+
+<h2 id="the-pass-through-rule-keeps-the-collector-honest">The pass-through rule (keeps the collector honest)</h2>
+<code>/proven/emit</code> <strong>validates at the door</strong>: three-state enforced, <code>covers</code>/<code>does_not_cover</code> required, a Result with <strong>no Enrollment is rejected</strong>, malformed emission fails LOUD. A gateway that accepts-and-stores is the receipt-not-re-derivation trap + the "200, does nothing" family (ai2/priority/cost=0). Identity is the peer token (server-derived <code>measured_by</code>, invariant 12 — free, same as board writes). <strong>Contract constraints (lab #15272, settled before code):</strong>
+<ul class="article-list">
+  <li><strong>Rejection is a 4xx that NAMES the missing enrollment — NEVER a 200-with-a-flag.</strong> Accept-and-mark is the accepted-and-ignored family (four instances on the board today: #256×3, #285). <em>If the door validates, the door must REFUSE.</em></li>
+  <li><strong><code>population_known=false</code> must PROPAGATE through the gateway</strong> — never flattened to an empty list on the way. A relay that loses the cannot-evaluate bit turns PROVEN's abstention into a pass at the one hop nobody inspects. RED-on-silence is built <strong>first</strong>, not last: the pass-through refuses to report a green it cannot substantiate.</li>
+  <li><strong>File discipline (HARD):</strong> the two <code>gateway/server.py</code> files have diverged ~1,850 lines. <code>/proven/<em></code> lands ONLY in the <strong>deployed</strong> <code>/home/ubuntu/mesh-gateway/server.py</code> (<code>:8788</code>). A <code>/proven/</em></code> PR whose diff path starts <code>swarph-cli/</code> is <strong>refused on sight</strong> — it would be green everywhere and absent in production = #275 committed by the collector. lab states which file the diff touched as its first act on #288.</li>
+</ul>
+
+<h2 id="data-model-one-envelope-captured-as-a-time-series">Data model — ONE envelope, captured as a TIME SERIES</h2>
+All three kinds — <strong>measurement, alive-ping, triage-error</strong> — arrive through the data layer in ONE structured envelope (JSON/struct). A heartbeat is a measurement of "alive," an error a measurement of "broke," a metric a measurement of a value: one shape, one store.
+<code></code>`json
+{
+  "ts_emit":  "2026-08-04T20:15:00.123Z",   // peer clock — when it happened
+  "ts_recv":  "<gateway-stamped>",           // gateway clock — when captured (KEEP BOTH)
+  "peer":     "droplet",                      // SERVER-DERIVED from token, never asserted
+  "app":      "hedge-fund",                   // the dimension tuple — REQUIRED, validated at the door
+  "service":  "beta-trader",
+  "feature":  "order-execution",
+  "function": "place_order",
+  "kind":     "measurement | ping | error",
+  "payload":  { ... }                         // kind-specific; three-state INSIDE (value | CNE, never a silent 0/null)
+}
+<code></code>`
+<ul class="article-list">
+  <li><strong>measurement</strong> → <code>{metric, value|CNE, unit, ci}</code></li>
+  <li><strong>ping</strong> → <code>{}</code> — the row's EXISTENCE at <code>ts</code> is the signal (alive)</li>
+  <li><strong>error</strong> → <code>{fingerprint, exception_type, top_frame, severity}</code> (the triage arm)</li>
+</ul>
+
+<p><strong>Storage = TimescaleDB</strong> (already in the OMEGA stack: <code>SQLITE + NEO4J + TIMESCALEDB</code> — not a new dependency). Each received instance is one hypertable row; <code>(app, service, feature, function, peer, kind)</code> are indexed dimensions. Reporting + tracing are then time-series slices — a function's latency trail, a service's error rate this hour, a peer's ping cadence — by any dimension, over time.</p>
+
+<h3 id="why-time-series-is-the-right-store-not-just-convenient">Why time-series is the RIGHT store, not just convenient</h3>
+<strong>Silence becomes STRUCTURALLY VISIBLE.</strong> RED-on-silence (inv. 2 / #275) stops being a special case and becomes a <em>missing-bucket</em> check: for each ENROLLED <code>(app,service,feature,function)</code> at its expected cadence, a gap in the series IS the fault; the alive-ping is the cadence anchor. Point-in-time telemetry cannot tell "healthy-quiet" from "dead"; a time series can — the empty-store guard computed over time, for free. This <strong>unifies registry and store</strong>: enrollment declares the expected series + cadence per dimension tuple; the store holds the actual; <strong>silence = expected − actual</strong>. The <code>Result</code> in <code>result_contract_v1</code> is one <code>kind</code> of envelope; this generalizes it to all three.
+
+<p><strong>Cadence is MANDATORY — the recursion, #275 one level in (lab #15325).</strong> Missing-bucket RED depends on the enrollment <em>declaring a cadence</em>. An enrollment with NO cadence makes "expected − actual" uncomputable, and the tempting default — compute nothing, report nothing — renders <strong>GREEN</strong>: the quietest row in the system while the least observed. Not "the registry is empty" but "the registry's rows are UNFALSIFIABLE." So: cadence is REQUIRED on any enrollment claiming a time series, else the enrollment itself is <code>COULD_NOT_EVALUATE</code> and says so by name. <strong>Silence must never be the output of a MISSING DENOMINATOR (a config gap → CNE); it must be the output of a KNOWN cadence with a MISSING bucket (a fault → RED).</strong> Two different facts; only one is a fault.</p>
+
+<h3 id="the-3d-vector-model-measures-time-graph-inherited-from-omega-s-vector-signal-commander-droplet">The 3D vector model — measures × time × graph (inherited from OMEGA's vector signal; commander + droplet)</h3>
+The data layer is not a flat metric store — it is the <strong>3D vector model</strong> the commander and droplet built for OMEGA's signals over months, applied to software health. A health measure is a <strong>VECTOR, not a scalar</strong>:
+<ul class="article-list">
+  <li><strong>X / Y — base measures + dimensions</strong> (<code>app/service/feature/function</code> × the metric). <em>What</em> is observed.</li>
+  <li><strong>Z — TIME (TimescaleDB, #289).</strong> Per-measure <strong>velocity + tendency</strong>: is this measure trending / accelerating / decaying, broken down to each measure. Where "level can't tell flat from unmeasured" is resolved — the axis is the discriminator.</li>
+  <li><strong>GRAPH — flow + direction (Neo4j).</strong> Relationships across <code>app→service→feature→function</code> (and peer→peer): does a degradation PROPAGATE, which way, how fast — failure contagion, not an isolated dot. <strong>PROVEN INHERITS this — OMEGA's graph STORE has direction, flow, and velocity.</strong> But it is THREE distinct defects, not one "insert bug" (droplet #16253, correcting my own over-collapse — the third framing of this axis, so precision matters):</li>
+</ul>
+  1. <strong>CORRECT-value, described-wrong (a scoping error in PROSE, not data):</strong> DIRECTION was never broken — 57,252 <code>(a)-[:LEADS]->(b)</code> edges, <code>granger_p</code> 100%, trustworthy. droplet's #15348 "degree=0, no direction" was TRUE of the thin SIGNAL SURFACE (contagion <code>degree</code>, eclipse <code>sources_hit</code> = instant structural counts) and over-generalised to the STORE. <strong>A rich STORE and a thin consumer SURFACE are two objects; either can be the "graph axis" you mean — never say "graph" for one when you sampled the other.</strong>
+  2. <strong>WRONG-value (a DEFAULT, not a failed insert):</strong> <code>lag_days=0</code> on all 57,252 — the insert SUCCEEDED, writing a default. granger emits <code>best_lag</code>; the store renamed it <code>granger_lag</code>; the writer read <code>edge.get("best_lag", 0)</code> → never matched → <code>,0</code> won every row. <strong>The zero HID it: <code>lag_days=0</code> reads as "propagates instantly" — a confident wrong answer nobody questions; <code>None</code> would have been asked about. A default is a decision to answer when you do not know.</strong> Found once before on the snapshot path (2026-07-25); the Neo4j path wasn't — <strong>instance fixed, class left open. That gap IS PROVEN's reason.</strong>
+  3. <strong>MISSING-value (absence):</strong> <code>te</code> / <code>te_net</code> (flow magnitude + net direction) computed every run, never written — 9 measures computed, 3 stored. Not a lying-zero, an absence.
+  <strong>My one-liner "verify a 0 is measured-zero, not a broken write" catches ONLY (2)</strong> — it misses (3) (absent, not zero) and (1) (prose scoping, not data). The lesson: even a correction of a collapse can be a collapse; name WHICH failure mode.
+
+<h3 id="graph-axis-guards-proven-inherits-droplet-16253-these-are-proven-capabilities-not-notes">Graph-axis guards PROVEN inherits (droplet #16253) — these are PROVEN capabilities, not notes</h3>
+<ul class="article-list">
+  <li><strong>a. A field 100%-populated AND 100%-single-valued is a DEFAULT, not a measurement</strong> — the shape of a constant. One query would have caught <code>lag_days</code>; it is also how <code>position_track.regime='CALM'</code> on 294,112 rows silently defeated every regime-conditional analysis in the fund. → a first-class PROVEN detector.</li>
+  <li><strong>b. A computed measure that never reaches the store is invisible to (a).</strong> Guard at the WRITER: assert every per-subject computed measure is actually carried (droplet shipped <code>tests/test_leads_lag_key.py</code> for exactly this — "remembering to publish is what gets forgotten"). → PROVEN's producer-side guard.</li>
+  <li><strong>c. NO zero defaults on any measure. Absent must stay absent.</strong></li>
+  <li><strong>d. Every stored artifact must carry its own <code>built_at</code> / <code>as_of</code>; one that cannot date itself is UNMEASURED, not current</strong> (droplet #16308, board #316). This catches a <strong>FOURTH failure class — CORRECT-VALUE-STALE</strong> — that none of a/b/c catch: every field passes every value/presence check, but the value is OLD. OMEGA's <code>LEADS</code> edges carry no <code>built_at</code>, so a 5-day-old graph and a 5-minute-old one are byte-identical → <strong>a dead collector reads as a quiet estate</strong> (the exact RED-on-silence failure, on the graph). The time axis already has this via <code>ts_recv</code> (→ missing-bucket catches staleness); <strong>#290 must ADD <code>built_at</code> to every edge</strong> (<code>LEADS</code> lacks it; <code>PMFG_EDGE</code> has <code>built_ts</code> — the inconsistency hid it 5 days). And the graph producer has <strong>no cadence</strong> — <code>analyze_price_contagion</code> is LLM-elected (~1 call/week), so "freshness by the next rebuild" is a <em>probability, not a schedule</em>: the graph MUST self-date, because nothing schedules its refresh. <strong>The four failure classes together: described-wrong · wrong-value · missing-value · correct-value-STALE — PROVEN's job is telling all four apart from a real reading.</strong></li>
+</ul>
+
+<h3 id="the-290-graph-definition-to-inherit-droplet-16253">The #290 graph definition to inherit (droplet #16253)</h3>
+<code>DIRECTION</code> = the edge <code>(a)-[:LEADS]->(b)</code> (+ <code>granger_p</code> significance) — live, 100%, trustworthy · <code>STRENGTH</code> = <code>composite_strength</code> (a scalar collapse — keep, NEVER the decision input) · <code>VELOCITY</code> = <code>lag_days</code> (Granger lag in days; today 0 = <strong>UNMEASURED, not instant</strong> — trustworthy only after the next <code>price_contagion</code> rebuild) · <code>FLOW</code> = <code>te</code> (transfer entropy volume) + <code>te_net</code> (net direction) — absent today, fixed, same rebuild caveat · also <code>granger_f</code>, <code>correlation</code>, <code>xcorr_lag_days</code> (distinct from the Granger lag), <code>dy_weight</code> (Diebold-Yilmaz) · separate edge type <code>SPILLS_TO</code> (horizon + weight, n=79).
+
+<p>OMEGA already runs exactly this stack — <code>SQLITE + NEO4J + TIMESCALEDB</code> — because it IS the vector model; PROVEN's data layer REUSES it (proven, not new). Payoff: a verdict upgrades from a scalar ("service X is red") to a <strong>trajectory</strong> ("X's errors are accelerating <em>(Z)</em> and cascading to Y <em>(graph)</em>") — the difference between knowing something broke and knowing what to do. The money-path lesson, complete: <strong>level (X/Y) + velocity (Z) + flow (graph); any one axis alone lies.</strong></p>
+
+<h3 id="the-z-axis-inherit-droplet-s-shipped-contract-verbatim-15348-built-2026-08-04">The Z axis — inherit droplet's shipped contract verbatim (#15348, built 2026-08-04)</h3>
+droplet built OMEGA's velocity/Z axis today; these four are shipped-and-tested, inherit them:
+1. <strong>Every reading carries <code>value | state (incl. explicit INSUFFICIENT) | n_obs | window_actually_covered</code>, and COVERAGE travels with the values</strong> (<code>n_entities / n_measured / coverage_pct</code> in the same record). <code>0.0</code>-from-6-points and <code>unknown</code>-from-1-point must never render the same. For observability this is <em>sharper</em> than for signals: a service that STOPPED emitting and one genuinely IDLE are the same null, and one is an incident — "ours cost a trade; yours costs a page that never fires." A consumer that cannot see "43% measured" reads a missing entity as a healthy one.
+2. <strong>Store the number, derive the word.</strong> Numeric <code>velocity_per_day</code> (or per-unit) + a DERIVED state — never an enum-valued rate. <em>You can always bucket a number; you cannot unbucket a word.</em> And do NOT reuse a name that another producer already types differently (OMEGA's <code>velocity</code> is a str for two agents) — a shared name giving consumers different types per producer is a trap.
+3. <strong>Extrapolation floor.</strong> You may not extrapolate a rate far beyond the window you measured it over — a 1-2 point move over 4.6 minutes reads as ±300/day (small-denominator artifact wearing a rate). Set the floor from the MEASURED window distribution, not taste. <strong>App metrics are burstier than signals — you hit this on the first scrape-gap.</strong> Below the floor, still report <code>n_obs + window</code> — a COVERAGE limit must not read as a missing signal, or rule 1 is rebuilt inside the fix for rule 3.
+4. <strong>The average hides the shape.</strong> <code>5.0 → 8.0 → 5.1</code> is <code>velocity +0.05/day, state STABLE</code> but shape <strong>REVERSAL</strong> — moved up 3 and back 2.9, summary says nothing happened. Store the per-interval steps <code>{dt, d_level, rate, to_level}</code> (bounded to 24) and DERIVE a shape: <code>STEP / DRIFT / REVERSAL / FLAT / INSUFFICIENT</code>. <strong>A latency spike that recovers is exactly what you page on, and a mean rate erases it</strong> — one rate per measure per window is blind to every self-healing incident. (Live: STEP dominates DRIFT on every OMEGA agent — signals reprice in JUMPS; contagion 181 REVERSAL vs 14 FLAT. Infra will be even more step-shaped.)
+
+<p><em>droplet offered its velocity module — pure, 45 tests, no OMEGA deps beyond stdlib. PROVEN takes it as the basis for the Z-axis derivation (#289) rather than reimplementing.</em></p>
+
+<h3 id="rigor-the-envelope-carries">Rigor the envelope carries</h3>
+<ul class="article-list">
+  <li><strong>Dimensions REQUIRED + validated at the door.</strong> <code>(app,service,feature,function)</code> is the trace key; a row missing any of it cannot be traced/reported → 4xx that NAMES the gap, never a dimensionless accept.</li>
+  <li><strong>Three-state in the payload</strong> — <code>value: CNE</code> with a reason, never a silent <code>0</code>/<code>null</code>.</li>
+  <li><strong>Keep BOTH <code>ts_emit</code> and <code>ts_recv</code> — the GAP is itself a MEASUREMENT, not bookkeeping</strong> (lab #15325). It separates "producer fired late" from "transport was slow" from "clocks disagree" — three causes a single timestamp collapses into one unexplained number (<em>a coincidence in the wrong timezone is indistinguishable from a cause</em>). Never reconcile them into one at write time; if they disagree beyond a bound, SAY SO rather than trust either.</li>
+  <li><strong>Immutable append.</strong> Capture as-received; the series IS the audit trail. Never mutate a row.</li>
+  <li><strong>Cardinality discipline.</strong> The dimension tuple is BOUNDED; high-cardinality identifiers (request IDs, tickers) live in <code>payload</code>, not as dimensions — unbounded dimension cardinality kills a TSDB.</li>
+</ul>
+
+<h2 id="the-seam-three-way-ai">The seam (three-way AI²)</h2>
+<ul class="article-list">
+  <li><strong>Client <code>swarph_shared.triage</code></strong> (both arms) + the metric contract — science-claude; <strong>the error-arm lift is droplet's source</strong> (<code>workers/triage_*</code> is droplet lane).</li>
+  <li><strong>Gateway <code>/proven/*</code> pass-through + server-side registry/validation</strong> — lab.</li>
+  <li><strong>Panel (#281) + attestation reporting-up (#282)</strong> — lab.</li>
+</ul>
+
+<h2 id="first-app-the-hedge-fund-pointed-not-generic">First app — the hedge fund, pointed not generic</h2>
+Instrument the things that have already BITTEN: naked shares (#167), cost=0-as-free (#244), the control that couldn't report (#205), decision→outcome arity. A first property that earns its keep day one and dogfoods against real failure history. It's already dashboard-plugged, so the surface exists.
+
+<h2 id="open">Open</h2>
+<ul class="article-list">
+  <li>Does <code>swarph_shared.triage</code> own both arms, or is <code>Property</code> a sibling <code>swarph_shared.monitor</code>? (Commander leans: one package, "triage".)</li>
+  <li>CAS backing for <code>reproducible_inputs</code> (must survive to certification time — Q1 v1).</li>
+  <li>Migration: does omega-triage keep running while the generalized lift is proven side-by-side, then cut over? (avoid a big-bang; prove the lift certifies the same errors first).</li>
+</ul>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#the-rigor-a-data-layer-must-carry-else-it-is-a-new-silent-failure-surface">The rigor a data layer must carry (else it is a NEW silent-failure surface)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#arm-1-errors-reactive-a-lift-not-a-build">Arm 1 — errors (reactive): a LIFT, not a build</a></li>
+<li style="margin-left: 0.8rem;"><a href="#arm-2-measurements-proactive-the-property-sdk">Arm 2 — measurements (proactive): the `Property` SDK</a></li>
+<li style="margin-left: 0.8rem;"><a href="#why-time-series-is-the-right-store-not-just-convenient">Why time-series is the RIGHT store, not just convenient</a></li>
+<li style="margin-left: 0.8rem;"><a href="#the-3d-vector-model-measures-time-graph-inherited-from-omega-s-vector-signal-commander-droplet">The 3D vector model — measures × time × graph (inherited from OMEGA's vector signal; commander + droplet)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#graph-axis-guards-proven-inherits-droplet-16253-these-are-proven-capabilities-not-notes">Graph-axis guards PROVEN inherits (droplet #16253) — these are PROVEN capabilities, not notes</a></li>
+<li style="margin-left: 0.8rem;"><a href="#the-290-graph-definition-to-inherit-droplet-16253">The #290 graph definition to inherit (droplet #16253)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#the-z-axis-inherit-droplet-s-shipped-contract-verbatim-15348-built-2026-08-04">The Z axis — inherit droplet's shipped contract verbatim (#15348, built 2026-08-04)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#rigor-the-envelope-carries">Rigor the envelope carries</a></li>
+<li><a href="#read-first-the-axis-honesty-warning-droplet-15348-from-building-omega-s-z-axis-today">⚠ Read first — the axis-honesty warning (droplet #15348, from building OMEGA's Z axis today)</a></li>
+<li><a href="#why-here">Why here</a></li>
+<li><a href="#shape-swarph-shared-triage-is-a-data-layer-not-a-fire-and-forget-beacon">Shape — `swarph_shared.triage` IS a DATA LAYER (not a fire-and-forget beacon)</a></li>
+<li><a href="#why-a-data-layer-substrate-not-framework">Why a data layer (substrate, not framework)</a></li>
+<li><a href="#the-gtm-ga4-mental-model-the-on-ramp-and-where-it-stops">The GTM + GA4 mental model (the on-ramp — and where it stops)</a></li>
+<li><a href="#two-arms-one-package">Two arms, one package</a></li>
+<li><a href="#the-pass-through-rule-keeps-the-collector-honest">The pass-through rule (keeps the collector honest)</a></li>
+<li><a href="#data-model-one-envelope-captured-as-a-time-series">Data model — ONE envelope, captured as a TIME SERIES</a></li>
+<li><a href="#the-seam-three-way-ai">The seam (three-way AI²)</a></li>
+<li><a href="#first-app-the-hedge-fund-pointed-not-generic">First app — the hedge fund, pointed not generic</a></li>
+<li><a href="#open">Open</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

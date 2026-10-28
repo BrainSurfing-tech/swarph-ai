@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>zeroCPR Complement Guardrails — Design | Technical Whitepaper</title>
+  <meta name="description" content="zeroCPR Complement Guardrails — Design — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-07-03-zerocpr-guardrails-design.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">zeroCPR Complement Guardrails — Design</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 8 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># zeroCPR Complement Guardrails — Design</p>
+
+<p><strong>Date:</strong> 2026-07-03
+<strong>Status:</strong> design (awaiting user review → writing-plans)
+<strong>Author:</strong> workstation-lc (with Pierre) · peer cross-check: gridiron (mesh DM #3908)</p>
+
+<h2 id="goal">Goal</h2>
+
+<p>Stop the zeroCPR complement fallback from proposing irrelevant, brand-conflicting,
+or incompatible complements, by adding generation-time guardrails. The fix runs at
+<strong>generation time</strong> and writes a new <code>signal_type='zerocpr_v2'</code> alongside the
+existing rows (non-destructive), so old vs new can be diffed before the Marie/Lucas
+export is flipped to v2.</p>
+
+<h2 id="why-the-measured-problem">Why (the measured problem)</h2>
+
+<p>100% coverage was reached, but ~10.9k FR anchors ride on the zeroCPR fallback, and
+the fallback is pathologically concentrated. Measured on FR (<code>signal_type='zerocpr'</code>):</p>
+
+<ul class="article-list">
+  <li><strong>105,297 pairs drawn from only 671 distinct complement SKUs.</strong> 15 SKUs attach to</li>
+</ul>
+  >1,000 anchors each; the top 5 (generic wipes/rolls/disinfectant) attach to
+  <strong>6,451 anchors each and span all 16 merchandising sections.</strong>
+<ul class="article-list">
+  <li><strong>83% of pairs</strong> involve a SKU glued to >300 anchors (hub-collapse).</li>
+  <li><strong>89% of pairs jump merchandising section</strong> (e.g. shoe → body-deodorant).</li>
+  <li>Concentration is <strong>category-specific</strong>: section <em></em>003 EPI/workwear = 41% of all</li>
+</ul>
+  pairs<em></em>, with 78% of its anchors sharing a single SKU. Other sections 23–73%.
+<ul class="article-list">
+  <li><strong>22% of pairs</strong> suggest a Lyréco own-brand complement on a competitor-branded</li>
+</ul>
+  anchor (supplier-relationship risk, e.g. Rapid stapler → Lyreco staples).
+
+<p>Marie's four reported cases map to four distinct modes:</p>
+
+<p>| Reported case | Mode | Dominant fix |
+|---|---|---|
+| Wet wipes / gloves everywhere, weak match | hub-collapse | hub-IDF demotion + cap + diversify; cooc gate where data exists |
+| Shoe → deodorant | cross-section + material | section-coherence gate + material tagger |
+| Rapid stapler → Lyreco staples | supplier politics | supplier-protection gate (own-brand suppression) |
+| Casio HR-8RCE adapter → Lyreco calc | cross-brand compat | reuse <code>brand_compatible</code> + extend durable detector |</p>
+
+<h2 id="root-cause">Root cause</h2>
+
+<p>The zeroCPR fallback (<code>scripts/refresh_complements_fallback.py::_persist_batch</code>)
+<strong>bypasses the guardrails the Type A/B path already uses.</strong> Type A/B assemble
+complements through <code>core.complement_families.assemble_anchor_blocks</code>, which already
+applies: <code>per_family_cap</code> (within-anchor anti-bloat), the subcategory co-occurrence
+gate <code>cooc</code> (specificity, lift≥1.5 — this is what keeps hubs out of A/B), and
+<code>brand_gate</code>/<code>brand_compatible</code> (captive-consumable brand compat). The fallback
+instead calls <code>rank_family_skus</code> directly and takes top-N-by-sales per family with a
+flat <code>CAP=10</code> — no per-family cap, no cooc gate, no brand gate, no section gate.
+Result: every anchor is handed the same best-selling generic SKUs.</p>
+
+<p><em></em>So the design is mostly "route zeroCPR through the existing guardrails, and add the
+few that don't yet exist" — not a rebuild.<em></em></p>
+
+<h2 id="design-decisions-locked">Design decisions (locked)</h2>
+
+<p>1. <strong>Material compatibility (v1): keyword-tag high-risk families only.</strong> No structured
+   material field exists on <code>ecom_products</code> (only free text: <code>web_description</code>,
+   <code>key_words</code>). Tag material from those two fields for <em></em>footwear-care and gloves
+   families only<em></em>, via a curated keyword list. Full structured material/attribute data
+   is deferred to the Lyréco data-ask.
+2. <strong>Rejected family picks: re-call qwen with constraints.</strong> When a coherence gate
+   rejects the LLM's <em>family</em> itself (not just a SKU), re-prompt qwen (local, free,
+   zero Claude quota) with the gate rules stated in-prompt AND a section-filtered
+   vocabulary, then re-run the result through the gates (defense in depth).
+3. <strong>Non-destructive rollout.</strong> Write <code>signal_type='zerocpr_v2'</code> with a distinct
+   <code>source_file</code>, leaving <code>zerocpr</code> rows intact for diff/A-B until the export is flipped.
+4. <strong>Common path is deterministic (no LLM).</strong> The LLM's family picks are already stored
+   in <code>product_complements.family_code</code>; re-derivation reuses them and only re-calls the
+   LLM for anchors whose families were pruned.</p>
+
+<h2 id="architecture">Architecture</h2>
+
+<p><code></code>`
+stored family picks (product_complements WHERE signal_type='zerocpr', per anchor)
+        │  group by anchor -> {anchor: [family_code, ...]}
+        ▼
+  ┌─ COHERENCE GATES (per anchor × candidate family) ─────────────┐
+  │  section-coherence · supplier-protection · material · brand   │
+  └───────────────────────────────────────────────────────────────┘
+        │ some families pass            │ all families for an anchor rejected
+        ▼                               ▼
+  ┌─ HUB-AWARE SKU FILL ──────┐   ┌─ qwen RE-CALL (constrained) ─┐
+  │ reuse assemble_anchor_    │   │ section-filtered vocab +      │
+  │ blocks: per_family_cap,   │   │ gate rules in-prompt          │
+  │ cooc gate (where data),   │   └───────────┬──────────────────┘
+  │ brand_gate; ADD hub-IDF   │◀──────────────┘ new compliant families
+  │ demotion + global cap +   │      (re-run through gates)
+  │ diversify                 │
+  └───────────┬───────────────┘
+        ▼
+  persist signal_type='zerocpr_v2' (source_file='zerocpr-v2-2026-07-03')
+<code></code>`</p>
+
+<h2 id="components">Components</h2>
+
+<h3 id="c1-coherence-gates-core-complement-gates-py-new">C1 — Coherence gates (<code>core/complement_gates.py</code>, new)</h3>
+
+<p>Pure predicates, no I/O. Each takes an anchor record + a candidate (family or SKU)
+and returns bool. Table-driven tests from Marie's real cases.</p>
+
+<ul class="article-list">
+  <li><strong><code>section_coherent(anchor_section, family_section, allow_list)</code></strong> — True if same</li>
+</ul>
+  section, or the pair is in the curated adjacency allow-list. Kills shoe→deodorant.
+<ul class="article-list">
+  <li><strong><code>supplier_protected(anchor, complement_sku, fit_critical_families)</code></strong> — returns</li>
+</ul>
+  False (block) when: anchor is a durable (<code>is_durable_anchor</code>) <strong>and</strong>
+  competitor-branded (<code>lyreco_brand</code> false, <code>brand</code> non-null) <strong>and</strong> the complement's
+  family is a fit-critical captive-consumable family <strong>and</strong> the complement is Lyréco
+  own-brand (<code>lyreco_brand</code> true). This is a <em>politics</em> gate, distinct from
+  <code>brand_compatible</code> (a <em>compat</em> gate): it blocks own-brand even when physically
+  compatible. Kills Rapid→Lyreco-staples.
+<ul class="article-list">
+  <li><strong><code>material_compatible(anchor, complement_sku)</code></strong> — applies only when the family is</li>
+</ul>
+  in the material-sensitive set (footwear-care, gloves). Extracts material tags from
+  <code>web_description</code>+<code>key_words</code> of both sides via <code>tag_materials()</code> (C4); blocks on a
+  hard clash (e.g. anchor tagged <code>cuir</code>, complement care-product tagged <code>textile</code>
+  only). Absent tags never block (unknown → keep). Kills leather-deo-on-cotton.
+
+<p><strong>Reused, not rebuilt:</strong> <code>brand_compatible</code> (cross-brand captive-consumable compat —
+handles Casio-adapter once the durable detector covers calculators), <code>is_durable_anchor</code>,
+<code>is_in_perimeter</code>, <code>_is_active</code>.</p>
+
+<h3 id="c2-hub-aware-sku-fill-extend-rank-family-skus-route-through-assemble-anchor-blocks">C2 — Hub-aware SKU fill (extend <code>rank_family_skus</code> + route through <code>assemble_anchor_blocks</code>)</h3>
+
+<p>The hub problem is <strong>cross-anchor</strong> (one SKU on thousands of anchors); the existing
+<code>per_family_cap</code> is within-anchor and does not address it. Two layers:</p>
+
+<ul class="article-list">
+  <li><strong>Where co-occurrence data exists:</strong> route zeroCPR through the existing <code>cooc</code> gate</li>
+</ul>
+  (<code>build_subcat_cooc_map</code>, lift≥1.5) — the same specificity gate that keeps hubs out
+  of Type A/B. Generic wipes have low lift against random anchor subcats → dropped.
+<ul class="article-list">
+  <li><em></em>Where it does not (the zeroCPR norm — these anchors are the fallback <em>because</em> they</li>
+</ul>
+  lacked co-occurrence signal):<strong> a new </strong>hub-IDF demotion<em></em> in the SKU score:
+  <code>score = sales_rank_term − penalty(global_anchor_attachments(sku))</code>, plus a <em></em>global
+  attachment cap<em></em> (a SKU may back at most N anchors across the whole run) as a
+  backstop, plus <strong>diversification</strong> so an anchor is not handed the family's fixed
+  top-N. The runner tracks a cross-anchor attachment counter as it persists.
+
+<p><strong>Open knob (out to gridiron, DM #3908):</strong> exact form of <code>penalty(...)</code> and the
+cap N. Working default: penalty ∝ <code>log1p(anchor_attachments)</code> (IDF-style, primary,
+continuous) with a hard cap as backstop; N seeded conservatively and validated against
+the post-run attachment distribution. <strong>Failure floor to respect:</strong> diversification
+must not surface low-sales tail SKUs that are <em>worse</em> complements than a
+generic-but-relevant one — the fill keeps a minimum-sales floor per SKU.</p>
+
+<h3 id="c3-qwen-re-call-constrained-scripts-refresh-complements-fallback-py">C3 — qwen re-call, constrained (<code>scripts/refresh_complements_fallback.py</code>)</h3>
+
+<p>For anchors whose families were all/partly pruned by C1: rebuild the vocabulary passed
+to <code>build_fallback_prompt</code> to <strong>only same-section + adjacency-allowed families</strong> (the
+LLM literally cannot pick out-of-section), state the brand/material rules in the system
+prompt, call qwen (<code>backend='ollama'</code>, gpu-wsl, concurrency≤5), then re-run the returned
+families through C1 (defense in depth) before SKU-fill. Zero Claude quota.</p>
+
+<h3 id="c4-material-tagger-core-complement-gates-py-tag-materials">C4 — Material tagger (<code>core/complement_gates.py::tag_materials</code>)</h3>
+
+<p>Pure. Given <code>web_description</code>+<code>key_words</code>, returns a set of material tags from a curated
+lexicon (v1): `{cuir/leather, textile/coton/tissu, nitrile, latex, vinyle, cuir_synth,
+inox/metal, plastique}`. Applied only to the material-sensitive families. Curated list
+lives in the module; extend as cases surface.</p>
+
+<h3 id="c5-runner-integration">C5 — Runner integration</h3>
+
+<p><code>refresh_complements_fallback.py</code> gains a <code>--v2</code> mode (or a sibling
+<code>refresh_complements_guardrails.py</code>) that: loads stored <code>zerocpr</code> family picks per
+anchor, runs C1→C2 (+C3 for pruned), persists <code>signal_type='zerocpr_v2'</code>,
+<code>source_file='zerocpr-v2-2026-07-03'</code>, non-destructive DELETE-by-(country,source_file,
+anchor)+INSERT (same pattern as today). Keeps the pickle-cache pattern for traffic if
+needed. The Marie export + review-queue flip to v2 in a <strong>separate</strong> follow-up step,
+only after diffing v2 vs v1.</p>
+
+<h2 id="seeded-starter-lists-refine-during-review-impl">Seeded starter lists (refine during review/impl)</h2>
+
+<p><strong>Section adjacency allow-list</strong> (bidirectional; codes from <code>product_taxonomy</code>):</p>
+
+<ul class="article-list">
+  <li>003 EPI ↔ 002 HYGIÈNE ET ENTRETIEN (safety + cleaning)</li>
+  <li>005 CONSOMMABLES IMPRES ↔ 006 MACHINES DE BUREAU ↔ 004 ENVIRONNEMENT INFORMATIQUE</li>
+  <li>001 RESTAURATION ↔ 002 HYGIÈNE ET ENTRETIEN</li>
+  <li>016 EMBALLAGE/EXPÉDITION ↔ 011 FOURNITURES DE BUREAU</li>
+  <li>009 BLOCS ET CAHIERS ↔ 010 ÉCRITURE/CORRECTION ↔ 011 FOURNITURES DE BUREAU</li>
+</ul>
+
+<p>All other cross-section pairs are rejected (→ qwen re-call). Same-section always passes.</p>
+
+<p><strong>Fit-critical captive-consumable families</strong> (supplier-protection; resolved to
+<code>family_code</code> via <code>product_taxonomy</code> label match at build time): agrafes/staples,
+encre/toner/cartouches, ruban & étiquettes / label-tape, rouleaux calculatrice/caisse,
+dosettes/capsules machine. <strong>Durable-detector extension:</strong> add `AGRAFEUSE|STAPLER|
+CALCULATRICE|CALCULATOR<code> to </code>_DURABLE_RX` so staplers and calculators are recognized as
+durables (enables both <code>brand_compatible</code> for the Casio case and supplier-protection for
+the Rapid case).</p>
+
+<h2 id="data-flow-storage">Data flow / storage</h2>
+
+<ul class="article-list">
+  <li>Read: <code>product_complements</code> (zerocpr picks), <code>ecom_products</code> (brand, <code>lyreco_brand</code>,</li>
+</ul>
+  section/family, text fields), <code>product_taxonomy</code> (labels, adjacency codes), and where
+  present the subcat co-occurrence inputs for <code>build_subcat_cooc_map</code>. All Postgres :5433.
+<ul class="article-list">
+  <li>Write: <code>product_complements</code> new rows, <code>signal_type='zerocpr_v2'</code>. Never touch curated</li>
+</ul>
+  or <code>zerocpr</code> rows.
+
+<h2 id="error-handling">Error handling</h2>
+
+<ul class="article-list">
+  <li>Missing brand/section/material data → gate treats "unknown" as <strong>pass</strong> (never blocks</li>
+</ul>
+  on absence), matching the existing <code>brand_compatible</code> convention. This keeps coverage
+  and avoids false rejections; the cost is some unknown-data pairs slipping through, which
+  the review queue still flags.
+<ul class="article-list">
+  <li>qwen unreachable / empty parse → the anchor keeps whatever families passed C1; if none,</li>
+</ul>
+  it becomes an honest gap in v2 (logged), not a crash. Runner reports pruned/re-called/
+  gap counts.
+<ul class="article-list">
+  <li>Cross-DB: none required (all inputs are Postgres). No Oracle/VPN at runtime.</li>
+</ul>
+
+<h2 id="testing-tdd">Testing (TDD)</h2>
+
+<ul class="article-list">
+  <li><strong>Gate unit tests</strong> (<code>tests/test_complement_gates.py</code>): each predicate table-driven,</li>
+</ul>
+  seeded with Marie's four real cases as fixtures + synthetic clashes and
+  unknown-data-passes-through cases.
+<ul class="article-list">
+  <li><strong>Hub-fill invariants</strong>: after fill, no SKU exceeds the global cap; no anchor is handed</li>
+</ul>
+  a single-family monoculture beyond <code>per_family_cap</code>; min-sales floor respected.
+<ul class="article-list">
+  <li><strong>Durable-detector</strong>: stapler + calculator now classified durable; Casio adapter on a</li>
+</ul>
+  Lyreco calc rejected by <code>brand_compatible</code>.
+<ul class="article-list">
+  <li><strong>End-to-end (small fixture)</strong>: post-guardrail, cross-section rate < 15% (adjacency</li>
+</ul>
+  allow-list permits some legit cross-section) and no SKU attaches to more than the cap;
+  supplier-protection blocks the Rapid case.
+<ul class="article-list">
+  <li><strong>Regression</strong>: Type A/B path output unchanged (guardrail additions are additive /</li>
+</ul>
+  gated behind the zeroCPR path).
+
+<h2 id="deferred-to-the-lyr-co-data-ask-explicitly-not-in-v1">Deferred to the Lyréco data-ask (explicitly NOT in v1)</h2>
+
+<ul class="article-list">
+  <li>Exact device↔accessory/consumable compatibility maps (Casio HR-8RCE model-level, staple</li>
+</ul>
+  gauge, calculator roll size) — model-level, not brand-level.
+<ul class="article-list">
+  <li>A structured material/attribute table (removes the keyword-tagging approximation).</li>
+  <li>A supplier-protection brand list (which brands are strategic suppliers to shield) — v1</li>
+</ul>
+  uses the own-brand-vs-competitor heuristic via <code>lyreco_brand</code>.
+
+<h2 id="success-criteria">Success criteria</h2>
+
+<ul class="article-list">
+  <li>Cross-section pair rate drops from 89% to <15% in v2.</li>
+  <li>No complement SKU attaches to more than the cap (hub-collapse broken); the 671-SKU pool</li>
+</ul>
+  widens materially.
+<ul class="article-list">
+  <li>Zero own-brand complements on competitor-branded durables in fit-critical families.</li>
+  <li>Marie's four cases each verified fixed in v2 output.</li>
+  <li>Type A/B output unchanged; no Claude quota spent (qwen only).</li>
+</ul>
+<code></code>`
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#c1-coherence-gates-core-complement-gates-py-new">C1 — Coherence gates (`core/complement_gates.py`, new)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#c2-hub-aware-sku-fill-extend-rank-family-skus-route-through-assemble-anchor-blocks">C2 — Hub-aware SKU fill (extend `rank_family_skus` + route through `assemble_anchor_blocks`)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#c3-qwen-re-call-constrained-scripts-refresh-complements-fallback-py">C3 — qwen re-call, constrained (`scripts/refresh_complements_fallback.py`)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#c4-material-tagger-core-complement-gates-py-tag-materials">C4 — Material tagger (`core/complement_gates.py::tag_materials`)</a></li>
+<li style="margin-left: 0.8rem;"><a href="#c5-runner-integration">C5 — Runner integration</a></li>
+<li><a href="#goal">Goal</a></li>
+<li><a href="#why-the-measured-problem">Why (the measured problem)</a></li>
+<li><a href="#root-cause">Root cause</a></li>
+<li><a href="#design-decisions-locked">Design decisions (locked)</a></li>
+<li><a href="#architecture">Architecture</a></li>
+<li><a href="#components">Components</a></li>
+<li><a href="#seeded-starter-lists-refine-during-review-impl">Seeded starter lists (refine during review/impl)</a></li>
+<li><a href="#data-flow-storage">Data flow / storage</a></li>
+<li><a href="#error-handling">Error handling</a></li>
+<li><a href="#testing-tdd">Testing (TDD)</a></li>
+<li><a href="#deferred-to-the-lyr-co-data-ask-explicitly-not-in-v1">Deferred to the Lyréco data-ask (explicitly NOT in v1)</a></li>
+<li><a href="#success-criteria">Success criteria</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

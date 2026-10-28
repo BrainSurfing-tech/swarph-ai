@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shared core metrics | Technical Whitepaper</title>
+  <meta name="description" content="Shared core metrics — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/shared-core-metrics.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Shared core metrics</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Shared core metrics</p>
+
+<p>Shared contracts for <code>web/</code> and <code>os-app/</code> tasks, plus the cross-family subjective
+channel. Read [README.md](../README.md) <strong>Step 1</strong> (web vs os-app) and <strong>Step 3</strong>
+(shared contexts) first.</p>
+
+<h2 id="choosing-web-vs-os-app">Choosing <code>web</code> vs <code>os-app</code></h2>
+
+<p>Use <code>web/</code> when the benchmark target is primarily one website or web product:</p>
+
+<ul class="article-list">
+  <li>the core task is search, browse, compare, filter, fill, submit, cart, checkout,</li>
+</ul>
+  booking, or account management on web pages
+<ul class="article-list">
+  <li>the main observable errors are wrong page navigation, broken form filling,</li>
+</ul>
+  search/filter misuse, or live-site brittleness
+<ul class="article-list">
+  <li>success is mainly judged from web-visible state or a site-backed submission</li>
+</ul>
+
+<p>Use <code>os-app/</code> when the benchmark target is primarily native app operation or a
+workflow that spans apps and local artifacts:</p>
+
+<ul class="article-list">
+  <li>the core task is settings changes, file transforms, local document edits,</li>
+</ul>
+  email/calendar/file-manager workflows, or mobile/desktop app operation
+<ul class="article-list">
+  <li>the main observable errors are wrong edits, destructive side effects, broken</li>
+</ul>
+  cross-app handoff, or task completion with the wrong artifact
+<ul class="article-list">
+  <li>success is mainly judged from local app state, exported files, or cross-app</li>
+</ul>
+  side effects
+
+<p>If a task starts in a browser but the real benchmark target is a broader
+operating workflow, prefer <code>os-app/</code>. If the browser is the product under test,
+prefer <code>web/</code>.</p>
+
+<h2 id="shared-core-for-web-and-os-app">Shared core for <code>web</code> and <code>os-app</code></h2>
+
+<p>If you author <strong>web</strong> or <strong>OS/app</strong> tasks, read
+[Structured output quick reference](structured-output-quick-reference.md)
+first, then use this section for the shared context names and facet keys that
+both families reuse. For full metric templates and reporting patterns, use
+[<code>web/README.md</code>](../web/README.md) and [<code>os-app/README.md</code>](../os-app/README.md).</p>
+
+<p>For a machine-readable companion to this section, see
+<code>shared_core_metric_contract.example.json</code>.</p>
+
+<h3 id="shared-core-contexts">Shared Core Contexts</h3>
+
+<p>Both <code>web</code> and <code>os-app</code> should reuse these context types with the same names
+and semantics:</p>
+
+<p>1. <code>task_outcome</code>
+   Required. The benchmark-facing result for the whole task.
+2. <code>goal_component</code>
+   Recommended. One context per major required subgoal or assertion group.
+3. <code>side_effects</code>
+   Recommended. Unexpected edits, destructive changes, duplicates, privacy
+   leaks, or other collateral damage.
+4. <code>execution_profile</code>
+   Recommended. Runtime and operating-shape diagnostics.
+5. <code>infeasibility</code>
+   Optional but strongly recommended when some tasks are intentionally blocked,
+   unsupported, or impossible.
+6. <code>user_feedback</code>
+   Recommended whenever the task collects post-run self-report.
+7. <code>persona_alignment</code>
+   Recommended when persona alignment is part of the evaluation target.
+8. <code>persona_constraint</code>
+   Recommended when the task has explicit or inferable persona constraints.</p>
+
+<p>Scenario-specific contexts such as <code>web_interaction</code>, <code>web_artifact</code>,
+<code>decision</code>, or <code>decision_process</code> should layer on top of this shared core, not
+replace it.</p>
+
+<h3 id="shared-core-facet-keys">Shared Core Facet Keys</h3>
+
+<p>These facet keys should stay identical across <code>web</code> and <code>os-app</code> so that
+reporting code can aggregate them without task-family-specific branching.</p>
+
+<p>For <code>task_outcome</code>:</p>
+
+<ul class="article-list">
+  <li><code>outcome_status</code></li>
+  <li><code>goal_completion_ratio</code></li>
+  <li><code>goal_completion_bucket</code></li>
+  <li><code>verifier_mode</code></li>
+  <li><code>primary_failure_reason</code></li>
+  <li><code>outcome_explanation</code></li>
+  <li><code>completion_evidence</code></li>
+</ul>
+
+<p>For <code>goal_component</code>:</p>
+
+<ul class="article-list">
+  <li><code>goal_component_key</code></li>
+  <li><code>goal_component_label</code></li>
+  <li><code>goal_component_status</code></li>
+  <li><code>goal_component_weight</code></li>
+  <li><code>goal_component_required</code></li>
+  <li><code>goal_component_evidence</code></li>
+</ul>
+
+<p>For <code>side_effects</code>:</p>
+
+<ul class="article-list">
+  <li><code>collateral_damage_present</code></li>
+  <li><code>blocking_side_effect_present</code></li>
+  <li><code>damage_severity</code></li>
+  <li><code>damage_type_primary</code></li>
+  <li><code>unsafe_action_present</code></li>
+  <li><code>side_effect_notes</code></li>
+</ul>
+
+<p>For <code>execution_profile</code>:</p>
+
+<ul class="article-list">
+  <li><code>task_archetype</code></li>
+  <li><code>used_gui_primary</code></li>
+  <li><code>used_terminal_or_script</code></li>
+  <li><code>apps_touched_count</code></li>
+  <li><code>step_count</code></li>
+  <li><code>wall_clock_seconds</code></li>
+  <li><code>recovery_count</code></li>
+</ul>
+
+<p>For <code>infeasibility</code>:</p>
+
+<ul class="article-list">
+  <li><code>infeasible_expected</code></li>
+  <li><code>agent_declared_infeasible</code></li>
+  <li><code>infeasibility_reason_match</code></li>
+  <li><code>declared_before_side_effects</code></li>
+  <li><code>infeasibility_notes</code></li>
+</ul>
+
+<p>For <code>user_feedback</code>:</p>
+
+<ul class="article-list">
+  <li><code>overall_experience_rating</code></li>
+  <li><code>feedback_reason</code></li>
+  <li><code>need_constraint_satisfaction</code></li>
+  <li><code>personal_preference_satisfaction</code></li>
+  <li><code>trust_level</code></li>
+  <li><code>effort_rating</code></li>
+  <li><code>clarity_of_next_step</code></li>
+</ul>
+
+<p>For persona-aware tasks:</p>
+
+<ul class="article-list">
+  <li><code>persona_alignment_status</code></li>
+  <li><code>persona_alignment_score</code></li>
+  <li><code>persona_preference_axis_primary</code></li>
+  <li><code>persona_signal_source</code></li>
+  <li><code>persona_alignment_explanation</code></li>
+  <li><code>persona_constraint_key</code></li>
+  <li><code>persona_constraint_type</code></li>
+  <li><code>persona_constraint_priority</code></li>
+  <li><code>persona_constraint_status</code></li>
+  <li><code>persona_constraint_evidence</code></li>
+</ul>
+
+<h3 id="shared-core-rules">Shared Core Rules</h3>
+
+<ul class="article-list">
+  <li>Keep the shared context names and facet keys exactly as written.</li>
+  <li>Do not rename shared fields to fit one task family; add task-specific fields</li>
+</ul>
+  behind a <code>task_</code> prefix or in scenario-specific contexts instead.
+<ul class="article-list">
+  <li>Keep <code>user_feedback</code> as the shared post-run subjective channel across</li>
+</ul>
+  interactive tasks. Family-specific process contexts may add richer slices, but
+  they should not replace the shared feedback context.
+<ul class="article-list">
+  <li>Keep binary success outcome-based. Do not derive success from action-sequence</li>
+</ul>
+  matching.
+<ul class="article-list">
+  <li>Use the same shared enums for common fields whenever possible so batch reports</li>
+</ul>
+  can compare <code>web</code> and <code>os-app</code> runs directly.
+
+<h2 id="shared-subjective-channel-interactive-tasks">Shared subjective channel (interactive tasks)</h2>
+
+<p>When a task collects post-run persona feedback (<code>chatbot</code>, <code>web</code>, <code>os-app</code>):</p>
+
+<ul class="article-list">
+  <li>write the raw artifact to <code>user_feedback.json</code></li>
+  <li>define task-owned questions in <code>input/self_report_schema.yaml</code></li>
+  <li>map the feedback into a <code>user_feedback</code> context in</li>
+</ul>
+  <code>verifier/structured_output.json</code>
+
+<p>The shared <code>user_feedback</code> context is the default reporting home for subjective
+signals such as satisfaction, effort, trust, or clarity. Family-specific
+contexts can still add narrower slices when that improves analysis:</p>
+
+<ul class="article-list">
+  <li>chatbot may additionally emphasize conversation-only signals such as whether</li>
+</ul>
+  clarification questions were useful or whether the user felt understood
+<ul class="article-list">
+  <li>web may optionally add an <code>experience</code> context for web-specific friction or UI</li>
+</ul>
+  journey analysis
+<ul class="article-list">
+  <li>os-app may additionally surface persona alignment or archetype-specific</li>
+</ul>
+  summaries when local workflow tradeoffs matter
+
+<p>Recommended shared <code>user_feedback</code> facets:</p>
+
+<ul class="article-list">
+  <li><code>overall_experience_rating</code></li>
+  <li><code>feedback_reason</code></li>
+  <li><code>need_constraint_satisfaction</code></li>
+  <li><code>personal_preference_satisfaction</code></li>
+  <li><code>trust_level</code></li>
+  <li><code>effort_rating</code></li>
+  <li><code>clarity_of_next_step</code></li>
+</ul>
+
+<p>Task families can extend this shared feedback contract with extra <code>task_*</code>
+fields or family-specific fields when needed, but <code>user_feedback</code> should remain
+the common subjective reporting entry point.</p>
+
+<p>Across application tasks, prefer <code>shared-*</code> environment folders when the runtime
+is reusable across multiple tasks. Reserve task-named environment folders for
+truly task-specific app hosts or sidecar topologies.</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#shared-core-contexts">Shared Core Contexts</a></li>
+<li style="margin-left: 0.8rem;"><a href="#shared-core-facet-keys">Shared Core Facet Keys</a></li>
+<li style="margin-left: 0.8rem;"><a href="#shared-core-rules">Shared Core Rules</a></li>
+<li><a href="#choosing-web-vs-os-app">Choosing `web` vs `os-app`</a></li>
+<li><a href="#shared-core-for-web-and-os-app">Shared core for `web` and `os-app`</a></li>
+<li><a href="#shared-subjective-channel-interactive-tasks">Shared subjective channel (interactive tasks)</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

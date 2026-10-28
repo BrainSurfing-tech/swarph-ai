@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Featured Spec: Swarph Bench Tool | Swarph AI Campaign</title>
+  <meta name="description" content="Dedicated campaign landing funnel for AI Mesh Engineers & Developers. Authoritative, peer-to-peer agent mesh engineering, zero-knowledge security">
+  <link rel="canonical" href="https://swarph.ai/funnels/swarph-bench-funnel.html">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  
+  
+
+  <style>
+    :root {
+      --primary: #38bdf8;
+      --accent: #818cf8;
+      --bg: #0a0a0f;
+    }
+    body { background: var(--bg); color: #e2e8f0; font-family: 'Inter', sans-serif; margin: 0; padding: 0; line-height: 1.6; }
+    .container { max-width: 960px; margin: 0 auto; padding: 3rem 1.5rem; }
+    .hero-badge { display: inline-block; background: rgba(56, 189, 248, 0.1); color: var(--primary); border: 1px solid var(--primary); padding: 4px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1.5rem; }
+    h1 { font-family: 'Outfit', sans-serif; font-size: 2.8rem; font-weight: 800; color: #ffffff; margin-bottom: 1rem; line-height: 1.1; }
+    h1 span { color: var(--primary); }
+    .lead { font-size: 1.25rem; color: #94a3b8; margin-bottom: 2rem; max-width: 720px; }
+    .cta-box { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; padding: 2rem; margin-top: 2.5rem; text-align: center; }
+    .cta-btn { display: inline-block; background: var(--primary); color: #04140f; font-weight: 700; font-size: 1.1rem; padding: 14px 32px; border-radius: 8px; text-decoration: none; transition: all 0.2s ease; box-shadow: 0 0 20px rgba(0, 243, 255, 0.3); }
+    .cta-btn:hover { transform: translateY(-2px); box-shadow: 0 0 30px rgba(0, 243, 255, 0.5); }
+    .footer-note { margin-top: 3rem; text-align: center; font-size: 0.8rem; color: #64748b; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 1.5rem; }
+  </style>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+  <div class="container">
+    <div class="hero-badge">Google Pomelli Campaign · Swarph AI</div>
+    <h1>Featured Spec: Swarph Bench Tool</h1>
+    <p class="lead">Built for AI Mesh Engineers & Developers. Authoritative, peer-to-peer agent mesh engineering, zero-knowledge security</p>
+
+    <!-- Interactive Live Simulator -->
+    
+<div class="swarph-interactive-widget" id="swarph-widget-container" style="background:#0f172a; border:1px solid #1e293b; border-radius:12px; padding:24px; color:#f8fafc; font-family:system-ui,-apple-system,sans-serif; margin:24px 0;">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155; padding-bottom:12px; margin-bottom:16px;">
+        <h3 style="margin:0; font-size:1.1rem; color:#a855f7; display:flex; align-items:center; gap:8px;">
+            <span>⚡</span> Agent Swarm Latency & Tool Fusion Simulator
+        </h3>
+        <span style="background:#7e22ce; color:#fff; font-size:0.75rem; padding:2px 8px; border-radius:12px; font-weight:600;">TOPOLOGY CANVAS</span>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+        <div style="display:flex; flex-direction:column; gap:14px;">
+            <div>
+                <label style="display:flex; justify-content:space-between; font-size:0.85rem; color:#94a3b8; margin-bottom:4px;">
+                    <span>Swarm Cells (Nodes N)</span>
+                    <span id="val-nodes" style="color:#c084fc; font-weight:bold;">12 Nodes</span>
+                </label>
+                <input type="range" id="input-nodes" min="2" max="50" step="1" value="12" style="width:100%; accent-color:#9333ea;" oninput="updateSwarphCalc()">
+            </div>
+            <div>
+                <label style="display:flex; justify-content:space-between; font-size:0.85rem; color:#94a3b8; margin-bottom:4px;">
+                    <span>Query Depth (Hops)</span>
+                    <span id="val-hops" style="color:#c084fc; font-weight:bold;">3 Hops</span>
+                </label>
+                <input type="range" id="input-hops" min="1" max="10" step="1" value="3" style="width:100%; accent-color:#9333ea;" oninput="updateSwarphCalc()">
+            </div>
+            <div>
+                <label style="display:flex; justify-content:space-between; font-size:0.85rem; color:#94a3b8; margin-bottom:4px;">
+                    <span>RPC Latency per Hop (ms)</span>
+                    <span id="val-rpc" style="color:#c084fc; font-weight:bold;">4.5 ms</span>
+                </label>
+                <input type="range" id="input-rpc" min="1.0" max="25.0" step="0.5" value="4.5" style="width:100%; accent-color:#9333ea;" oninput="updateSwarphCalc()">
+            </div>
+        </div>
+        <div style="background:#1e1b4b; border:1px solid #312e81; border-radius:8px; padding:16px; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+            <svg id="swarph-canvas" width="220" height="120" viewBox="0 0 220 120" style="background:#0f0728; border-radius:6px; border:1px solid #4c1d95;">
+                <circle cx="110" cy="60" r="12" fill="#a855f7"/>
+                <circle cx="50" cy="30" r="7" fill="#818cf8"/>
+                <circle cx="170" cy="30" r="7" fill="#818cf8"/>
+                <circle cx="50" cy="90" r="7" fill="#818cf8"/>
+                <circle cx="170" cy="90" r="7" fill="#818cf8"/>
+                <line x1="110" y1="60" x2="50" y2="30" stroke="#a855f7" stroke-width="1.5"/>
+                <line x1="110" y1="60" x2="170" y2="30" stroke="#a855f7" stroke-width="1.5"/>
+                <line x1="110" y1="60" x2="50" y2="90" stroke="#a855f7" stroke-width="1.5"/>
+                <line x1="110" y1="60" x2="170" y2="90" stroke="#a855f7" stroke-width="1.5"/>
+            </svg>
+            <div style="margin-top:12px; text-align:center;">
+                <div style="font-size:0.75rem; color:#94a3b8; text-transform:uppercase; letter-spacing:0.05em;">P99 Mesh Latency</div>
+                <div id="output-latency" style="font-size:1.6rem; font-weight:800; color:#38bdf8; margin-top:2px;">13.5 ms</div>
+            </div>
+        </div>
+    </div>
+    <script>
+    function updateSwarphCalc() {
+        const nodes = parseInt(document.getElementById('input-nodes').value);
+        const hops = parseInt(document.getElementById('input-hops').value);
+        const rpc = parseFloat(document.getElementById('input-rpc').value);
+        
+        document.getElementById('val-nodes').innerText = nodes + ' Nodes';
+        document.getElementById('val-hops').innerText = hops + ' Hops';
+        document.getElementById('val-rpc').innerText = rpc.toFixed(1) + ' ms';
+        
+        const totalP99 = (hops * rpc + Math.log2(nodes) * 0.8).toFixed(1);
+        document.getElementById('output-latency').innerText = totalP99 + ' ms';
+    }
+    </script>
+</div>
+
+
+    <div class="cta-box">
+      <h3 style="color:#fff; font-size:1.5rem; margin-bottom:0.5rem;">Ready to Deploy Swarph AI?</h3>
+      <p style="color:#94a3b8; margin-bottom:1.5rem;">Join our early access campaign cohort for priority allocation.</p>
+      <a href="/?utm_campaign=bench_launch_2026&utm_source=twitter_ads&utm_medium=cpc" class="cta-btn">Access Swarph AI Now →</a>
+    </div>
+
+    <div class="footer-note">
+      A <a href="https://brainsurfing.tech" style="color:var(--primary); text-decoration:none;">BrainSurfing.tech</a> property · Campaign Attribution: bench_launch_2026 · © 2026 Swarph AI
+    </div>
+  </div>
+</body>
+</html>

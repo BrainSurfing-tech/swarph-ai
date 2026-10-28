@@ -1,0 +1,1328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Compléments fonctionnels par IA — Implementation Plan | Technical Whitepaper</title>
+  <meta name="description" content="Compléments fonctionnels par IA — Implementation Plan — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/2026-06-02-functional-complements-ai.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Compléments fonctionnels par IA — Implementation Plan</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 25 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Compléments fonctionnels par IA — Implementation Plan</p>
+
+<p>> <strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+
+<p><strong>Goal:</strong> Déduire par IA (titre+marque, sales-blind) les types de produits fonctionnellement complémentaires, puis croiser avec le co-achat réel pour isoler les paires complémentaires mais rarement achetées ensemble (cross-sell sous-exploité), livrées en Excel pour Marie.</p>
+
+<p><strong>Architecture:</strong> Une couche pure et testable (<code>core/functional_complements.py</code>) fait tout le calcul non-IA : chargement CSV, agrégation co-achat au grain type, scoring/bucketing, assemblage des sorties. Une couche IA isolée et injectable (<code>core/ai_typing.py</code>) encapsule les appels LLM (typage + graphe de compléments) sur le pattern existant de <code>core/labeling.py</code>. Un script d'orchestration (<code>scripts/refresh_functional_complements.py</code>) câble le tout en réutilisant le pull de paniers et <code>clean_baskets</code> du refresh cross-family existant, et écrit un snapshot XLSX + JSON.</p>
+
+<p><strong>Tech Stack:</strong> Python 3.12 (.venv), pytest, SDK <code>anthropic</code> (modèle <code>claude-haiku-4-5</code>), openpyxl, psycopg2 (via <code>database.crm_db</code> / <code>database.timeseries_db</code>).</p>
+
+<p><strong>Décisions par défaut (modifiables) :</strong>
+<ul class="article-list">
+  <li><strong>Persistance v1 = fichiers snapshot uniquement</strong> (JSON + XLSX). Les tables postgres réutilisables (<code>product_functional_type</code>, <code>type_complement_edge</code>) sont une <strong>Task optionnelle (Task 9)</strong>, non requise pour le livrable Marie.</li>
+  <li><strong>Vocabulaire de types = construit à la volée</strong> (réutiliser-avant-créer). Pré-seed = amélioration ultérieure.</li>
+</ul></p>
+
+<p><strong>Référence spec :</strong> <code>docs/superpowers/specs/2026-06-02-functional-complements-ai-design.md</code></p>
+
+<p>---</p>
+
+<h2 id="file-structure">File Structure</h2>
+
+<p>| Fichier | Responsabilité |
+|---|---|
+| <code>core/functional_complements.py</code> (créer) | Fonctions pures : <code>load_csv_products</code>, <code>type_copurchase</code>, <code>score_opportunities</code>, <code>build_complement_outputs</code>. Aucun appel réseau/DB. |
+| <code>core/ai_typing.py</code> (créer) | Couche IA injectable : <code>type_products</code>, <code>propose_complements</code>, <code>_default_llm_call</code>. Encapsule le SDK anthropic + cache + vocab contrôlé. |
+| <code>scripts/refresh_functional_complements.py</code> (créer) | Orchestration offline : pull paniers (réutilise la requête du refresh existant) → typage → graphe → co-achat → score → XLSX + JSON. |
+| <code>tests/test_functional_complements.py</code> (créer) | Tests des 4 fonctions pures (valeurs exactes). |
+| <code>tests/test_ai_typing.py</code> (créer) | Tests de la couche IA avec <code>llm_call</code> stubbé (zéro réseau). |</p>
+
+<p><strong>Conventions verrouillées (utilisées par toutes les tasks) :</strong>
+<ul class="article-list">
+  <li>Un <strong>type</strong> est une <strong>chaîne normalisée</strong> : <code>type = label.strip().lower()</code>. Le type EST son id (pas de dict type_id/type_label — simplifié vs spec §5.1 pour un core plus propre).</li>
+  <li>Une <strong>paire de types</strong> est toujours stockée/consultée comme <code>tuple(sorted((t1, t2)))</code>.</li>
+  <li><code>sku_type_map: dict[str, str]</code> = <code>{sku: type}</code>.</li>
+  <li><code>baskets</code> passés aux fonctions pures = <code>list[frozenset[str]]</code> (sortie de <code>clean_baskets</code>).</li>
+</ul></p>
+
+<p>---</p>
+
+<h2 id="task-1-load-csv-products-lecture-du-csv-de-marie-cp1252">Task 1: <code>load_csv_products</code> — lecture du CSV de Marie (cp1252)</h2>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>core/functional_complements.py</code></li>
+  <li>Test: <code>tests/test_functional_complements.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_functional_complements.py
+import csv
+from pathlib import Path</p>
+
+<p>from core.functional_complements import load_csv_products</p>
+
+<p>def _write_csv(path: Path) -> None:
+    # cp1252 + ';' delimiter + BOM, mirroring imports/marie/Datas_pour_produits_associes.csv
+    rows = [
+        ["SAP Code (.)", "SAP Code", "Titre web", "Marque", "Code fabricant",
+         "GTIN 1", "GTIN 2", "GTIN 3", "GTIN 4", "GTIN 5"],
+        ["5.978.056", "5978056", "Assortiment de Mini Toblerone - boîte de 904 g",
+         "TOBLERONE", "912490", "7622210418654", "", "", "", ""],
+        ["1.516.588", "1516588", "Corbeille à courrier Cep First - noire",
+         "CEP", "x", "1", "", "", "", ""],
+    ]
+    with open(path, "w", encoding="cp1252", newline="") as f:
+        w = csv.writer(f, delimiter=";")
+        for r in rows:
+            w.writerow(r)</p>
+
+<p>def test_load_csv_products(tmp_path):
+    p = tmp_path / "marie.csv"
+    _write_csv(p)
+    out = load_csv_products(p)
+    assert out["5978056"] == {
+        "title": "Assortiment de Mini Toblerone - boîte de 904 g",
+        "brand": "TOBLERONE",
+    }
+    assert out["1516588"]["title"] == "Corbeille à courrier Cep First - noire"
+    # accents survive cp1252 round-trip
+    assert "à" in out["1516588"]["title"]
+    # keyed by SAP Code (no dots), 2 products
+    assert set(out) == {"5978056", "1516588"}
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>.venv\Scripts\python.exe -m pytest tests/test_functional_complements.py::test_load_csv_products -v</code>
+Expected: FAIL — <code>ImportError: cannot import name 'load_csv_products'</code></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# core/functional_complements.py
+"""Compléments fonctionnels par IA × croisement ventes — fonctions pures.</p>
+
+<p>Aucun I/O réseau ni DB. Méthode + calibration :
+docs/superpowers/specs/2026-06-02-functional-complements-ai-design.md
+"""
+from __future__ import annotations</p>
+
+<p>import csv
+from math import log1p
+from pathlib import Path</p>
+
+<p>def load_csv_products(path, encoding: str = "cp1252") -> dict:
+    """Lit le CSV de Marie (délimiteur ';', encodage cp1252).</p>
+
+<p>Renvoie {sku: {"title": str, "brand": str}}, sku = colonne 'SAP Code'
+    (sans points). Les lignes sans SAP Code ou sans titre sont ignorées.
+    """
+    out: dict[str, dict] = {}
+    with open(path, "r", encoding=encoding, newline="") as f:
+        reader = csv.DictReader(f, delimiter=";")
+        for row in reader:
+            sku = (row.get("SAP Code") or "").strip()
+            title = (row.get("Titre web") or "").strip()
+            if not sku or not title:
+                continue
+            out[sku] = {"title": title, "brand": (row.get("Marque") or "").strip()}
+    return out
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>.venv\Scripts\python.exe -m pytest tests/test_functional_complements.py::test_load_csv_products -v</code>
+Expected: PASS</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/functional_complements.py tests/test_functional_complements.py
+git commit -m "feat(complements-ia): load_csv_products (cp1252 reader)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="task-2-type-copurchase-co-achat-au-grain-type">Task 2: <code>type_copurchase</code> — co-achat au grain type</h2>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>core/functional_complements.py</code></li>
+  <li>Test: <code>tests/test_functional_complements.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_functional_complements.py  (append)
+from core.functional_complements import type_copurchase</p>
+
+<p>def test_type_copurchase_exact():
+    baskets = [
+        frozenset({"s1", "s2"}),        # souris, pile
+        frozenset({"s1", "s3"}),        # souris, tapis
+        frozenset({"s1", "s2", "s4"}),  # souris, pile, pile
+    ]
+    sku_type = {"s1": "souris", "s2": "pile", "s3": "tapis", "s4": "pile"}
+    cp = type_copurchase(baskets, sku_type, min_type_support=1)</p>
+
+<p>assert cp["N"] == 3
+    assert cp["n"] == {"souris": 3, "pile": 2, "tapis": 1}
+    # pairs stored sorted
+    assert cp["co"][("pile", "souris")] == 2
+    assert cp["co"][("souris", "tapis")] == 1
+    assert ("pile", "tapis") not in cp["co"]   # never co-occur
+    assert cp["lift"][("pile", "souris")] == 1.0
+    assert cp["cond"][("pile", "souris")] == 1.0
+    assert cp["cond"][("souris", "tapis")] == 1.0
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>.venv\Scripts\python.exe -m pytest tests/test_functional_complements.py::test_type_copurchase_exact -v</code>
+Expected: FAIL — <code>ImportError: cannot import name 'type_copurchase'</code></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# core/functional_complements.py  (append)
+from collections import Counter
+from itertools import combinations</p>
+
+<p>def type_copurchase(baskets, sku_type_map: dict, min_type_support: int = 25) -> dict:
+    """Agrège le co-achat au grain type sur des paniers nettoyés.</p>
+
+<p>baskets : list[frozenset[str]] (SKU). sku_type_map : {sku: type}.
+    Renvoie {N, n, co, lift, cond} où :
+      n[t]        = nb de paniers contenant >=1 SKU de type t
+      co[(a,b)]   = nb de paniers contenant a la fois >=1 SKU de a et de b (a<b)
+      lift[(a,b)] = (co/N) / ((n[a]/N)*(n[b]/N))
+      cond[(a,b)] = co / min(n[a], n[b])
+    co/lift/cond ne contiennent que les paires co-occurrentes (co>0).
+    min_type_support n'est PAS filtré ici (le scoring s'en charge) — il est
+    accepté pour homogénéité de signature.
+    """
+    N = len(baskets)
+    n: Counter = Counter()
+    co: Counter = Counter()
+    for b in baskets:
+        types = {sku_type_map.get(s) for s in b}
+        types.discard(None)
+        for t in types:
+            n[t] += 1
+        for a, c in combinations(sorted(types), 2):
+            co[(a, c)] += 1</p>
+
+<p>lift: dict = {}
+    cond: dict = {}
+    for (a, c), k in co.items():
+        if N and n[a] and n[c]:
+            lift[(a, c)] = (k / N) / ((n[a] / N) * (n[c] / N))
+        cond[(a, c)] = k / min(n[a], n[c])
+    return {"N": N, "n": dict(n), "co": dict(co), "lift": lift, "cond": cond}
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>.venv\Scripts\python.exe -m pytest tests/test_functional_complements.py::test_type_copurchase_exact -v</code>
+Expected: PASS</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/functional_complements.py tests/test_functional_complements.py
+git commit -m "feat(complements-ia): type_copurchase (n/co/lift/cond at type grain)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="task-3-score-opportunities-score-buckets">Task 3: <code>score_opportunities</code> — score + buckets</h2>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>core/functional_complements.py</code></li>
+  <li>Test: <code>tests/test_functional_complements.py</code></li>
+</ul></p>
+
+<p>Buckets (spec §4.5) : <code>co == 0</code> → <code>ia_seule</code> ; <code>co > 0 et lift < lift_low</code> → <code>sous_exploite</code> ; <code>co > 0 et lift >= lift_low</code> → <code>confirme</code>. Garde-fou : on <strong>écarte</strong> toute arête dont un type a <code>n < min_type_support</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_functional_complements.py  (append)
+import pytest
+from core.functional_complements import score_opportunities</p>
+
+<p>def test_score_opportunities_buckets_and_order():
+    copurchase = {
+        "N": 100,
+        "n": {"souris": 40, "pile": 50, "tapis": 30, "clavier": 26},
+        "co": {("pile", "souris"): 25, ("souris", "tapis"): 2},
+        "lift": {("pile", "souris"): 1.25, ("souris", "tapis"): 0.17},
+        "cond": {("pile", "souris"): 0.625, ("souris", "tapis"): 0.067},
+    }
+    edges = [
+        {"t1": "pile", "t2": "souris", "relation": "consommable-de",
+         "ai_strength": 0.9, "rationale": "la souris sans-fil a besoin de piles"},
+        {"t1": "souris", "t2": "tapis", "relation": "accessoire-de",
+         "ai_strength": 0.8, "rationale": "tapis pour la souris"},
+        {"t1": "clavier", "t2": "pile", "relation": "consommable-de",
+         "ai_strength": 0.7, "rationale": "clavier sans-fil a besoin de piles"},
+        {"t1": "souris", "t2": "rare", "relation": "accessoire-de",
+         "ai_strength": 0.6, "rationale": "type sans assez d'acheteurs"},
+    ]
+    out = score_opportunities(edges, copurchase, min_type_support=25, lift_low=1.0)</p>
+
+<p>by_pair = {tuple(sorted((r["t1"], r["t2"]))): r for r in out}
+    # 'rare' has n=0 < support -> dropped
+    assert ("rare", "souris") not in by_pair
+    assert by_pair[("pile", "souris")]["bucket"] == "confirme"   # lift 1.25 >= 1
+    assert by_pair[("souris", "tapis")]["bucket"] == "sous_exploite"  # lift 0.17 < 1
+    assert by_pair[("clavier", "pile")]["bucket"] == "ia_seule"  # co absent -> 0</p>
+
+<p># scores
+    assert by_pair[("souris", "tapis")]["score"] == pytest.approx(
+        0.8 <em> (3.4339872) </em> (1 - 0.067), rel=1e-3)
+    # sorted by score desc
+    scores = [r["score"] for r in out]
+    assert scores == sorted(scores, reverse=True)
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>.venv\Scripts\python.exe -m pytest tests/test_functional_complements.py::test_score_opportunities_buckets_and_order -v</code>
+Expected: FAIL — <code>ImportError: cannot import name 'score_opportunities'</code></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# core/functional_complements.py  (append)
+def score_opportunities(complement_edges, copurchase: dict,
+                        min_type_support: int = 25, lift_low: float = 1.0) -> list:
+    """Jointe les arêtes IA × co-achat → score + bucket. Pur.</p>
+
+<p>Écarte toute arête dont un type a n < min_type_support. Pour chaque arête
+    conservée : co/lift/cond lus dans <code>copurchase</code> (défaut 0 si absent),
+    volume = min(n1, n2), score = ai_strength <em> log1p(volume) </em> (1 - cond).
+    Bucket : co==0 -> 'ia_seule' ; lift<lift_low -> 'sous_exploite' ; sinon
+    'confirme'. Renvoie la liste triée par score décroissant.
+    """
+    n = copurchase["n"]
+    co = copurchase["co"]
+    lift = copurchase["lift"]
+    cond = copurchase["cond"]
+    out: list = []
+    for e in complement_edges:
+        key = tuple(sorted((e["t1"], e["t2"])))
+        n1, n2 = n.get(key[0], 0), n.get(key[1], 0)
+        if n1 < min_type_support or n2 < min_type_support:
+            continue
+        k = co.get(key, 0)
+        lf = lift.get(key, 0.0)
+        cd = cond.get(key, 0.0)
+        volume = min(n1, n2)
+        score = e["ai_strength"] <em> log1p(volume) </em> (1.0 - cd)
+        if k == 0:
+            bucket = "ia_seule"
+        elif lf < lift_low:
+            bucket = "sous_exploite"
+        else:
+            bucket = "confirme"
+        out.append({
+            "t1": key[0], "t2": key[1],
+            "relation": e.get("relation"),
+            "ai_strength": e["ai_strength"],
+            "rationale": e.get("rationale"),
+            "n1": n1, "n2": n2, "co": k,
+            "lift": round(lf, 3), "cond": round(cd, 3),
+            "score": score, "bucket": bucket,
+        })
+    out.sort(key=lambda r: -r["score"])
+    return out
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>.venv\Scripts\python.exe -m pytest tests/test_functional_complements.py::test_score_opportunities_buckets_and_order -v</code>
+Expected: PASS</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/functional_complements.py tests/test_functional_complements.py
+git commit -m "feat(complements-ia): score_opportunities (score + 3 buckets)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="task-4-build-complement-outputs-sections-d-affichage-enrichies">Task 4: <code>build_complement_outputs</code> — sections d'affichage enrichies</h2>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>core/functional_complements.py</code></li>
+  <li>Test: <code>tests/test_functional_complements.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_functional_complements.py  (append)
+from core.functional_complements import build_complement_outputs</p>
+
+<p>def test_build_complement_outputs_groups_and_reps():
+    scored = [
+        {"t1": "souris", "t2": "tapis", "relation": "accessoire-de",
+         "ai_strength": 0.8, "rationale": "r", "n1": 40, "n2": 30, "co": 2,
+         "lift": 0.17, "cond": 0.067, "score": 2.5, "bucket": "sous_exploite"},
+        {"t1": "pile", "t2": "souris", "relation": "consommable-de",
+         "ai_strength": 0.9, "rationale": "r2", "n1": 50, "n2": 40, "co": 25,
+         "lift": 1.25, "cond": 0.625, "score": 1.2, "bucket": "confirme"},
+    ]
+    sku_type_map = {"s1": "souris", "s2": "pile", "s3": "tapis", "s4": "souris"}
+    sku_sales = {"s1": 100, "s2": 50, "s3": 30, "s4": 5}
+    prod_meta = {
+        "s1": {"name": "Souris sans fil Logitech"},
+        "s2": {"name": "Pile AA Energizer"},
+        "s3": {"name": "Tapis souris"},
+        "s4": {"name": "Souris filaire Lyreco"},
+    }
+    out = build_complement_outputs(scored, sku_type_map, sku_sales, prod_meta,
+                                   top_per_type=2)</p>
+
+<p>assert len(out["sous_exploite"]) == 1
+    assert len(out["confirme"]) == 1
+    assert out["ia_seule"] == []
+    # representative SKUs for 'souris' = top-2 by sales: s1 (100) then s4 (5)
+    row = out["sous_exploite"][0]
+    rep_skus = [r["sku"] for r in row["reps_t1"]]  # t1 == 'souris'
+    assert rep_skus == ["s1", "s4"]
+    assert row["reps_t1"][0]["name"] == "Souris sans fil Logitech"
+    # typage + graphe present
+    assert len(out["typage"]) == 4
+    assert len(out["graphe"]) == 2
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>.venv\Scripts\python.exe -m pytest tests/test_functional_complements.py::test_build_complement_outputs_groups_and_reps -v</code>
+Expected: FAIL — <code>ImportError: cannot import name 'build_complement_outputs'</code></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# core/functional_complements.py  (append)
+from collections import defaultdict</p>
+
+<p>def _type_reps(sku_type_map: dict, sku_sales: dict, prod_meta: dict,
+               top_per_type: int) -> dict:
+    """type -> [{sku, name}] des top_per_type SKU les plus vendus du type."""
+    by_type: dict[str, list] = defaultdict(list)
+    for sku, t in sku_type_map.items():
+        by_type[t].append(sku)
+    reps: dict[str, list] = {}
+    for t, skus in by_type.items():
+        ranked = sorted(skus, key=lambda s: -sku_sales.get(s, 0))[:top_per_type]
+        reps[t] = [{"sku": s, "name": (prod_meta.get(s) or {}).get("name") or "—"}
+                   for s in ranked]
+    return reps</p>
+
+<p>def build_complement_outputs(scored, sku_type_map: dict, sku_sales: dict,
+                             prod_meta: dict, top_per_type: int = 3) -> dict:
+    """Groupe <code>scored</code> par bucket, attache les SKU représentatifs par type,
+    et ajoute les sections d'audit <code>typage</code> et <code>graphe</code>. Pur."""
+    reps = _type_reps(sku_type_map, sku_sales, prod_meta, top_per_type)
+    buckets: dict[str, list] = {"sous_exploite": [], "confirme": [], "ia_seule": []}
+    graphe: list = []
+    for r in scored:
+        row = dict(r)
+        row["reps_t1"] = reps.get(r["t1"], [])
+        row["reps_t2"] = reps.get(r["t2"], [])
+        buckets.setdefault(r["bucket"], []).append(row)
+        graphe.append({"t1": r["t1"], "t2": r["t2"], "relation": r["relation"],
+                       "ai_strength": r["ai_strength"], "rationale": r["rationale"]})
+    typage = [{"sku": s, "type": t,
+               "name": (prod_meta.get(s) or {}).get("name") or "—"}
+              for s, t in sorted(sku_type_map.items())]
+    return {<em></em>buckets, "typage": typage, "graphe": graphe}
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>.venv\Scripts\python.exe -m pytest tests/test_functional_complements.py -v</code>
+Expected: PASS (all 4 tests)</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/functional_complements.py tests/test_functional_complements.py
+git commit -m "feat(complements-ia): build_complement_outputs (buckets + reps + audit)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="task-5-core-ai-typing-py-type-products-batch-cache-vocab-contr-l">Task 5: <code>core/ai_typing.py</code> — <code>type_products</code> (batché, cache, vocab contrôlé)</h2>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>core/ai_typing.py</code></li>
+  <li>Test: <code>tests/test_ai_typing.py</code></li>
+</ul></p>
+
+<p><code>llm_call(prompt: str) -> str</code> est <strong>injectable</strong> (renvoie du JSON brut). En test on injecte un faux ; en prod, <code>_default_llm_call</code> utilise le SDK anthropic (Task 7). Le cache est un dict <code>{hash(title+brand): type}</code> persistable en JSON.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_ai_typing.py
+import json
+from core.ai_typing import type_products</p>
+
+<p>def test_type_products_reuses_vocab_and_caches():
+    calls = []</p>
+
+<p>def fake_llm(prompt: str) -> str:
+        calls.append(prompt)
+        # the fake returns one type per sku found in the prompt's JSON payload
+        # (the impl passes products as a JSON list under a known marker)
+        return json.dumps({"s1": "Souris", "s2": "pile aa"})</p>
+
+<p>products = {
+        "s1": {"title": "Souris sans fil Logitech", "brand": "LOGITECH"},
+        "s2": {"title": "Pile AA Energizer", "brand": "ENERGIZER"},
+    }
+    out = type_products(products, llm_call=fake_llm, batch_size=10)
+    # types normalised to lowercase/stripped
+    assert out == {"s1": "souris", "s2": "pile aa"}
+    assert len(calls) == 1   # one batch</p>
+
+<p># second run with a cache dict pre-filled -> no llm call
+    cache = {}
+    type_products(products, llm_call=fake_llm, batch_size=10, cache=cache)
+    n_after_first = len(calls)
+    type_products(products, llm_call=fake_llm, batch_size=10, cache=cache)
+    assert len(calls) == n_after_first   # served from cache, no new calls
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>.venv\Scripts\python.exe -m pytest tests/test_ai_typing.py::test_type_products_reuses_vocab_and_caches -v</code>
+Expected: FAIL — <code>ModuleNotFoundError: No module named 'core.ai_typing'</code></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# core/ai_typing.py
+"""Couche IA pour le typage fonctionnel + le graphe de compléments.</p>
+
+<p>Appels LLM isolés et injectables (pattern de core/labeling.py : SDK anthropic,
+ANTHROPIC_API_KEY, modèle Haiku, fallback gracieux). Tout le calcul non-IA vit
+dans core/functional_complements.py.
+"""
+from __future__ import annotations</p>
+
+<p>import hashlib
+import json
+import os</p>
+
+<p>HAIKU_MODEL = "claude-haiku-4-5"</p>
+
+<p>TYPING_PROMPT = """Tu classes des produits B2B (catalogue Lyreco) en un TYPE \
+FONCTIONNEL court et générique, à partir de leur titre et marque uniquement.</p>
+
+<p>Règles :
+<ul class="article-list">
+  <li>Le type décrit la FONCTION (ex: "souris", "pile aa", "cartouche encre", \</li>
+</ul>
+"chaussure de sécurité", "lacet", "ramette papier"), 1 à 3 mots, en minuscules.
+<ul class="article-list">
+  <li>RÉUTILISE un type de la liste existante si un colle ; n'en crée un nouveau \</li>
+</ul>
+que si rien ne convient.
+<ul class="article-list">
+  <li>Ne regroupe PAS des produits substituables sous un même type s'ils ont des \</li>
+</ul>
+fonctions différentes.</p>
+
+<p>Types déjà existants (réutilise en priorité) :
+{vocab}</p>
+
+<p>Produits (JSON) :
+{products}</p>
+
+<p>Réponds UNIQUEMENT par un objet JSON {{"<sku>": "<type>", ...}} couvrant tous \
+les SKU fournis, sans texte autour."""</p>
+
+<p>def _norm_type(s: str) -> str:
+    return (s or "").strip().lower()</p>
+
+<p>def _key(p: dict) -> str:
+    raw = f"{p.get('title','')}|{p.get('brand','')}"
+    return hashlib.sha1(raw.encode("utf-8")).hexdigest()</p>
+
+<p>def _parse_json_obj(text: str) -> dict:
+    """Tolère un éventuel fence <code></code><code>json ... </code><code></code> autour de l'objet."""
+    t = text.strip()
+    if t.startswith("<code></code>`"):
+        t = t.split("<code></code>`", 2)[1]
+        if t.startswith("json"):
+            t = t[4:]
+    return json.loads(t.strip())</p>
+
+<p>def type_products(products: dict, llm_call, batch_size: int = 50,
+                  cache: dict | None = None) -> dict:
+    """{sku: type} pour chaque produit de <code>products</code> ({sku:{title,brand}}).</p>
+
+<p>Batché par <code>batch_size</code>. Vocabulaire contrôlé incrémental (les types déjà
+    attribués sont passés au LLM pour réutilisation). <code>cache</code> (si fourni) =
+    {hash(title+brand): type} muté en place pour éviter de retyper.
+    """
+    cache = cache if cache is not None else {}
+    result: dict[str, str] = {}
+    vocab: set[str] = set(_norm_type(v) for v in cache.values())</p>
+
+<p>pending = []
+    for sku, p in products.items():
+        k = _key(p)
+        if k in cache:
+            result[sku] = cache[k]
+        else:
+            pending.append((sku, p, k))</p>
+
+<p>for start in range(0, len(pending), batch_size):
+        chunk = pending[start:start + batch_size]
+        payload = json.dumps({sku: p for sku, p, _ in chunk}, ensure_ascii=False)
+        prompt = TYPING_PROMPT.format(
+            vocab="\n".join(f"- {v}" for v in sorted(vocab)) or "(aucun)",
+            products=payload,
+        )
+        raw = llm_call(prompt)
+        parsed = _parse_json_obj(raw)
+        for sku, p, k in chunk:
+            t = _norm_type(parsed.get(sku, ""))
+            if not t:
+                t = "(non typé)"
+            result[sku] = t
+            cache[k] = t
+            vocab.add(t)
+    return result
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>.venv\Scripts\python.exe -m pytest tests/test_ai_typing.py::test_type_products_reuses_vocab_and_caches -v</code>
+Expected: PASS</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/ai_typing.py tests/test_ai_typing.py
+git commit -m "feat(complements-ia): ai_typing.type_products (batched, cached, vocab)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="task-6-core-ai-typing-py-propose-complements-graphe-par-type">Task 6: <code>core/ai_typing.py</code> — <code>propose_complements</code> (graphe par type)</h2>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>core/ai_typing.py</code></li>
+  <li>Test: <code>tests/test_ai_typing.py</code></li>
+</ul></p>
+
+<p>Pour chaque type-ancre, le LLM propose des types compléments choisis dans le vocabulaire. On symétrise en arêtes non orientées <code>(t1,t2)</code> avec <code>max(ai_strength)</code>.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+
+<p><code></code>`python
+# tests/test_ai_typing.py  (append)
+import json
+from core.ai_typing import propose_complements</p>
+
+<p>def test_propose_complements_symmetrises_and_filters_vocab():
+    def fake_llm(prompt: str) -> str:
+        if '"souris"' in prompt or "souris" in prompt.split("ANCRE:")[-1][:20]:
+            return json.dumps([
+                {"type": "pile aa", "relation": "consommable-de",
+                 "strength": 0.9, "rationale": "souris sans-fil -> piles"},
+                {"type": "inconnu", "relation": "x", "strength": 0.5,
+                 "rationale": "hors vocab, doit être ignoré"},
+            ])
+        return json.dumps([
+            {"type": "souris", "relation": "consommable-pour",
+             "strength": 0.6, "rationale": "piles pour souris"},
+        ])</p>
+
+<p>vocab = ["souris", "pile aa"]
+    edges = propose_complements(vocab, llm_call=fake_llm)</p>
+
+<p># one undirected edge (souris, pile aa); 'inconnu' dropped (not in vocab);
+    # strength = max(0.9, 0.6) = 0.9
+    assert len(edges) == 1
+    e = edges[0]
+    assert (e["t1"], e["t2"]) == ("pile aa", "souris")   # sorted
+    assert e["ai_strength"] == 0.9
+    assert "souris" in e["rationale"] or "piles" in e["rationale"]
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>.venv\Scripts\python.exe -m pytest tests/test_ai_typing.py::test_propose_complements_symmetrises_and_filters_vocab -v</code>
+Expected: FAIL — <code>ImportError: cannot import name 'propose_complements'</code></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# core/ai_typing.py  (append)
+COMPLEMENT_PROMPT = """Tu raisonnes sur la COMPLÉMENTARITÉ FONCTIONNELLE entre \
+types de produits B2B (bureau, EPI/sécurité, informatique, hygiène…). NE te base \
+PAS sur des ventes : seulement sur l'usage réel des produits.</p>
+
+<p>ANCRE: {anchor}</p>
+
+<p>Parmi la liste de types ci-dessous UNIQUEMENT, lesquels sont fonctionnellement \
+complémentaires de l'ancre (utilisés/nécessaires ensemble, pas des substituts) ?</p>
+
+<p>Types disponibles :
+{vocab}</p>
+
+<p>Réponds UNIQUEMENT par un tableau JSON \
+[{{"type": "<un type de la liste>", "relation": "<consommable-de|accessoire-de|\
+recharge-de|protection-de|EPI-associé|autre>", "strength": <0..1>, \
+"rationale": "<une phrase>"}}], vide [] si aucun. N'invente aucun type."""</p>
+
+<p>def propose_complements(vocab, llm_call) -> list:
+    """Graphe de compléments non orienté à partir du vocabulaire de types.</p>
+
+<p>Pour chaque type-ancre, demande au LLM ses compléments (choisis dans
+    <code>vocab</code>). Filtre les types hors-vocab, symétrise (a,b)/(b,a) en une arête
+    <code>tuple(sorted)</code> avec strength = max et la justification de plus forte
+    strength. Renvoie list[{t1, t2, relation, ai_strength, rationale}].
+    """
+    vocab_set = set(_norm_type(v) for v in vocab)
+    vocab_lines = "\n".join(f"- {v}" for v in sorted(vocab_set))
+    edges: dict[tuple, dict] = {}
+    for anchor in sorted(vocab_set):
+        prompt = COMPLEMENT_PROMPT.format(anchor=anchor, vocab=vocab_lines)
+        try:
+            items = _parse_json_obj_list(llm_call(prompt))
+        except Exception:
+            continue
+        for it in items:
+            other = _norm_type(it.get("type", ""))
+            if other == anchor or other not in vocab_set:
+                continue
+            key = tuple(sorted((anchor, other)))
+            strength = float(it.get("strength", 0.0) or 0.0)
+            cur = edges.get(key)
+            if cur is None or strength > cur["ai_strength"]:
+                edges[key] = {
+                    "t1": key[0], "t2": key[1],
+                    "relation": it.get("relation") or "autre",
+                    "ai_strength": strength,
+                    "rationale": it.get("rationale") or "",
+                }
+    return list(edges.values())</p>
+
+<p>def _parse_json_obj_list(text: str) -> list:
+    t = text.strip()
+    if t.startswith("<code></code>`"):
+        t = t.split("<code></code>`", 2)[1]
+        if t.startswith("json"):
+            t = t[4:]
+    data = json.loads(t.strip())
+    return data if isinstance(data, list) else []
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>.venv\Scripts\python.exe -m pytest tests/test_ai_typing.py -v</code>
+Expected: PASS (both ai_typing tests)</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/ai_typing.py tests/test_ai_typing.py
+git commit -m "feat(complements-ia): ai_typing.propose_complements (undirected graph)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="task-7-default-llm-call-backend-anthropic-r-el-haiku-temp-rature-0">Task 7: <code>_default_llm_call</code> — backend anthropic réel (Haiku, température 0)</h2>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Modify: <code>core/ai_typing.py</code></li>
+  <li>Test: <code>tests/test_ai_typing.py</code></li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the failing test</strong> (le défaut sans clé API renvoie une erreur explicite, jamais un appel réseau en test)</li>
+</ul>
+
+<p><code></code>`python
+# tests/test_ai_typing.py  (append)
+import pytest
+from core.ai_typing import _default_llm_call</p>
+
+<p>def test_default_llm_call_requires_key(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    with pytest.raises(RuntimeError, match="ANTHROPIC_API_KEY"):
+        _default_llm_call("hello")
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+
+<p>Run: <code>.venv\Scripts\python.exe -m pytest tests/test_ai_typing.py::test_default_llm_call_requires_key -v</code>
+Expected: FAIL — <code>ImportError: cannot import name '_default_llm_call'</code></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+
+<p><code></code>`python
+# core/ai_typing.py  (append)
+def _default_llm_call(prompt: str, model: str = HAIKU_MODEL,
+                      max_tokens: int = 4096) -> str:
+    """Backend par défaut : SDK anthropic, température 0 (déterministe).</p>
+
+<p>Lève RuntimeError si la clé/SDK manque — l'orchestrateur décide quoi faire
+    (on ne veut PAS de typage silencieusement vide).
+    """
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise RuntimeError("ANTHROPIC_API_KEY manquante pour le typage IA")
+    try:
+        from anthropic import Anthropic
+    except ImportError as exc:  # pragma: no cover
+        raise RuntimeError("SDK 'anthropic' non installé") from exc
+    client = Anthropic(api_key=api_key)
+    msg = client.messages.create(
+        model=model, max_tokens=max_tokens, temperature=0,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return msg.content[0].text
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run test to verify it passes</strong></li>
+</ul>
+
+<p>Run: <code>.venv\Scripts\python.exe -m pytest tests/test_ai_typing.py -v</code>
+Expected: PASS (all 3 ai_typing tests)</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add core/ai_typing.py tests/test_ai_typing.py
+git commit -m "feat(complements-ia): _default_llm_call (anthropic Haiku, temp 0)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="task-8-scripts-refresh-functional-complements-py-orchestration-xlsx-json">Task 8: <code>scripts/refresh_functional_complements.py</code> — orchestration + XLSX/JSON</h2>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>scripts/refresh_functional_complements.py</code></li>
+</ul></p>
+
+<p>Intégration (DB + LLM réels) : pas de test unitaire — vérifiée par un run réel <code>--limit</code>. La logique calculatoire est déjà couverte par les Tasks 1-7.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the script</strong></li>
+</ul>
+
+<p><code></code>`python
+# scripts/refresh_functional_complements.py
+"""Refresh 'Compléments IA' (FR) -> snapshot XLSX + JSON.</p>
+
+<p>IA sales-blind (typage fonctionnel depuis titre+marque) -> graphe de compléments
+par type -> croisement avec le co-achat réel -> 3 buckets (sous-exploité /
+confirmé / IA-seule). Méthode :
+docs/superpowers/specs/2026-06-02-functional-complements-ai-design.md</p>
+
+<p>Run :
+  .venv\\Scripts\\python.exe -m scripts.refresh_functional_complements --limit 300
+  .venv\\Scripts\\python.exe -m scripts.refresh_functional_complements --days 90
+"""
+from __future__ import annotations</p>
+
+<p>import argparse
+import json
+import sys
+from collections import Counter
+from datetime import datetime, timezone
+from pathlib import Path</p>
+
+<p>_REPO = Path(__file__).resolve().parent.parent
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))</p>
+
+<p>from database.crm_db import CRMDatabase
+from database.timeseries_db import TimeseriesDatabase
+from core.basket_bundles import clean_baskets
+from core.functional_complements import (
+    load_csv_products, type_copurchase, score_opportunities,
+    build_complement_outputs,
+)
+from core.ai_typing import type_products, propose_complements, _default_llm_call</p>
+
+<p>COUNTRY = "FR"
+EXPORT_DIR = _REPO / "exports"
+EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+CSV_PATH = _REPO / "imports" / "marie" / "Datas_pour_produits_associes.csv"
+CACHE_PATH = EXPORT_DIR / "complements_ia_typing_cache.json"</p>
+
+<p>def step(msg: str) -> None:
+    print(f"  [{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)</p>
+
+<p>def compute(days: int, channel: str, min_type_support: int, limit: int | None) -> dict:
+    crm = CRMDatabase()
+    ts = TimeseriesDatabase()
+    channel_filter = "AND order_channel_code = 'W'" if channel == "WEB" else ""</p>
+
+<p>step(f"Phase 1/6 — pull paniers FR multi-lignes ({days}j, {channel})…")
+    order_baskets = ts.query(
+        f"""
+        SELECT order_number,
+               ARRAY_AGG(DISTINCT product_reference) AS skus
+        FROM ecom_order_lines
+        WHERE source_country = %s
+          AND order_date >= CURRENT_DATE - (%s || ' days')::INTERVAL
+          AND product_reference IS NOT NULL
+          {channel_filter}
+        GROUP BY order_number
+        HAVING COUNT(DISTINCT product_reference) >= 2
+        """,
+        (COUNTRY, days),
+    )
+    step(f"  → {len(order_baskets):,} paniers")</p>
+
+<p># product->world map (réutilise le pattern du refresh cross-family)
+    all_skus = sorted({s for r in order_baskets for s in r["skus"]})
+    prod_world: dict[str, str] = {}
+    prod_meta: dict[str, dict] = {}
+    for start in range(0, len(all_skus), 10000):
+        for r in crm.query("""
+            SELECT p.product_reference, p.product_description, t.world
+            FROM ecom_products p
+            JOIN section_taxonomy t
+              ON p.section_code = t.section_code AND p.source_country = t.source_country
+            WHERE p.source_country = %s AND p.product_reference = ANY(%s)
+        """, (COUNTRY, all_skus[start:start + 10000])):
+            prod_world[r["product_reference"]] = r["world"]
+            prod_meta[r["product_reference"]] = {"name": r["product_description"]}</p>
+
+<p>step("Phase 2/6 — nettoyage paniers (anti-réassort)…")
+    kept, clean_stats = clean_baskets(order_baskets, prod_world)
+    sku_sales: Counter = Counter()
+    for b in kept:
+        for s in b:
+            sku_sales[s] += 1</p>
+
+<p>step("Phase 3/6 — chargement CSV Marie + texte produit pour typage…")
+    csv_products = load_csv_products(CSV_PATH)
+    if limit:
+        csv_products = dict(list(csv_products.items())[:limit])
+    # univers de typage = SKU du CSV (graphe) ∪ SKU actifs en paniers (co-achat)
+    prod_text: dict[str, dict] = dict(csv_products)
+    for s in sku_sales:
+        if s not in prod_text:
+            nm = (prod_meta.get(s) or {}).get("name") or ""
+            prod_text[s] = {"title": nm, "brand": ""}
+        prod_meta.setdefault(s, {"name": prod_text[s]["title"]})
+    # enrichir prod_meta des SKU CSV (titre comme nom si absent en base)
+    for s, p in csv_products.items():
+        prod_meta.setdefault(s, {"name": p["title"]})
+    step(f"  → {len(csv_products):,} SKU CSV · {len(prod_text):,} SKU à typer")</p>
+
+<p>step("Phase 4/6 — typage fonctionnel IA (Haiku, caché)…")
+    cache = json.loads(CACHE_PATH.read_text(encoding="utf-8")) if CACHE_PATH.exists() else {}
+    t0 = datetime.now()
+    sku_type_map = type_products(prod_text, llm_call=_default_llm_call, cache=cache)
+    CACHE_PATH.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
+    vocab = sorted({t for t in sku_type_map.values() if t and t != "(non typé)"})
+    step(f"  → {len(vocab)} types · typage en {(datetime.now()-t0).seconds}s")</p>
+
+<p>step("Phase 5/6 — graphe de compléments par type (IA, sales-blind)…")
+    # le graphe ne raisonne que sur les types présents dans le CSV
+    csv_types = sorted({sku_type_map[s] for s in csv_products if s in sku_type_map})
+    t1 = datetime.now()
+    edges = propose_complements(csv_types, llm_call=_default_llm_call)
+    step(f"  → {len(edges)} arêtes de compléments · {(datetime.now()-t1).seconds}s")</p>
+
+<p>step("Phase 6/6 — croisement co-achat + scoring…")
+    cp = type_copurchase(kept, sku_type_map, min_type_support=min_type_support)
+    scored = score_opportunities(edges, cp, min_type_support=min_type_support)
+    outputs = build_complement_outputs(scored, sku_type_map, dict(sku_sales),
+                                       prod_meta, top_per_type=3)
+    step(f"  → {len(outputs['sous_exploite'])} sous-exploités · "
+         f"{len(outputs['confirme'])} confirmés · "
+         f"{len(outputs['ia_seule'])} IA-seule")</p>
+
+<p>return {
+        "computed_at": datetime.now(timezone.utc).isoformat(),
+        "country": COUNTRY, "days": days, "channel": channel,
+        "min_type_support": min_type_support,
+        "n_baskets_kept": len(kept), "clean_stats": clean_stats,
+        "n_types": len(vocab), "n_edges": len(edges),
+        <em></em>outputs,
+    }</p>
+
+<p>def write_xlsx(out_path: Path, data: dict) -> None:
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.utils import get_column_letter</p>
+
+<p>wb = Workbook()
+    head_fill = PatternFill("solid", fgColor="2A2A38")
+    head_font = Font(bold=True, color="FFFFFF")</p>
+
+<p>def add(name, headers, rows, widths):
+        ws = wb.active if wb.sheetnames == ["Sheet"] else wb.create_sheet(name)
+        ws.title = name
+        ws.append(headers)
+        for c in ws[1]:
+            c.fill = head_fill; c.font = head_font
+            c.alignment = Alignment(vertical="center", wrap_text=True)
+        ws.freeze_panes = "A2"
+        for r in rows:
+            ws.append(r)
+        for i, w in enumerate(widths, 1):
+            ws.column_dimensions[get_column_letter(i)].width = w</p>
+
+<p>def _reps(row, key):
+        return " / ".join(f"{r['sku']} {r['name'][:24]}" for r in row.get(key, []))</p>
+
+<p>def bucket_rows(rows):
+        return [[r["t1"], r["t2"], r["relation"], round(r["ai_strength"], 2),
+                 r["n1"], r["n2"], r["co"], r["lift"], r["cond"],
+                 round(r["score"], 3), _reps(r, "reps_t1"), _reps(r, "reps_t2"),
+                 (r["rationale"] or "")[:120]] for r in rows]</p>
+
+<p>cols = ["type_a", "type_b", "relation", "force_ia", "n_a", "n_b",
+            "co_paniers", "lift", "cond", "score", "skus_a", "skus_b", "justification"]
+    widths = [22, 22, 16, 8, 8, 8, 10, 8, 8, 8, 40, 40, 50]</p>
+
+<p>add("Sous-exploités", cols, bucket_rows(data["sous_exploite"]), widths)
+    add("Confirmés", cols, bucket_rows(data["confirme"]), widths)
+    add("IA-seule à vérifier", cols, bucket_rows(data["ia_seule"]), widths)
+    add("Typage", ["sku", "type", "name"],
+        [[r["sku"], r["type"], r["name"][:60]] for r in data["typage"]],
+        [16, 28, 60])
+    add("Graphe types", ["type_a", "type_b", "relation", "force_ia", "justification"],
+        [[e["t1"], e["t2"], e["relation"], round(e["ai_strength"], 2),
+          (e["rationale"] or "")[:120]] for e in data["graphe"]],
+        [22, 22, 16, 8, 50])
+    wb.save(out_path)</p>
+
+<p>def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--days", type=int, default=90)
+    ap.add_argument("--channel", default="ALL", choices=["ALL", "WEB"])
+    ap.add_argument("--min-type-support", type=int, default=25, dest="min_type_support")
+    ap.add_argument("--limit", type=int, default=None,
+                    help="sous-échantillonne le CSV (dev/smoke)")
+    args = ap.parse_args()</p>
+
+<p>today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    out_xlsx = EXPORT_DIR / f"complements_ia_{COUNTRY}_{today}_d{args.days}.xlsx"
+    out_json = out_xlsx.with_suffix(".json")</p>
+
+<p>data = compute(args.days, args.channel, args.min_type_support, args.limit)
+    step(f"écriture {out_json.name}…")
+    out_json.write_text(json.dumps(data, indent=2, default=str, ensure_ascii=False),
+                        encoding="utf-8")
+    step(f"écriture {out_xlsx.name}…")
+    write_xlsx(out_xlsx, data)</p>
+
+<p>print("\n" + "=" * 70)
+    print("COMPLÉMENTS IA — FR — SNAPSHOT")
+    print("=" * 70)
+    print(f"  Types: {data['n_types']} · Arêtes: {data['n_edges']}")
+    print(f"  Sous-exploités: {len(data['sous_exploite'])} · "
+          f"Confirmés: {len(data['confirme'])} · IA-seule: {len(data['ia_seule'])}")
+    print(f"  exports/{out_xlsx.name}")
+    return 0</p>
+
+<p>if __name__ == "__main__":
+    sys.exit(main())
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Smoke-run on a small sample</strong></li>
+</ul>
+
+<p>Run: <code>.venv\Scripts\python.exe -m scripts.refresh_functional_complements --limit 300 --days 30</code>
+Expected: termine sans exception ; écrit <code>exports/complements_ia_FR_<date>_d30.xlsx</code> + <code>.json</code> ; le récap imprime des compteurs non nuls pour Types/Arêtes. (Nécessite <code>ANTHROPIC_API_KEY</code> dans l'env + DBs Docker up.)</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Eyeball the output</strong></li>
+</ul>
+
+<p>Ouvrir l'XLSX : vérifier que la feuille <strong>Sous-exploités</strong> contient des paires plausibles (ex. un consommable face à son équipement) avec <code>lift < 1</code> ou <code>co</code> faible, et que la feuille <strong>Typage</strong> n'a pas de types absurdes en masse. Noter dans le commit le runtime de la passe IA (1er run).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Run the full pure-function suite once more</strong></li>
+</ul>
+
+<p>Run: <code>.venv\Scripts\python.exe -m pytest tests/test_functional_complements.py tests/test_ai_typing.py -v</code>
+Expected: PASS (7 tests)</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add scripts/refresh_functional_complements.py
+git commit -m "feat(complements-ia): refresh script (pull->type->graph->cross-check->xlsx/json)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="task-9-optionnelle-non-requise-pour-le-livrable-marie-persistance-db-r-utilisable">Task 9 (OPTIONNELLE — non requise pour le livrable Marie): persistance DB réutilisable</h2>
+
+<p>À ne faire que si on veut alimenter les recos en aval. Ajoute deux tables postgres et un upsert en fin de <code>compute</code>.</p>
+
+<p><strong>Files:</strong>
+<ul class="article-list">
+  <li>Create: <code>database/init_postgres_functional_complements.sql</code></li>
+  <li>Modify: <code>scripts/refresh_functional_complements.py</code> (ajout d'une Phase 7 d'upsert, derrière un flag <code>--persist</code>)</li>
+</ul></p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 1: Write the migration</strong></li>
+</ul>
+
+<p><code></code>`sql
+-- database/init_postgres_functional_complements.sql
+CREATE TABLE IF NOT EXISTS product_functional_type (
+    source_country     TEXT NOT NULL,
+    product_reference  TEXT NOT NULL,
+    type_label         TEXT NOT NULL,
+    computed_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (source_country, product_reference)
+);</p>
+
+<p>CREATE TABLE IF NOT EXISTS type_complement_edge (
+    source_country  TEXT NOT NULL,
+    type_a          TEXT NOT NULL,
+    type_b          TEXT NOT NULL,
+    relation        TEXT,
+    ai_strength     DOUBLE PRECISION,
+    rationale       TEXT,
+    co_baskets      INTEGER,
+    lift            DOUBLE PRECISION,
+    cond            DOUBLE PRECISION,
+    bucket          TEXT,
+    computed_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (source_country, type_a, type_b)
+);
+<code></code>`</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 2: Apply the migration</strong></li>
+</ul>
+
+<p>Run: <code>Get-Content database/init_postgres_functional_complements.sql | docker exec -i <postgres_container> psql -U <user> -d <db></code>
+Expected: <code>CREATE TABLE</code> ×2 (ou aucun message si déjà présentes).</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 3: Add <code>--persist</code> upsert in the script</strong> (derrière le flag, après le scoring)</li>
+</ul>
+
+<p><code></code>`python
+# dans main(): ap.add_argument("--persist", action="store_true")
+# dans compute(): si persist, après build_complement_outputs :
+#   crm.execute_many(
+#     "INSERT INTO product_functional_type (source_country, product_reference, type_label) "
+#     "VALUES (%s,%s,%s) ON CONFLICT (source_country, product_reference) "
+#     "DO UPDATE SET type_label=EXCLUDED.type_label, computed_at=now()",
+#     [(COUNTRY, s, t) for s, t in sku_type_map.items()])
+#   crm.execute_many(
+#     "INSERT INTO type_complement_edge (source_country, type_a, type_b, relation, "
+#     "ai_strength, rationale, co_baskets, lift, cond, bucket) VALUES (%s,...,%s) "
+#     "ON CONFLICT (source_country, type_a, type_b) DO UPDATE SET ...",
+#     [(COUNTRY, r["t1"], r["t2"], r["relation"], r["ai_strength"], r["rationale"],
+#       r["co"], r["lift"], r["cond"], r["bucket"]) for r in scored])
+<code></code>`
+> Avant d'écrire ce code, vérifier la vraie API de <code>database.crm_db.CRMDatabase</code>
+> (présence d'un <code>execute_many</code> / <code>execute</code>) et adapter — ne pas présumer.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 4: Verify</strong></li>
+</ul>
+
+<p>Run: <code>.venv\Scripts\python.exe -m scripts.refresh_functional_complements --limit 300 --persist</code>
+puis <code>docker exec ... psql -c "SELECT bucket, count(*) FROM type_complement_edge GROUP BY bucket;"</code>
+Expected: des lignes par bucket.</p>
+
+<ul class="article-list">
+  <li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+
+<p><code></code>`bash
+git add database/init_postgres_functional_complements.sql scripts/refresh_functional_complements.py
+git commit -m "feat(complements-ia): optional DB persistence (type map + complement edges)"
+<code></code>`</p>
+
+<p>---</p>
+
+<h2 id="self-review-effectu-e">Self-Review (effectuée)</h2>
+
+<ul class="article-list">
+  <li><strong>Spec coverage</strong> : §3 CSV→Task 1 ; §4.4 co-achat→Task 2 ; §4.5 score/buckets→Task 3 ; §4.6 sorties→Task 4 + Task 8 ; §4.2 typage→Tasks 5/7 ; §4.3 graphe→Task 6 ; §5.3 orchestration→Task 8 ; §6 défauts/CLI→Task 8 ; persistance §4.6→Task 9 (optionnelle, défaut = fichiers). Section panel §8 = hors périmètre (phase 2) — non planifiée, conforme.</li>
+  <li><strong>Placeholders</strong> : aucun TODO/TBD ; tout le code des steps est complet. La seule note « vérifier l'API CRMDatabase » est dans la Task optionnelle 9 et est une consigne de prudence, pas un placeholder de logique livrée.</li>
+  <li><strong>Type consistency</strong> : <code>type</code> = chaîne normalisée partout ; paires = <code>tuple(sorted)</code> dans type_copurchase / score_opportunities / propose_complements ; <code>sku_type_map: dict[str,str]</code>, <code>baskets: list[frozenset]</code>, <code>copurchase</code> keys <code>{N,n,co,lift,cond}</code> cohérents entre Tasks 2↔3 ; <code>score_opportunities</code> consomme exactement la sortie de <code>type_copurchase</code> ; <code>build_complement_outputs</code> consomme la sortie de <code>score_opportunities</code> (+ <code>sku_sales</code>, <code>prod_meta</code>). Signatures <code>llm_call</code> identiques Tasks 5/6/7.</li>
+</ul>
+<code></code>`
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#file-structure">File Structure</a></li>
+<li><a href="#task-1-load-csv-products-lecture-du-csv-de-marie-cp1252">Task 1: `load_csv_products` — lecture du CSV de Marie (cp1252)</a></li>
+<li><a href="#task-2-type-copurchase-co-achat-au-grain-type">Task 2: `type_copurchase` — co-achat au grain type</a></li>
+<li><a href="#task-3-score-opportunities-score-buckets">Task 3: `score_opportunities` — score + buckets</a></li>
+<li><a href="#task-4-build-complement-outputs-sections-d-affichage-enrichies">Task 4: `build_complement_outputs` — sections d'affichage enrichies</a></li>
+<li><a href="#task-5-core-ai-typing-py-type-products-batch-cache-vocab-contr-l">Task 5: `core/ai_typing.py` — `type_products` (batché, cache, vocab contrôlé)</a></li>
+<li><a href="#task-6-core-ai-typing-py-propose-complements-graphe-par-type">Task 6: `core/ai_typing.py` — `propose_complements` (graphe par type)</a></li>
+<li><a href="#task-7-default-llm-call-backend-anthropic-r-el-haiku-temp-rature-0">Task 7: `_default_llm_call` — backend anthropic réel (Haiku, température 0)</a></li>
+<li><a href="#task-8-scripts-refresh-functional-complements-py-orchestration-xlsx-json">Task 8: `scripts/refresh_functional_complements.py` — orchestration + XLSX/JSON</a></li>
+<li><a href="#task-9-optionnelle-non-requise-pour-le-livrable-marie-persistance-db-r-utilisable">Task 9 (OPTIONNELLE — non requise pour le livrable Marie): persistance DB réutilisable</a></li>
+<li><a href="#self-review-effectu-e">Self-Review (effectuée)</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

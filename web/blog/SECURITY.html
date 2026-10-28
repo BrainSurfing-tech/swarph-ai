@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Security Policy | Technical Whitepaper</title>
+  <meta name="description" content="Security Policy — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/SECURITY.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Security Policy</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 4 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Security Policy</p>
+
+<p><code>swarph-mesh</code> is the graph-protocol substrate that third-party LLM CLIs (and future enterprise tooling) plug into. The <code>LLMAdapter</code> Protocol, <code>MeshClient</code> wire format, and <code>discovery</code> primitives are contracts other code depends on. Reporting and triage of vulnerabilities in those contracts is taken seriously.</p>
+
+<h2 id="supported-versions">Supported versions</h2>
+
+<p>We provide security fixes for the latest minor of the most recent two major versions. Older versions receive security fixes only for issues with no upgrade path.</p>
+
+<p>| Version | Supported |
+|---|---|
+| 0.7.x | ✅ active |
+| 0.6.x | ✅ security-only until 2026-08-09 (3 months from 0.7.0 release) |
+| 0.5.x and older | ❌ end-of-life |</p>
+
+<p>When a new minor (e.g., 0.8.0) ships, the previously-active minor enters security-only support for 3 months.</p>
+
+<h2 id="what-counts-as-a-security-issue">What counts as a security issue</h2>
+
+<p>A vulnerability is in scope if any of the following:</p>
+
+<ul class="article-list">
+  <li><strong>Credential leakage</strong> — paths where API keys, admin/management keys, mesh-gateway tokens, or peer credentials could surface in logs, attribution rows, exception messages, mesh DM contents, or PyPI artifacts. The <code>MeshClient.send</code> secret-guard is best-effort; bypasses are in scope.</li>
+  <li><strong>Privilege boundary bypass</strong> — the swarph contract distinguishes regular API keys from admin/management keys (OpenAI admin, xAI management) and from subscription credentials (Claude). A path where regular-key auth grants admin-key privileges, or where subscription credentials get exfiltrated to a metered billing path, is critical.</li>
+  <li><strong>Cost over-attribution</strong> — a <code>PRICING</code> table entry that systematically over-attributes by a factor (the gpt-5 5x and o3 5x classes from v0.6.x). At enterprise spend levels this becomes a financial-correctness issue.</li>
+  <li><strong>Cost under-attribution</strong> — a path that lets a peer escape attribution entirely (PRICING entry routes to <code>_default = 0</code>, attribution writer fails silently, etc.). Prevents audit and quota enforcement at scale.</li>
+  <li><strong>Mesh-gateway authentication bypass</strong> — paths where unauthenticated or wrong-token requests succeed against <code>/peers</code>, <code>/messages</code>, <code>/tasks/claim</code>, or any <code>mesh-gateway</code> endpoint.</li>
+  <li><strong>Ratification bypass</strong> — <code>task_claim</code> succeeding for a <code>ratified=false</code> peer, or the <code>peer_ratifications</code> audit log being mutable post-write.</li>
+  <li><strong>Protocol contract violation</strong> — a change to <code>LLMAdapter</code> Protocol surface, <code>MeshMessage</code> shape, <code>MeshClient.send</code> parameters, or <code>discovery</code> public API that ships without a deprecation window per <code>DEPRECATIONS.md</code> (forthcoming v0.7.2).</li>
+  <li><strong>Catalog poisoning</strong> — paths where AIMLAPI catalog data or per-provider <code>/v1/models</code> responses can inject crafted <code>ModelInfo</code> records that break adapter dispatch or mis-attribute cost.</li>
+  <li><strong>DM contagion</strong> — paths where wrong-name DMs route to the wrong peer (the a peer-name-alias drift class (e.g. <code>db</code> vs <code>database-node</code>)), or where ratified-peer status leaks across mesh boundaries before federation.</li>
+  <li><strong>Substrate dependency CVE</strong> — known CVE in <code>httpx</code>, <code>pydantic</code>, <code>openai</code>, <code>langgraph-genai-bridge</code>, or <code>swarph-shared</code> that swarph-mesh exposes to consumers.</li>
+</ul>
+
+<p>A vulnerability is <strong>out of scope</strong> if:</p>
+
+<ul class="article-list">
+  <li>It requires write access to <code>~/.swarph/secrets.toml</code> or any <code>.env</code> file the operator already controls (the operator's filesystem is trusted).</li>
+  <li>It requires execution of arbitrary code on the operator's machine (already game-over).</li>
+  <li>It's in a third-party LLM provider's API itself rather than swarph-mesh's interface to that API.</li>
+  <li>It's purely a denial-of-service via prompt-engineering (e.g., long inputs causing high token cost). Cost-control is the operator's concern, not a security boundary.</li>
+</ul>
+
+<h2 id="how-to-report">How to report</h2>
+
+<p><strong>Do NOT report security issues via public GitHub issues, public PRs, or mesh DM kind=question/answer (which are logged in <code>claude_messages</code> forever).</strong></p>
+
+<p>Reporting channels:</p>
+
+<p>1. <strong>Email</strong>: <code>info@brainsurfing.tech</code> with subject prefix <code>[swarph-mesh security]</code>. PGP key available on request.
+2. <strong>GitHub Security Advisory</strong> (preferred for repo-scoped findings): https://github.com/BrainSurfing-tech/swarph-mesh/security/advisories/new — private to the maintainer + collaborators until coordinated disclosure.</p>
+
+<p>Please include:</p>
+
+<ul class="article-list">
+  <li>swarph-mesh version (<code>python -c "import swarph_mesh; print(swarph_mesh.__version__)"</code>)</li>
+  <li>Affected component (adapter / mesh_client / discovery / etc.)</li>
+  <li>Reproduction steps or PoC code</li>
+  <li>Suspected severity (your read; we'll triage)</li>
+  <li>Whether you'd like CVE assignment (we'll request via GitHub if warranted)</li>
+</ul>
+
+<h2 id="response-timeline">Response timeline</h2>
+
+<p>| Stage | Target |
+|---|---|
+| Acknowledge receipt | 48 hours |
+| Initial triage + severity assessment | 5 business days |
+| Fix development | 14 days for high/critical, 30 days for medium, 90 days for low |
+| Coordinated disclosure | After fix is published; reporter named in CHANGELOG unless they request anonymity |</p>
+
+<p>For critical issues affecting active billing paths or credential leakage, we'll prioritize fix-and-publish over the standard cadence.</p>
+
+<h2 id="what-you-ll-get-from-us">What you'll get from us</h2>
+
+<ul class="article-list">
+  <li>Acknowledgment of receipt within 48 hours</li>
+  <li>Public credit in <code>CHANGELOG.md</code> (with your preferred name/handle, or anonymous)</li>
+  <li>Coordinated disclosure timeline — we won't publish before you've had time to verify the fix</li>
+  <li>For critical findings, optional inclusion in the project's "thanks" section in <code>README.md</code></li>
+</ul>
+
+<h2 id="what-we-ask-in-return">What we ask in return</h2>
+
+<ul class="article-list">
+  <li><strong>Don't disclose publicly until we've shipped a fix and the supported minor versions have published patches.</strong></li>
+  <li><strong>Don't test against third parties' production swarph deployments.</strong> Use your own mesh + your own keys.</li>
+  <li><strong>Don't exfiltrate or persist credentials or peer data</strong> even if you find a path to. Demonstrate the vulnerability against your own test harness.</li>
+</ul>
+
+<h2 id="disclosure-history">Disclosure history</h2>
+
+<p>This file ships in v0.7.1 — no prior security disclosures on record. Future entries:</p>
+
+<p><code></code>`
+v0.X.Y — YYYY-MM-DD — CVE-YYYY-NNNN — short description (severity) — credit
+<code></code>`</p>
+
+<h2 id="hardening-commitments">Hardening commitments</h2>
+
+<p>For each minor release, we commit to at least one of:</p>
+
+<ul class="article-list">
+  <li>Tightening the secret-guard regex set (<code>swarph_mesh.mesh_client._CRED_PATTERNS</code>)</li>
+  <li>Expanding the protocol-stability snapshot test set (<code>tests/test_protocol_contract.py</code>)</li>
+  <li>Ratcheting one additional module under <code>mypy --strict</code> per <code>DEPRECATIONS.md</code></li>
+  <li>Adding one privilege-boundary test to the canonical case suite</li>
+</ul>
+
+<p>The graph protocol is third-party-implementer-facing infrastructure. Treating each release as an opportunity to harden the contract is part of the foundations-sprint discipline.</p>
+
+<h2 id="federation-forward-compat">Federation forward-compat</h2>
+
+<p>When mesh-of-meshes federation lands (v0.8+ per the architectural design currently in a parallel session), this policy will be updated to cover:</p>
+
+<ul class="article-list">
+  <li>Cross-mesh DM authentication & non-repudiation</li>
+  <li>Federation registry trust roots</li>
+  <li>Cross-mesh ratification handshakes</li>
+  <li>Cross-mesh credential isolation</li>
+</ul>
+
+<p>Until federation lands, mesh-to-mesh interaction is out of scope; one mesh = one Tailnet (or equivalent VPN) = one trust boundary.</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#supported-versions">Supported versions</a></li>
+<li><a href="#what-counts-as-a-security-issue">What counts as a security issue</a></li>
+<li><a href="#how-to-report">How to report</a></li>
+<li><a href="#response-timeline">Response timeline</a></li>
+<li><a href="#what-you-ll-get-from-us">What you'll get from us</a></li>
+<li><a href="#what-we-ask-in-return">What we ask in return</a></li>
+<li><a href="#disclosure-history">Disclosure history</a></li>
+<li><a href="#hardening-commitments">Hardening commitments</a></li>
+<li><a href="#federation-forward-compat">Federation forward-compat</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>

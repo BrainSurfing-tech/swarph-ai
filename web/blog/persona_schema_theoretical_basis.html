@@ -1,0 +1,788 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/consent/consent-default.js"></script>
+<script src="/consent/consent-banner.js" data-privacy-url="/privacy.html" data-policy-version="1" data-expiry-days="180"></script>
+<link rel="stylesheet" href="/consent/consent-banner.css">
+<script src="/consent/reopen-wireup.js"></script>
+<script src="/gtm-init.js"></script>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Persona Schema Theoretical Basis and Attribute Construction Plan | Technical Whitepaper</title>
+  <meta name="description" content="Persona Schema Theoretical Basis and Attribute Construction Plan — Engineering whitepaper and technical research analysis.">
+  <link rel="canonical" href="https://swarph.ai/blog/persona_schema_theoretical_basis.html">
+  
+  <link rel="stylesheet" href="/styles.css">
+  
+  <!-- KaTeX CSS & JS for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\[', right: '\]', display: true}, {left: '$', right: '$', display: false}, {left: '\(', right: '\)', display: false}]});">
+  </script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://sgtm.swarph.ai/ns.html?id=GTM-N9VZ27G3"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="site-logo">
+        <span>⚡</span> SWARPH AI
+      </a>
+      <ul class="nav-links">
+        <li><a href="/blog/">All Technical Papers</a></li>
+        <li><a href="https://brainsurfing.tech" target="_blank">BrainSurfing</a></li>
+        <li><a href="https://metaedge.surf" target="_blank">MetaEdge</a></li>
+        <li><a href="/blog/" class="nav-badge">Whitepapers Directory</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Article Reader Layout -->
+  <main class="article-layout">
+    <article class="article-wrapper">
+      <header class="article-hero">
+        <div class="category-badge">⚡ Swarm Architecture</div>
+        <h1 class="article-title">Persona Schema Theoretical Basis and Attribute Construction Plan</h1>
+        <div class="article-meta">
+          <span>📅 Published August 12, 2026</span>
+          <span>⏱️ 11 min read</span>
+          <span>🔬 Peer Verified</span>
+        </div>
+      </header>
+
+      <section class="article-content">
+        <p># Persona Schema Theoretical Basis and Attribute Construction Plan</p>
+
+<p>Last updated: 2026-06-19</p>
+
+<h2 id="purpose">Purpose</h2>
+
+<p>This document summarizes the current theoretical basis for the MatrAIx persona attribute schema and explains how external sources such as SCOPE, DeepPersona, Nemotron, PrimeX, WVS, GSS, ACS PUMS, Big Five, HEXACO, Facet MAP, and IPIP should be used.</p>
+
+<p>The goal is not to collect as many attributes as possible. The goal is to build a theory-grounded, simulation-oriented persona schema that supports:</p>
+
+<ul class="article-list">
+  <li>realistic user / agent simulation;</li>
+  <li>deduplication and source grounding;</li>
+  <li>attribute correlation and conflict analysis;</li>
+  <li>domain-specific persona modules;</li>
+  <li>transparent justification for why each attribute belongs in the candidate pool.</li>
+</ul>
+
+<h2 id="core-position">Core Position</h2>
+
+<p>Our top-level schema should not directly copy DeepPersona, SCOPE, Nemotron, or any single dataset.</p>
+
+<p>Instead:</p>
+
+<ul class="article-list">
+  <li>SCOPE provides a recent LLM-persona framework and evidence that demographic-only personas are insufficient.</li>
+  <li>DeepPersona provides broad long-tail attribute coverage and useful subcategory granularity.</li>
+  <li>Nemotron provides demographic, geographic, occupation, skills, hobbies, cultural background, and career-goal grounding.</li>
+  <li>PrimeX, WVS, and GSS provide worldview, belief, opinion, attitude, and social-science grounding.</li>
+  <li>Big Five, HEXACO, Facet MAP, and IPIP provide validated personality trait and facet sources.</li>
+</ul>
+
+<p>Our schema should use a synthesized theoretical architecture, then map each external source into that architecture.</p>
+
+<h2 id="theoretical-stack">Theoretical Stack</h2>
+
+<h3 id="1-mcadams-three-levels-of-personality">1. McAdams' Three Levels of Personality</h3>
+
+<p>McAdams' framework is useful as the high-level architecture for "what it means to know a person."</p>
+
+<p>It separates personality into:</p>
+
+<ul class="article-list">
+  <li>Level 1: dispositional traits;</li>
+  <li>Level 2: characteristic adaptations, such as goals, values, coping strategies, motives, roles, relationships, and habits;</li>
+  <li>Level 3: narrative identity, or the internalized life story that gives a person continuity and meaning.</li>
+</ul>
+
+<p>Mapping to our schema:</p>
+
+<ul class="article-list">
+  <li><code>Personality Traits</code> corresponds to dispositional traits.</li>
+  <li><code>Values, Goals & Motivations</code>, <code>Behavioral Patterns & Preferences</code>, and <code>Social Identity, Relationships & Community</code> correspond to characteristic adaptations.</li>
+  <li><code>Narrative Identity & Life History</code> corresponds to narrative identity.</li>
+</ul>
+
+<p>Why it matters:</p>
+
+<p>McAdams gives us the strongest argument that persona should not be only demographics or trait scores. A realistic persona needs stable traits, context-sensitive adaptations, and life narrative.</p>
+
+<p>Primary source:</p>
+
+<ul class="article-list">
+  <li>McAdams, D. P. (1995). What Do We Know When We Know a Person? Journal of Personality. https://onlinelibrary.wiley.com/doi/10.1111/j.1467-6494.1995.tb00500.x</li>
+  <li>McAdams, D. P., & Pals, J. L. (2006). A New Big Five: Fundamental Principles for an Integrative Science of Personality. https://pubmed.ncbi.nlm.nih.gov/16594837/</li>
+</ul>
+
+<h3 id="2-trait-psychology-big-five-hexaco-facet-map-and-ipip">2. Trait Psychology: Big Five, HEXACO, Facet MAP, and IPIP</h3>
+
+<p>Trait psychology supports the personality layer.</p>
+
+<p>Useful sources:</p>
+
+<ul class="article-list">
+  <li>Big Five / BFI-2: broad five-factor personality domains and 15 facets.</li>
+  <li>HEXACO: six-factor model, adding Honesty-Humility as a major dimension.</li>
+  <li>Facet MAP: fine-grained open-access personality facet taxonomy.</li>
+  <li>IPIP: public-domain personality item and scale pool.</li>
+</ul>
+
+<p>Mapping to our schema:</p>
+
+<ul class="article-list">
+  <li><code>Personality Traits</code></li>
+  <li>part of <code>Cognitive & Capability Profile</code></li>
+  <li>part of <code>Emotional and Relational Skills</code> as a subcategory</li>
+</ul>
+
+<p>Why it matters:</p>
+
+<p>These sources give us validated names, definitions, and scales for personality attributes. We should use them to avoid inventing vague traits such as "nice" or "smart" without measurement grounding.</p>
+
+<p>Sources:</p>
+
+<ul class="article-list">
+  <li>BFI-2: https://www.colby.edu/academics/departments-and-programs/psychology/research-opportunities/personality-lab/the-bfi-2/</li>
+  <li>HEXACO: https://hexaco.org/</li>
+  <li>Facet MAP: https://facetmap.org/facet-labels-and-definitions/</li>
+  <li>IPIP: https://ipip.ori.org/</li>
+</ul>
+
+<h3 id="3-values-worldview-beliefs-and-attitudes">3. Values, Worldview, Beliefs, and Attitudes</h3>
+
+<p>Values and beliefs explain why a person prefers certain choices, makes certain judgments, or reacts to social situations in a particular way.</p>
+
+<p>Useful sources:</p>
+
+<ul class="article-list">
+  <li>Schwartz Theory of Basic Human Values;</li>
+  <li>World Values Survey (WVS);</li>
+  <li>General Social Survey (GSS);</li>
+  <li>PrimeX / Primal World Beliefs;</li>
+  <li>Pew-style public opinion and internet behavior surveys.</li>
+</ul>
+
+<p>Mapping to our schema:</p>
+
+<ul class="article-list">
+  <li><code>Values, Goals & Motivations</code></li>
+  <li><code>Worldview, Beliefs & Attitudes</code></li>
+  <li>part of <code>Behavioral Patterns & Preferences</code></li>
+</ul>
+
+<p>Why it matters:</p>
+
+<p>Two people with similar demographics and similar traits can still behave differently because they hold different values, worldviews, moral priorities, political attitudes, religious beliefs, or levels of institutional trust.</p>
+
+<p>Sources:</p>
+
+<ul class="article-list">
+  <li>Schwartz values overview: https://scholarworks.gvsu.edu/orpc/vol2/iss1/11/</li>
+  <li>WVS: https://www.worldvaluessurvey.org/</li>
+  <li>GSS: https://gss.norc.org/</li>
+  <li>PrimeX: https://github.com/apple/ml-primex</li>
+</ul>
+
+<h3 id="4-social-identity-and-population-grounding">4. Social Identity and Population Grounding</h3>
+
+<p>Demographics are not behavior-deterministic, but they are important as social position, lived context, and structural constraint.</p>
+
+<p>Useful sources:</p>
+
+<ul class="article-list">
+  <li>Social Identity Theory;</li>
+  <li>U.S. Census / ACS PUMS / IPUMS;</li>
+  <li>Nemotron-Personas-USA;</li>
+  <li>OASIS;</li>
+  <li>population survey metadata.</li>
+</ul>
+
+<p>Mapping to our schema:</p>
+
+<ul class="article-list">
+  <li><code>Demographics & Population Grounding</code></li>
+  <li><code>Life Context & Constraints</code></li>
+  <li><code>Social Identity, Relationships & Community</code></li>
+  <li><code>Cultural and Social Context</code> as a subcategory</li>
+</ul>
+
+<p>Why it matters:</p>
+
+<p>Age, gender, race / ethnicity, region, education, occupation, income, household structure, language, and cultural background should be included as grounding variables. However, they should not be used as simplistic proxies for behavior. SCOPE's findings are especially useful here: demographic-only personas can amplify stereotypes and explain only a small part of behavioral similarity.</p>
+
+<p>Sources:</p>
+
+<ul class="article-list">
+  <li>Social Identity Theory overview: https://www.simplypsychology.org/social-identity-theory.html</li>
+  <li>Census ACS PUMS documentation: https://www.census.gov/programs-surveys/acs/microdata/documentation.html</li>
+  <li>2024 ACS PUMS documentation and data dictionary: https://www.census.gov/programs-surveys/acs/microdata/documentation/2024.html</li>
+  <li>IPUMS: https://www.ipums.org/projects</li>
+  <li>Nemotron-Personas-USA: https://huggingface.co/datasets/nvidia/Nemotron-Personas-USA</li>
+</ul>
+
+<h3 id="5-person-situation-interaction-and-simulation-grounding">5. Person-Situation Interaction and Simulation Grounding</h3>
+
+<p>For simulation, persona attributes should not be treated as static labels that mechanically determine behavior. Behavior emerges from interaction between:</p>
+
+<ul class="article-list">
+  <li>stable dispositions;</li>
+  <li>values and goals;</li>
+  <li>life context;</li>
+  <li>social role;</li>
+  <li>prior experience;</li>
+  <li>current environment;</li>
+  <li>task framing;</li>
+  <li>interaction history.</li>
+</ul>
+
+<p>Mapping to our schema:</p>
+
+<ul class="article-list">
+  <li>all top-level categories;</li>
+  <li>especially <code>Domain-Specific Overlays</code>;</li>
+  <li>future interaction-state or environment-conditioned persona modules.</li>
+</ul>
+
+<p>Why it matters:</p>
+
+<p>This lets us separate base persona attributes from task-specific overlays. For example, a finance simulation needs risk tolerance, numeracy, financial stress, trust, and time horizon; an education simulation needs self-efficacy, learning style, motivation, prior knowledge, and anxiety.</p>
+
+<p>Sources:</p>
+
+<ul class="article-list">
+  <li>SCOPE paper: https://arxiv.org/html/2601.07110v2</li>
+  <li>SCOPE dataset: https://huggingface.co/datasets/Salesforce/SCOPE-Persona</li>
+</ul>
+
+<h2 id="proposed-top-level-schema">Proposed Top-Level Schema</h2>
+
+<h3 id="1-demographics-population-grounding">1. Demographics & Population Grounding</h3>
+
+<p>Purpose:</p>
+
+<p>Ground the persona in population-level variables and social position.</p>
+
+<p>Example subcategories:</p>
+
+<ul class="article-list">
+  <li>age;</li>
+  <li>gender;</li>
+  <li>race / ethnicity;</li>
+  <li>location;</li>
+  <li>language;</li>
+  <li>education level;</li>
+  <li>household structure;</li>
+  <li>citizenship / migration background;</li>
+  <li>income bracket;</li>
+  <li>occupation class.</li>
+</ul>
+
+<p>Primary grounding:</p>
+
+<ul class="article-list">
+  <li>Census / ACS PUMS / IPUMS;</li>
+  <li>Nemotron;</li>
+  <li>OASIS;</li>
+  <li>SCOPE demographic facet.</li>
+</ul>
+
+<h3 id="2-life-context-constraints">2. Life Context & Constraints</h3>
+
+<p>Purpose:</p>
+
+<p>Capture the practical conditions that shape what a person can do.</p>
+
+<p>Example subcategories:</p>
+
+<ul class="article-list">
+  <li>physical and health characteristics;</li>
+  <li>financial constraints;</li>
+  <li>time constraints;</li>
+  <li>housing context;</li>
+  <li>family / caregiving responsibilities;</li>
+  <li>technology access;</li>
+  <li>mobility constraints;</li>
+  <li>work context;</li>
+  <li>education context.</li>
+</ul>
+
+<p>Primary grounding:</p>
+
+<ul class="article-list">
+  <li>DeepPersona physical / health category;</li>
+  <li>Census / ACS;</li>
+  <li>GSS;</li>
+  <li>domain-specific surveys.</li>
+</ul>
+
+<h3 id="3-personality-traits">3. Personality Traits</h3>
+
+<p>Purpose:</p>
+
+<p>Capture stable psychological dispositions.</p>
+
+<p>Example subcategories:</p>
+
+<ul class="article-list">
+  <li>Big Five domains;</li>
+  <li>HEXACO domains;</li>
+  <li>selected Facet MAP facets;</li>
+  <li>selected IPIP scales;</li>
+  <li>emotional tendencies;</li>
+  <li>interpersonal disposition.</li>
+</ul>
+
+<p>Primary grounding:</p>
+
+<ul class="article-list">
+  <li>Big Five / BFI-2;</li>
+  <li>HEXACO;</li>
+  <li>Facet MAP;</li>
+  <li>IPIP;</li>
+  <li>SCOPE Big Five facet.</li>
+</ul>
+
+<h3 id="4-values-goals-motivations">4. Values, Goals & Motivations</h3>
+
+<p>Purpose:</p>
+
+<p>Capture what the person cares about and what they are trying to optimize for.</p>
+
+<p>Example subcategories:</p>
+
+<ul class="article-list">
+  <li>Schwartz values;</li>
+  <li>life goals;</li>
+  <li>achievement orientation;</li>
+  <li>security orientation;</li>
+  <li>autonomy;</li>
+  <li>benevolence;</li>
+  <li>tradition;</li>
+  <li>self-direction;</li>
+  <li>short-term and long-term goals.</li>
+</ul>
+
+<p>Primary grounding:</p>
+
+<ul class="article-list">
+  <li>Schwartz values;</li>
+  <li>SCOPE values facet;</li>
+  <li>PrimeX;</li>
+  <li>WVS / ESS.</li>
+</ul>
+
+<h3 id="5-worldview-beliefs-attitudes">5. Worldview, Beliefs & Attitudes</h3>
+
+<p>Purpose:</p>
+
+<p>Capture broader interpretations of society, institutions, morality, and the world.</p>
+
+<p>Example subcategories:</p>
+
+<ul class="article-list">
+  <li>political orientation;</li>
+  <li>institutional trust;</li>
+  <li>religiosity;</li>
+  <li>moral beliefs;</li>
+  <li>social issue attitudes;</li>
+  <li>environmental concern;</li>
+  <li>primal world beliefs;</li>
+  <li>optimism / pessimism about society.</li>
+</ul>
+
+<p>Primary grounding:</p>
+
+<ul class="article-list">
+  <li>WVS;</li>
+  <li>GSS;</li>
+  <li>PrimeX;</li>
+  <li>Pew-style public opinion surveys.</li>
+</ul>
+
+<h3 id="6-cognitive-capability-profile">6. Cognitive & Capability Profile</h3>
+
+<p>Purpose:</p>
+
+<p>Capture what the person knows, can do, and how they process information.</p>
+
+<p>Example subcategories:</p>
+
+<ul class="article-list">
+  <li>domain expertise;</li>
+  <li>literacy;</li>
+  <li>numeracy;</li>
+  <li>digital literacy;</li>
+  <li>language proficiency;</li>
+  <li>learning style;</li>
+  <li>decision style;</li>
+  <li>need for cognition;</li>
+  <li>problem-solving style;</li>
+  <li>communication skill.</li>
+</ul>
+
+<p>Primary grounding:</p>
+
+<ul class="article-list">
+  <li>DeepPersona education / learning category;</li>
+  <li>Nemotron skills;</li>
+  <li>OECD PIAAC;</li>
+  <li>CEFR;</li>
+  <li>DigComp;</li>
+  <li>IPIP / Facet MAP for selected cognitive styles.</li>
+</ul>
+
+<h3 id="7-behavioral-patterns-preferences">7. Behavioral Patterns & Preferences</h3>
+
+<p>Purpose:</p>
+
+<p>Capture routines, habits, tastes, and repeated behavior.</p>
+
+<p>Example subcategories:</p>
+
+<ul class="article-list">
+  <li>hobbies and interests;</li>
+  <li>lifestyle preferences;</li>
+  <li>daily routine;</li>
+  <li>media consumption;</li>
+  <li>shopping behavior;</li>
+  <li>travel preference;</li>
+  <li>food / culinary preference;</li>
+  <li>sports / fitness behavior;</li>
+  <li>communication behavior;</li>
+  <li>technology use.</li>
+</ul>
+
+<p>Primary grounding:</p>
+
+<ul class="article-list">
+  <li>DeepPersona hobbies, lifestyle, routine, and media categories;</li>
+  <li>Nemotron sports / arts / travel / culinary / hobbies fields;</li>
+  <li>SCOPE behavioral patterns facet;</li>
+  <li>GSS / WVS behavior items.</li>
+</ul>
+
+<h3 id="8-social-identity-relationships-community">8. Social Identity, Relationships & Community</h3>
+
+<p>Purpose:</p>
+
+<p>Capture the social groups, roles, relationships, and communities that shape identity and behavior.</p>
+
+<p>Example subcategories:</p>
+
+<ul class="article-list">
+  <li>cultural background;</li>
+  <li>community belonging;</li>
+  <li>family relationships;</li>
+  <li>friendship network;</li>
+  <li>workplace role;</li>
+  <li>group identity;</li>
+  <li>social network structure;</li>
+  <li>civic participation.</li>
+</ul>
+
+<p>Primary grounding:</p>
+
+<ul class="article-list">
+  <li>Social Identity Theory;</li>
+  <li>DeepPersona cultural / relationship categories;</li>
+  <li>Nemotron cultural background;</li>
+  <li>GSS / WVS civic and social trust items;</li>
+  <li>SCOPE sociodemographic behavior.</li>
+</ul>
+
+<h3 id="9-narrative-identity-life-history">9. Narrative Identity & Life History</h3>
+
+<p>Purpose:</p>
+
+<p>Capture the person's self-story, formative experiences, and meaning-making.</p>
+
+<p>Example subcategories:</p>
+
+<ul class="article-list">
+  <li>personal story;</li>
+  <li>formative events;</li>
+  <li>turning points;</li>
+  <li>self-description;</li>
+  <li>aspirations;</li>
+  <li>life themes;</li>
+  <li>identity change over time.</li>
+</ul>
+
+<p>Primary grounding:</p>
+
+<ul class="article-list">
+  <li>McAdams narrative identity theory;</li>
+  <li>SCOPE identity narratives;</li>
+  <li>DeepPersona life story and background.</li>
+</ul>
+
+<h3 id="10-domain-specific-overlays">10. Domain-Specific Overlays</h3>
+
+<p>Purpose:</p>
+
+<p>Add attributes needed for specific simulation tasks without bloating the core schema.</p>
+
+<p>Example modules:</p>
+
+<ul class="article-list">
+  <li>finance persona;</li>
+  <li>health persona;</li>
+  <li>education persona;</li>
+  <li>recommender persona;</li>
+  <li>political survey persona;</li>
+  <li>workplace persona;</li>
+  <li>media / social platform persona.</li>
+</ul>
+
+<p>Primary grounding:</p>
+
+<ul class="article-list">
+  <li>domain-specific benchmarks;</li>
+  <li>survey sources;</li>
+  <li>task-specific literature;</li>
+  <li>application requirements.</li>
+</ul>
+
+<h2 id="deeppersona-subcategory-mapping">DeepPersona Subcategory Mapping</h2>
+
+<p>DeepPersona's 12 top-level categories are useful as subcategory coverage, not as our final top-level schema.</p>
+
+<p>| DeepPersona category | Where it maps in our schema | Notes |
+|---|---|---|
+| Demographic Information | Demographics & Population Grounding | Direct match. |
+| Physical and Health Characteristics | Life Context & Constraints; Domain-Specific Overlays | Health should be a strong subcategory, especially for health simulations. |
+| Psychological and Cognitive Aspects | Personality Traits; Cognitive & Capability Profile | We split personality and cognition because they have different theoretical bases. |
+| Cultural and Social Context | Social Identity, Relationships & Community; Narrative Identity & Life History | Useful for cultural grounding and lived context. |
+| Relationships and Social Networks | Social Identity, Relationships & Community | Direct match. |
+| Career and Work Identity | Life Context & Constraints; Cognitive & Capability Profile; Domain-Specific Overlays | Can become a professional identity submodule. |
+| Education and Learning | Demographics & Population Grounding; Cognitive & Capability Profile; Life Context & Constraints | Education is both background and capability. |
+| Hobbies, Interests, and Lifestyle | Behavioral Patterns & Preferences | Direct match. |
+| Lifestyle and Daily Routine | Behavioral Patterns & Preferences | Direct match. |
+| Core Values, Beliefs, and Philosophy | Values, Goals & Motivations; Worldview, Beliefs & Attitudes | We split values/goals from beliefs/attitudes. |
+| Emotional and Relational Skills | Personality Traits; Cognitive & Capability Profile; Social Identity, Relationships & Community | Should be added as an explicit subcategory. |
+| Media Consumption and Engagement | Behavioral Patterns & Preferences; Domain-Specific Overlays | Important for social simulation and recommender systems. |</p>
+
+<h2 id="attribute-construction-plan">Attribute Construction Plan</h2>
+
+<h3 id="step-1-aggregate-candidate-pool">Step 1: Aggregate Candidate Pool</h3>
+
+<p>Collect candidate attributes from:</p>
+
+<ul class="article-list">
+  <li>Yuexing's 1K attributes;</li>
+  <li>SCOPE;</li>
+  <li>DeepPersona;</li>
+  <li>Nemotron;</li>
+  <li>PersonaHub;</li>
+  <li>OASIS;</li>
+  <li>PrimeX;</li>
+  <li>WVS / GSS / ESS / Pew;</li>
+  <li>Big Five / HEXACO / Facet MAP / IPIP;</li>
+  <li>domain-specific benchmarks.</li>
+</ul>
+
+<p>Output:</p>
+
+<ul class="article-list">
+  <li>a large candidate attribute pool;</li>
+  <li>source metadata;</li>
+  <li>initial category assignment.</li>
+</ul>
+
+<h3 id="step-2-normalize">Step 2: Normalize</h3>
+
+<p>For each attribute, normalize:</p>
+
+<ul class="article-list">
+  <li>name;</li>
+  <li>definition;</li>
+  <li>category and subcategory;</li>
+  <li>data type;</li>
+  <li>allowed values or scale;</li>
+  <li>aliases;</li>
+  <li>source;</li>
+  <li>theoretical basis;</li>
+  <li>license notes;</li>
+  <li>application relevance.</li>
+</ul>
+
+<h3 id="step-3-deduplicate-and-categorize">Step 3: Deduplicate and Categorize</h3>
+
+<p>Merge near-duplicates and preserve aliases.</p>
+
+<p>Examples:</p>
+
+<ul class="article-list">
+  <li><code>political_leaning</code>, <code>political_orientation</code>, and <code>political_affiliation</code> should be inspected and either merged or separated by definition.</li>
+  <li><code>risk_aversion</code>, <code>risk_tolerance</code>, and <code>sensation_seeking</code> should be related but not automatically merged.</li>
+  <li><code>openness</code>, <code>curiosity</code>, <code>intellectual_curiosity</code>, and <code>need_for_cognition</code> should be graph-linked but not collapsed without checking theoretical meaning.</li>
+</ul>
+
+<h3 id="step-4-grounding-and-evidence">Step 4: Grounding and Evidence</h3>
+
+<p>Each retained attribute should have at least one grounding source:</p>
+
+<ul class="article-list">
+  <li>validated psychological instrument;</li>
+  <li>large-scale social survey;</li>
+  <li>persona dataset;</li>
+  <li>benchmark;</li>
+  <li>domain literature;</li>
+  <li>official population source.</li>
+</ul>
+
+<p>Evidence level can be marked as:</p>
+
+<ul class="article-list">
+  <li>High: validated psychological scale or official survey variable;</li>
+  <li>Medium: used in a peer-reviewed dataset / benchmark;</li>
+  <li>Low: LLM-mined or generated attribute that still needs validation.</li>
+</ul>
+
+<h3 id="step-5-attribute-graph">Step 5: Attribute Graph</h3>
+
+<p>Construct a graph with relation types:</p>
+
+<ul class="article-list">
+  <li><code>synonym_of</code>;</li>
+  <li><code>parent_of</code>;</li>
+  <li><code>subtype_of</code>;</li>
+  <li><code>correlates_with</code>;</li>
+  <li><code>negatively_correlates_with</code>;</li>
+  <li><code>conflicts_with</code>;</li>
+  <li><code>depends_on</code>;</li>
+  <li><code>domain_specific_to</code>;</li>
+  <li><code>grounded_by</code>.</li>
+</ul>
+
+<p>This graph will help with deduplication, conflict detection, and domain-specific persona assembly.</p>
+
+<h2 id="recommended-output-structure">Recommended Output Structure</h2>
+
+<p>The final persona attribute system should have three layers:</p>
+
+<h3 id="core-persona-schema">Core Persona Schema</h3>
+
+<p>Small set of cross-domain, high-value attributes.</p>
+
+<p>Purpose:</p>
+
+<ul class="article-list">
+  <li>stable base persona;</li>
+  <li>easy to inspect;</li>
+  <li>useful across most simulations.</li>
+</ul>
+
+<h3 id="extended-attribute-pool">Extended Attribute Pool</h3>
+
+<p>Large library of optional attributes, including fine-grained personality facets, beliefs, preferences, routines, and social context.</p>
+
+<p>Purpose:</p>
+
+<ul class="article-list">
+  <li>richer personas;</li>
+  <li>long-tail diversity;</li>
+  <li>source-grounded expansion.</li>
+</ul>
+
+<h3 id="domain-modules">Domain Modules</h3>
+
+<p>Task-specific attribute bundles.</p>
+
+<p>Examples:</p>
+
+<ul class="article-list">
+  <li>finance: risk tolerance, financial literacy, time horizon, debt stress, trust in institutions;</li>
+  <li>education: prior knowledge, learning style, self-efficacy, motivation, academic anxiety;</li>
+  <li>health: health status, health literacy, care access, medication adherence, risk perception;</li>
+  <li>recommender: taste profile, media consumption, novelty seeking, budget, brand sensitivity;</li>
+  <li>political / social survey: ideology, institutional trust, religiosity, civic participation, social issue attitudes.</li>
+</ul>
+
+<h2 id="practical-rule">Practical Rule</h2>
+
+<p>Top-level schema should be theory-driven.</p>
+
+<p>Subcategories should be coverage-driven.</p>
+
+<p>Individual attributes should be evidence-grounded.</p>
+
+<p>DeepPersona helps with coverage. SCOPE helps with LLM-persona structure. Big Five, HEXACO, Facet MAP, Schwartz, WVS, GSS, PrimeX, Census, and IPUMS help with grounding.</p>
+
+<h2 id="short-summary">Short Summary</h2>
+
+<p>Our persona schema is based on:</p>
+
+<ul class="article-list">
+  <li>McAdams for overall personality architecture;</li>
+  <li>Big Five / HEXACO / Facet MAP / IPIP for personality traits;</li>
+  <li>Schwartz / WVS / GSS / PrimeX for values, beliefs, worldview, and attitudes;</li>
+  <li>Social Identity Theory / Census / IPUMS / Nemotron for demographics and social context;</li>
+  <li>Person-situation interaction / SCOPE for simulation logic.</li>
+</ul>
+
+<p>DeepPersona should be used as a rich source of subcategories and candidate attributes, but not as the final theoretical taxonomy.</p>
+      </section>
+    </article>
+
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li style="margin-left: 0.8rem;"><a href="#1-mcadams-three-levels-of-personality">1. McAdams' Three Levels of Personality</a></li>
+<li style="margin-left: 0.8rem;"><a href="#2-trait-psychology-big-five-hexaco-facet-map-and-ipip">2. Trait Psychology: Big Five, HEXACO, Facet MAP, and IPIP</a></li>
+<li style="margin-left: 0.8rem;"><a href="#3-values-worldview-beliefs-and-attitudes">3. Values, Worldview, Beliefs, and Attitudes</a></li>
+<li style="margin-left: 0.8rem;"><a href="#4-social-identity-and-population-grounding">4. Social Identity and Population Grounding</a></li>
+<li style="margin-left: 0.8rem;"><a href="#5-person-situation-interaction-and-simulation-grounding">5. Person-Situation Interaction and Simulation Grounding</a></li>
+<li style="margin-left: 0.8rem;"><a href="#1-demographics-population-grounding">1. Demographics & Population Grounding</a></li>
+<li style="margin-left: 0.8rem;"><a href="#2-life-context-constraints">2. Life Context & Constraints</a></li>
+<li style="margin-left: 0.8rem;"><a href="#3-personality-traits">3. Personality Traits</a></li>
+<li style="margin-left: 0.8rem;"><a href="#4-values-goals-motivations">4. Values, Goals & Motivations</a></li>
+<li style="margin-left: 0.8rem;"><a href="#5-worldview-beliefs-attitudes">5. Worldview, Beliefs & Attitudes</a></li>
+<li style="margin-left: 0.8rem;"><a href="#6-cognitive-capability-profile">6. Cognitive & Capability Profile</a></li>
+<li style="margin-left: 0.8rem;"><a href="#7-behavioral-patterns-preferences">7. Behavioral Patterns & Preferences</a></li>
+<li style="margin-left: 0.8rem;"><a href="#8-social-identity-relationships-community">8. Social Identity, Relationships & Community</a></li>
+<li style="margin-left: 0.8rem;"><a href="#9-narrative-identity-life-history">9. Narrative Identity & Life History</a></li>
+<li style="margin-left: 0.8rem;"><a href="#10-domain-specific-overlays">10. Domain-Specific Overlays</a></li>
+<li style="margin-left: 0.8rem;"><a href="#step-1-aggregate-candidate-pool">Step 1: Aggregate Candidate Pool</a></li>
+<li style="margin-left: 0.8rem;"><a href="#step-2-normalize">Step 2: Normalize</a></li>
+<li style="margin-left: 0.8rem;"><a href="#step-3-deduplicate-and-categorize">Step 3: Deduplicate and Categorize</a></li>
+<li style="margin-left: 0.8rem;"><a href="#step-4-grounding-and-evidence">Step 4: Grounding and Evidence</a></li>
+<li style="margin-left: 0.8rem;"><a href="#step-5-attribute-graph">Step 5: Attribute Graph</a></li>
+<li style="margin-left: 0.8rem;"><a href="#core-persona-schema">Core Persona Schema</a></li>
+<li style="margin-left: 0.8rem;"><a href="#extended-attribute-pool">Extended Attribute Pool</a></li>
+<li style="margin-left: 0.8rem;"><a href="#domain-modules">Domain Modules</a></li>
+<li><a href="#purpose">Purpose</a></li>
+<li><a href="#core-position">Core Position</a></li>
+<li><a href="#theoretical-stack">Theoretical Stack</a></li>
+<li><a href="#proposed-top-level-schema">Proposed Top-Level Schema</a></li>
+<li><a href="#deeppersona-subcategory-mapping">DeepPersona Subcategory Mapping</a></li>
+<li><a href="#attribute-construction-plan">Attribute Construction Plan</a></li>
+<li><a href="#recommended-output-structure">Recommended Output Structure</a></li>
+<li><a href="#practical-rule">Practical Rule</a></li>
+<li><a href="#short-summary">Short Summary</a></li>
+
+      </ul>
+    </aside>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <p style="margin-bottom: 0.5rem; color: #fff; font-weight: 600;">SWARPH AI — AGNOSTIC MULTI-AGENT COORDINATION SUBSTRATE</p>
+      <p style="color: #64748b; font-size: 0.85rem;">© 2026 Swarph AI · BrainSurfing Research · MetaEdge Security</p>
+    </div>
+  </footer>
+
+</body>
+</html>
