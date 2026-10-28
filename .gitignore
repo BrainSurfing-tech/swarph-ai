@@ -7,4 +7,5 @@ logs/*.log
 # personal/marketing drafts — never publish to the public repo
 drafts/
 # web/blog/ is tracked so web/ matches the live docroot (card #1283).
-# blog/swarph-ai-deploy-runbook.private.html is already served publicly.
+# Private pages never enter this public repo or the docroot (card #1283, 2026-10-28).
+*.private.html
